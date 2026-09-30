@@ -1,0 +1,17 @@
+-- Snowflake SQL sample
+SET min_amount = 100;
+
+CREATE OR REPLACE TABLE raw_events (v VARIANT);
+
+SELECT
+    v:user_id::NUMBER            AS user_id,
+    v:event::STRING              AS event,
+    f.value:sku::STRING          AS sku,
+    IFF(v:amount::NUMBER >= $min_amount, 'big', 'small') AS bucket,
+    DATEADD('hour', 1, v:ts::TIMESTAMP_NTZ)              AS ts_plus_1h
+FROM raw_events,
+     LATERAL FLATTEN(input => v:items) AS f
+WHERE v:event::STRING = 'purchase'
+QUALIFY ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY ts_plus_1h DESC) = 1
+ORDER BY user_id
+LIMIT 25;

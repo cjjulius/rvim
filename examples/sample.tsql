@@ -1,0 +1,27 @@
+-- T-SQL sample (SQL Server dialect)
+SET NOCOUNT ON;
+
+DECLARE @since DATETIME2 = DATEADD(DAY, -30, GETDATE());
+DECLARE @rows INT;
+
+WITH recent_orders AS (
+    SELECT
+        o.customer_id,
+        COUNT(*)              AS order_count,
+        SUM(o.total_amount)   AS revenue
+    FROM dbo.orders AS o
+    WHERE o.created_at >= @since
+      AND o.status <> 'cancelled'
+    GROUP BY o.customer_id
+)
+SELECT TOP (10)
+    c.customer_name,
+    r.order_count,
+    r.revenue,
+    ISNULL(r.revenue, 0) / NULLIF(r.order_count, 0) AS avg_order
+FROM recent_orders AS r
+INNER JOIN dbo.customers AS c ON c.customer_id = r.customer_id
+ORDER BY r.revenue DESC;
+
+SET @rows = @@ROWCOUNT;
+PRINT CONCAT('Returned ', @rows, ' rows');
