@@ -52,6 +52,8 @@ pub enum ExCommand {
     SetTheme(Option<String>),
     /// `:set number` / `:set nonumber`
     ToggleNumbers(bool),
+    /// `:set relativenumber` / `:set norelativenumber`
+    ToggleRelativeNumbers(bool),
     /// `:set ft=<lang>`
     SetFiletype(String),
     /// `:help`
@@ -195,6 +197,8 @@ fn parse_set(rest: &str) -> ExCommand {
     match opt {
         "number" | "nu" => ExCommand::ToggleNumbers(true),
         "nonumber" | "nonu" => ExCommand::ToggleNumbers(false),
+        "relativenumber" | "rnu" => ExCommand::ToggleRelativeNumbers(true),
+        "norelativenumber" | "nornu" => ExCommand::ToggleRelativeNumbers(false),
         _ => {
             if let Some(v) = opt
                 .strip_prefix("ft=")
@@ -257,6 +261,13 @@ mod tests {
     fn set_number() {
         assert_eq!(parse("set number"), ExCommand::ToggleNumbers(true));
         assert_eq!(parse("set nonu"), ExCommand::ToggleNumbers(false));
+    }
+
+    #[test]
+    fn set_relativenumber() {
+        assert_eq!(parse("set relativenumber"), ExCommand::ToggleRelativeNumbers(true));
+        assert_eq!(parse("set rnu"), ExCommand::ToggleRelativeNumbers(true));
+        assert_eq!(parse("set nornu"), ExCommand::ToggleRelativeNumbers(false));
     }
 
     #[test]

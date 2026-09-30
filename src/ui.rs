@@ -49,6 +49,28 @@ pub fn gutter_width(line_count: usize, show_numbers: bool) -> u16 {
     digits.max(3) + 1
 }
 
+/// The gutter cell text for a line: absolute number, or (in relative mode) the
+/// distance from the cursor, with the current line left-aligned so it stands
+/// out (hybrid line numbers). Includes the trailing separator space.
+pub fn gutter_label(row: usize, cursor_row: usize, relative: bool, width: usize) -> String {
+    if width == 0 {
+        return String::new();
+    }
+    let field = width - 1;
+    let is_current = row == cursor_row;
+    let num = if !relative || is_current {
+        row + 1
+    } else {
+        row.abs_diff(cursor_row)
+    };
+    let s = num.to_string();
+    if relative && is_current {
+        format!("{s:<field$} ")
+    } else {
+        format!("{s:>field$} ")
+    }
+}
+
 /// Whether `(row, col)` lies within the (inclusive) selection.
 pub fn in_selection(sel: (Position, Position), linewise: bool, row: usize, col: usize) -> bool {
     let (s, e) = sel;
@@ -148,9 +170,13 @@ fn draw_gutter(
         } else {
             theme.gutter_fg
         };
-        let num = (row + 1).to_string();
-        let pad = (layout.gutter_width as usize).saturating_sub(num.len() + 1);
-        (fg, format!("{}{} ", " ".repeat(pad), num))
+        let text = gutter_label(
+            row,
+            editor.cursor.row,
+            editor.relative_numbers,
+            layout.gutter_width as usize,
+        );
+        (fg, text)
     } else {
         (theme.gutter_fg, " ".repeat(layout.gutter_width as usize))
     };
@@ -326,6 +352,23 @@ mod tests {
         assert_eq!(gutter_width(1000, true), 5); // 4 digits + 1
         assert_eq!(gutter_width(100000, true), 7); // 6 digits + 1
         assert_eq!(gutter_width(42, false), 0);
+    }
+
+    #[test]
+    fn gutter_label_absolute() {
+        // width 4 => 3-char field + trailing space
+        assert_eq!(gutter_label(0, 5, false, 4), "  1 ");
+        assert_eq!(gutter_label(41, 0, false, 4), " 42 ");
+        assert_eq!(gutter_label(9, 0, false, 0), "");
+    }
+
+    #[test]
+    fn gutter_label_relative_hybrid() {
+        // current line shows absolute, left-aligned
+        assert_eq!(gutter_label(5, 5, true, 4), "6   ");
+        // other lines show distance, right-aligned
+        assert_eq!(gutter_label(2, 5, true, 4), "  3 ");
+        assert_eq!(gutter_label(8, 5, true, 4), "  3 ");
     }
 
     #[test]
