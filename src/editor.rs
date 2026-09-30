@@ -421,6 +421,11 @@ impl Editor {
             KeyCode::Char('T') => self.pending_find = Some('T'),
             KeyCode::Char(';') => self.repeat_find(false),
             KeyCode::Char(',') => self.repeat_find(true),
+            KeyCode::Char('%') => {
+                if let Some(p) = self.matching_bracket() {
+                    self.cursor = p;
+                }
+            }
             KeyCode::Char('G') => self.goto_line_or_end(count),
             KeyCode::Char('g') => self.pending_op = Some('g'),
             KeyCode::Char('d') => {
@@ -657,6 +662,74 @@ impl Editor {
                 self.cursor.col = 0;
             } else {
                 self.cursor.col = col;
+            }
+        }
+    }
+
+    /// Find the bracket matching the one at (or next on the line after) the
+    /// cursor. Matches `()`, `[]`, `{}` with nesting, scanning across lines.
+    fn matching_bracket(&self) -> Option<Position> {
+        const OPEN: [char; 3] = ['(', '[', '{'];
+        const CLOSE: [char; 3] = [')', ']', '}'];
+        let line: Vec<char> = self.buffer.line(self.cursor.row)?.chars().collect();
+
+        // Locate the bracket at or after the cursor on the current line.
+        let bcol = line
+            .iter()
+            .enumerate()
+            .skip(self.cursor.col)
+            .find(|(_, &ch)| OPEN.contains(&ch) || CLOSE.contains(&ch))
+            .map(|(i, _)| i)?;
+        let bch = line[bcol];
+
+        if let Some(idx) = OPEN.iter().position(|&c| c == bch) {
+            self.scan_bracket(self.cursor.row, bcol, bch, CLOSE[idx], true)
+        } else if let Some(idx) = CLOSE.iter().position(|&c| c == bch) {
+            self.scan_bracket(self.cursor.row, bcol, bch, OPEN[idx], false)
+        } else {
+            None
+        }
+    }
+
+    /// Scan for the bracket matching `from_ch` (its counterpart is `to_ch`),
+    /// forward when `forward`, tracking nesting depth.
+    fn scan_bracket(
+        &self,
+        srow: usize,
+        scol: usize,
+        from_ch: char,
+        to_ch: char,
+        forward: bool,
+    ) -> Option<Position> {
+        let mut depth = 0i32;
+        let mut row = srow;
+        let mut col = scol as isize;
+        loop {
+            let line: Vec<char> = self.buffer.line(row)?.chars().collect();
+            while col >= 0 && (col as usize) < line.len() {
+                let c = line[col as usize];
+                if c == from_ch {
+                    depth += 1;
+                } else if c == to_ch {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Some(Position::new(row, col as usize));
+                    }
+                }
+                col += if forward { 1 } else { -1 };
+            }
+            if forward {
+                row += 1;
+                if row >= self.buffer.line_count() {
+                    return None;
+                }
+                col = 0;
+            } else {
+                if row == 0 {
+                    return None;
+                }
+                row -= 1;
+                col = self.buffer.line(row)?.chars().count() as isize - 1;
             }
         }
     }
@@ -1386,6 +1459,38 @@ mod tests {
         ed.handle_key(key('r'));
         ed.handle_key(key('b'));
         assert_eq!(ed.buffer.line(0), Some("bat"));
+    }
+
+    #[test]
+    fn percent_matches_brackets() {
+        let mut ed = ed_with("(a+b)");
+        ed.handle_key(key('%'));
+        assert_eq!(ed.cursor.col, 4); // ( -> )
+        ed.handle_key(key('%'));
+        assert_eq!(ed.cursor.col, 0); // ) -> (
+    }
+
+    #[test]
+    fn percent_nested_brackets() {
+        let mut ed = ed_with("(a(b)c)");
+        ed.handle_key(key('%'));
+        assert_eq!(ed.cursor.col, 6); // outer ( -> outer )
+    }
+
+    #[test]
+    fn percent_scans_forward_to_bracket_on_line() {
+        let mut ed = ed_with("x = (1)");
+        ed.handle_key(key('%')); // cursor at 0, not a bracket -> finds ( then matches )
+        assert_eq!(ed.cursor.col, 6);
+    }
+
+    #[test]
+    fn percent_matches_across_lines() {
+        let mut ed = ed_with("foo(\n  bar\n)");
+        // move cursor onto the '(' at row 0 col 3
+        ed.cursor = Position::new(0, 3);
+        ed.handle_key(key('%'));
+        assert_eq!(ed.cursor, Position::new(2, 0));
     }
 
     #[test]
