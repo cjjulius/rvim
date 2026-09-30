@@ -1,0 +1,16 @@
+# Rust build artifacts
+/target
+**/*.rs.bk
+Cargo.lock.orig
+
+# Editor / OS cruft
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# rvim runtime scratch
+*.rvim-session
+
+# Keep Cargo.lock for the binary crate (recommended for apps)
+!Cargo.lock

@@ -1,0 +1,28 @@
+[package]
+name = "rvim"
+version = "0.1.0"
+edition = "2021"
+description = "A modular, vim-emulating terminal text editor written in Rust."
+authors = ["rvim contributors"]
+license = "MIT"
+repository = "local"
+readme = "README.md"
+
+[[bin]]
+name = "rvim"
+path = "src/main.rs"
+
+[lib]
+name = "rvim"
+path = "src/lib.rs"
+
+[dependencies]
+crossterm = "0.28"
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = true
+
+[profile.dev]
+opt-level = 0
