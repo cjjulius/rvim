@@ -6,6 +6,7 @@
 //! an [`Action`] the [`crate::app::App`] executes.
 
 use crate::buffer::{Buffer, Position};
+use crate::command::{LineAddr, SubRange, SubstituteSpec};
 use crate::mode::Mode;
 use crate::syntax::{detect_language, Language};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -120,6 +121,71 @@ impl Editor {
     /// Set the language explicitly (`:set ft=`).
     pub fn set_language(&mut self, lang: Language) {
         self.language = lang;
+    }
+
+    /// Execute a `:s` substitution (literal matching). Returns
+    /// `(substitutions, lines_changed)`.
+    pub fn substitute(&mut self, spec: &SubstituteSpec) -> (usize, usize) {
+        if spec.pattern.is_empty() {
+            return (0, 0);
+        }
+        let (start, end) = self.resolve_range(spec.range);
+
+        // First pass: compute new lines without mutating, so we only push an
+        // undo checkpoint when something actually changes.
+        let mut edits: Vec<(usize, String)> = Vec::new();
+        let mut subs = 0;
+        for row in start..=end {
+            if row >= self.buffer.line_count() {
+                break;
+            }
+            let line = self.buffer.line(row).unwrap_or("");
+            let (new, c) = replace_literal(line, &spec.pattern, &spec.replacement, spec.global);
+            if c > 0 {
+                subs += c;
+                edits.push((row, new));
+            }
+        }
+
+        if edits.is_empty() {
+            return (0, 0);
+        }
+
+        self.checkpoint();
+        let lines_changed = edits.len();
+        let last_row = edits.last().map(|(r, _)| *r).unwrap_or(self.cursor.row);
+        for (row, new) in edits {
+            self.buffer.set_line(row, new);
+        }
+        self.cursor.row = last_row.min(self.buffer.line_count().saturating_sub(1));
+        self.cursor.col = 0;
+        self.move_first_nonblank();
+        self.clamp_cursor(false);
+        self.scroll_into_view();
+        (subs, lines_changed)
+    }
+
+    fn resolve_range(&self, range: SubRange) -> (usize, usize) {
+        let last = self.buffer.line_count().saturating_sub(1);
+        match range {
+            SubRange::CurrentLine => (self.cursor.row, self.cursor.row),
+            SubRange::WholeFile => (0, last),
+            SubRange::Range(a, b) => {
+                let ra = self.resolve_addr(a);
+                let rb = self.resolve_addr(b);
+                let (s, e) = if ra <= rb { (ra, rb) } else { (rb, ra) };
+                (s.min(last), e.min(last))
+            }
+        }
+    }
+
+    fn resolve_addr(&self, addr: LineAddr) -> usize {
+        let last = self.buffer.line_count().saturating_sub(1);
+        match addr {
+            LineAddr::Current => self.cursor.row,
+            LineAddr::Last => last,
+            LineAddr::Num(n) => n.saturating_sub(1),
+        }
     }
 
     /// The visual selection as an inclusive `(start, end)` ordered pair, if in a
@@ -907,6 +973,30 @@ impl Default for Editor {
     }
 }
 
+/// Literal (non-regex) find/replace within one line. Returns the new line and
+/// the number of replacements made.
+fn replace_literal(line: &str, pat: &str, rep: &str, global: bool) -> (String, usize) {
+    if pat.is_empty() {
+        return (line.to_string(), 0);
+    }
+    if global {
+        let count = line.matches(pat).count();
+        if count == 0 {
+            (line.to_string(), 0)
+        } else {
+            (line.replace(pat, rep), count)
+        }
+    } else if let Some(idx) = line.find(pat) {
+        let mut s = String::with_capacity(line.len() - pat.len() + rep.len());
+        s.push_str(&line[..idx]);
+        s.push_str(rep);
+        s.push_str(&line[idx + pat.len()..]);
+        (s, 1)
+    } else {
+        (line.to_string(), 0)
+    }
+}
+
 /// Order two positions into `(earlier, later)`.
 fn order(a: Position, b: Position) -> (Position, Position) {
     if (a.row, a.col) <= (b.row, b.col) {
@@ -1070,5 +1160,82 @@ mod tests {
         ed.handle_key(key('r'));
         ed.handle_key(key('b'));
         assert_eq!(ed.buffer.line(0), Some("bat"));
+    }
+
+    #[test]
+    fn substitute_current_line_first_only() {
+        let mut ed = ed_with("foo foo foo");
+        let spec = SubstituteSpec {
+            range: SubRange::CurrentLine,
+            pattern: "foo".into(),
+            replacement: "bar".into(),
+            global: false,
+        };
+        let (subs, lines) = ed.substitute(&spec);
+        assert_eq!((subs, lines), (1, 1));
+        assert_eq!(ed.buffer.line(0), Some("bar foo foo"));
+    }
+
+    #[test]
+    fn substitute_global_whole_file() {
+        let mut ed = ed_with("a x a\nx a x\nno match");
+        let spec = SubstituteSpec {
+            range: SubRange::WholeFile,
+            pattern: "x".into(),
+            replacement: "Q".into(),
+            global: true,
+        };
+        let (subs, lines) = ed.substitute(&spec);
+        assert_eq!((subs, lines), (3, 2));
+        assert_eq!(ed.buffer.line(0), Some("a Q a"));
+        assert_eq!(ed.buffer.line(1), Some("Q a Q"));
+        assert_eq!(ed.buffer.line(2), Some("no match"));
+    }
+
+    #[test]
+    fn substitute_numeric_range() {
+        let mut ed = ed_with("z\nz\nz\nz");
+        let spec = SubstituteSpec {
+            range: SubRange::Range(LineAddr::Num(2), LineAddr::Num(3)),
+            pattern: "z".into(),
+            replacement: "Y".into(),
+            global: false,
+        };
+        let (subs, lines) = ed.substitute(&spec);
+        assert_eq!((subs, lines), (2, 2));
+        assert_eq!(ed.buffer.line(0), Some("z"));
+        assert_eq!(ed.buffer.line(1), Some("Y"));
+        assert_eq!(ed.buffer.line(2), Some("Y"));
+        assert_eq!(ed.buffer.line(3), Some("z"));
+    }
+
+    #[test]
+    fn substitute_not_found_makes_no_change_and_no_undo() {
+        let mut ed = ed_with("hello");
+        let spec = SubstituteSpec {
+            range: SubRange::CurrentLine,
+            pattern: "zzz".into(),
+            replacement: "!".into(),
+            global: true,
+        };
+        let (subs, _) = ed.substitute(&spec);
+        assert_eq!(subs, 0);
+        assert_eq!(ed.buffer.line(0), Some("hello"));
+        // Nothing changed, so there should be nothing to undo.
+        assert!(ed.buffer.undo(ed.cursor).is_none());
+    }
+
+    #[test]
+    fn substitute_empty_replacement_deletes_text() {
+        let mut ed = ed_with("re-mo-ve");
+        let spec = SubstituteSpec {
+            range: SubRange::CurrentLine,
+            pattern: "-".into(),
+            replacement: "".into(),
+            global: true,
+        };
+        let (subs, _) = ed.substitute(&spec);
+        assert_eq!(subs, 2);
+        assert_eq!(ed.buffer.line(0), Some("remove"));
     }
 }

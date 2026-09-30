@@ -72,8 +72,21 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 
 ### Command line (ex commands)
 `:w [file]` · `:q` · `:q!` · `:wq` · `:x` · `:e <file>` · `:<n>` (goto line) ·
-`:theme <name>` · `:set number|nonumber` · `:set ft=<lang>` ·
-`:set mouse|nomouse` · `:help` · `:version`
+`:s/pat/rep/[g]` (search & replace) · `:theme <name>` · `:set number|nonumber` ·
+`:set ft=<lang>` · `:set mouse|nomouse` · `:help` · `:version`
+
+**Search & replace** (`:s`) supports ranges and the `g` (global) flag:
+
+| Command            | Effect                                        |
+|--------------------|-----------------------------------------------|
+| `:s/foo/bar/`      | first `foo` on the current line               |
+| `:s/foo/bar/g`     | every `foo` on the current line               |
+| `:%s/foo/bar/g`    | every `foo` in the whole file                 |
+| `:2,5s/foo/bar/`   | first `foo` per line, lines 2–5               |
+| `:.,$s/foo//g`     | delete every `foo` from the cursor line to EOF|
+
+Matching is **literal** (not yet regex — see roadmap). A single undo (`u`)
+reverts an entire substitution.
 
 ### Color theming
 Three built-in themes, switchable live with `:theme <name>` (or cycle with a
@@ -164,13 +177,14 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **68 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **81 tests** across buffer, editor, syntax, themes, commands,
 plugins, modes, and UI layout.
 
 ---
 
 ## Roadmap
 
+- Regex support for `:s` (currently literal matching)
 - Multi-line syntax state (block comments/strings spanning lines)
 - Split windows / multiple buffers & tabs
 - Config file (`~/.rvimrc`) and user keymaps

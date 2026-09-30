@@ -4,6 +4,39 @@
 //! terminal. [`crate::app::App::run_ex`] interprets the [`ExCommand`] this
 //! module produces, and unknown commands fall through to the plugin system.
 
+/// A line address inside a substitute range. Symbolic addresses (`.`, `$`) are
+/// resolved at execution time when the cursor / line count are known.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LineAddr {
+    /// The current line (`.`).
+    Current,
+    /// The last line (`$`).
+    Last,
+    /// A concrete 1-based line number.
+    Num(usize),
+}
+
+/// The line range a `:s` command applies to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SubRange {
+    /// No range given — the current line only.
+    CurrentLine,
+    /// `%` — every line.
+    WholeFile,
+    /// `a,b` — an inclusive address range.
+    Range(LineAddr, LineAddr),
+}
+
+/// A parsed `:s/pattern/replacement/flags` command (literal matching).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SubstituteSpec {
+    pub range: SubRange,
+    pub pattern: String,
+    pub replacement: String,
+    /// The `g` flag — replace all occurrences per line.
+    pub global: bool,
+}
+
 /// A parsed ex-command.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExCommand {
@@ -27,6 +60,8 @@ pub enum ExCommand {
     Version,
     /// `:<n>` — jump to line n (1-based).
     Goto(usize),
+    /// `:s/pat/rep/`, `:%s/pat/rep/g`, `:a,bs/pat/rep/`
+    Substitute(SubstituteSpec),
     /// Anything unrecognized — offered to plugins as (name, args).
     Passthrough { name: String, args: String },
     /// Empty input.
@@ -38,6 +73,11 @@ pub fn parse(input: &str) -> ExCommand {
     let trimmed = input.trim();
     if trimmed.is_empty() {
         return ExCommand::Empty;
+    }
+
+    // Substitution, possibly with a leading range (`s/`, `%s/`, `1,5s/`).
+    if let Some(sub) = parse_substitute(trimmed) {
+        return sub;
     }
 
     // Pure line number → goto.
@@ -75,6 +115,69 @@ pub fn parse(input: &str) -> ExCommand {
             name: word.to_string(),
             args: rest.to_string(),
         },
+    }
+}
+
+/// Try to parse a substitute command. Returns `None` if `trimmed` isn't a
+/// `:s`-style command, so the caller can fall through to other commands.
+fn parse_substitute(trimmed: &str) -> Option<ExCommand> {
+    // Consume an optional leading range made of these characters.
+    let bytes = trimmed.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        let c = bytes[i] as char;
+        if c.is_ascii_digit() || matches!(c, ',' | '%' | '.' | '$') {
+            i += 1;
+        } else {
+            break;
+        }
+    }
+    // The command char must be exactly 's'.
+    if bytes.get(i).copied() != Some(b's') {
+        return None;
+    }
+    let range_str = &trimmed[..i];
+    let after = &trimmed[i + 1..];
+    // The next char is the delimiter and must be non-alphanumeric (this rejects
+    // `set`, `split`, `sort`, … where 's' is just the first letter of a word).
+    let delim = after.chars().next()?;
+    if delim.is_alphanumeric() || delim.is_whitespace() {
+        return None;
+    }
+    let rest = &after[delim.len_utf8()..];
+    let parts: Vec<&str> = rest.splitn(3, delim).collect();
+    let pattern = parts.first().copied().unwrap_or("");
+    let replacement = parts.get(1).copied().unwrap_or("");
+    let flags = parts.get(2).copied().unwrap_or("");
+    let range = parse_range(range_str)?;
+    Some(ExCommand::Substitute(SubstituteSpec {
+        range,
+        pattern: pattern.to_string(),
+        replacement: replacement.to_string(),
+        global: flags.contains('g'),
+    }))
+}
+
+fn parse_range(s: &str) -> Option<SubRange> {
+    let s = s.trim();
+    if s.is_empty() {
+        return Some(SubRange::CurrentLine);
+    }
+    if s == "%" {
+        return Some(SubRange::WholeFile);
+    }
+    if let Some((a, b)) = s.split_once(',') {
+        return Some(SubRange::Range(parse_addr(a)?, parse_addr(b)?));
+    }
+    let a = parse_addr(s)?;
+    Some(SubRange::Range(a, a))
+}
+
+fn parse_addr(s: &str) -> Option<LineAddr> {
+    match s.trim() {
+        "." => Some(LineAddr::Current),
+        "$" => Some(LineAddr::Last),
+        other => other.parse::<usize>().ok().map(LineAddr::Num),
     }
 }
 
@@ -167,5 +270,79 @@ mod tests {
     #[test]
     fn edit() {
         assert_eq!(parse("e main.rs"), ExCommand::Edit("main.rs".into()));
+    }
+
+    #[test]
+    fn substitute_current_line() {
+        assert_eq!(
+            parse("s/foo/bar/"),
+            ExCommand::Substitute(SubstituteSpec {
+                range: SubRange::CurrentLine,
+                pattern: "foo".into(),
+                replacement: "bar".into(),
+                global: false,
+            })
+        );
+    }
+
+    #[test]
+    fn substitute_whole_file_global() {
+        assert_eq!(
+            parse("%s/foo/bar/g"),
+            ExCommand::Substitute(SubstituteSpec {
+                range: SubRange::WholeFile,
+                pattern: "foo".into(),
+                replacement: "bar".into(),
+                global: true,
+            })
+        );
+    }
+
+    #[test]
+    fn substitute_numeric_range() {
+        assert_eq!(
+            parse("2,5s/x/y/"),
+            ExCommand::Substitute(SubstituteSpec {
+                range: SubRange::Range(LineAddr::Num(2), LineAddr::Num(5)),
+                pattern: "x".into(),
+                replacement: "y".into(),
+                global: false,
+            })
+        );
+    }
+
+    #[test]
+    fn substitute_symbolic_range() {
+        assert_eq!(
+            parse(".,$s/a/b/g"),
+            ExCommand::Substitute(SubstituteSpec {
+                range: SubRange::Range(LineAddr::Current, LineAddr::Last),
+                pattern: "a".into(),
+                replacement: "b".into(),
+                global: true,
+            })
+        );
+    }
+
+    #[test]
+    fn substitute_empty_replacement_deletes() {
+        assert_eq!(
+            parse("s/drop//"),
+            ExCommand::Substitute(SubstituteSpec {
+                range: SubRange::CurrentLine,
+                pattern: "drop".into(),
+                replacement: "".into(),
+                global: false,
+            })
+        );
+    }
+
+    #[test]
+    fn substitute_does_not_hijack_other_commands() {
+        // These start with 's' or contain digits but are not substitutions.
+        assert!(!matches!(parse("set number"), ExCommand::Substitute(_)));
+        assert!(!matches!(parse("42"), ExCommand::Substitute(_)));
+        assert!(!matches!(parse("w"), ExCommand::Substitute(_)));
+        assert!(!matches!(parse("x"), ExCommand::Substitute(_)));
     }
 }
