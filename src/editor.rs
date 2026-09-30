@@ -67,6 +67,7 @@ pub struct Editor {
     last_search: String,
     pending_count: Option<usize>,
     pending_op: Option<char>,
+    pending_op_count: Option<usize>,
     pending_replace: bool,
     pending_find: Option<char>,
     last_find: Option<(char, char)>,
@@ -102,6 +103,7 @@ impl Editor {
             last_search: String::new(),
             pending_count: None,
             pending_op: None,
+            pending_op_count: None,
             pending_replace: false,
             pending_find: None,
             last_find: None,
@@ -521,9 +523,11 @@ impl Editor {
 
         let count = self.pending_count.take().unwrap_or(1);
 
-        // Operator-pending (d, y, g).
+        // Operator-pending (d, y, c, g, z, >, <). The total count multiplies the
+        // count typed before the operator by the count typed before the motion.
         if let Some(op) = self.pending_op.take() {
-            self.apply_operator(op, code);
+            let op_count = self.pending_op_count.take().unwrap_or(1);
+            self.apply_operator(op, code, op_count.saturating_mul(count));
             return Action::None;
         }
 
@@ -572,6 +576,7 @@ impl Editor {
                     self.visual_delete();
                 } else {
                     self.pending_op = Some('d');
+                    self.pending_op_count = Some(count);
                 }
             }
             KeyCode::Char('y') => {
@@ -579,6 +584,7 @@ impl Editor {
                     self.visual_yank();
                 } else {
                     self.pending_op = Some('y');
+                    self.pending_op_count = Some(count);
                 }
             }
             KeyCode::Char('c') => {
@@ -587,6 +593,7 @@ impl Editor {
                     self.mode = Mode::Insert;
                 } else {
                     self.pending_op = Some('c');
+                    self.pending_op_count = Some(count);
                 }
             }
             KeyCode::Char('x') => self.delete_char_under(count),
@@ -644,8 +651,16 @@ impl Editor {
                     self.message = "Already at oldest change".into();
                 }
             }
-            KeyCode::Char('p') => self.paste(true),
-            KeyCode::Char('P') => self.paste(false),
+            KeyCode::Char('p') => {
+                for _ in 0..count {
+                    self.paste(true);
+                }
+            }
+            KeyCode::Char('P') => {
+                for _ in 0..count {
+                    self.paste(false);
+                }
+            }
             KeyCode::Char('J') => {
                 self.checkpoint();
                 self.buffer.join_line(self.cursor.row);
@@ -674,6 +689,7 @@ impl Editor {
                     self.mode = Mode::Normal;
                 }
                 self.pending_op = None;
+                self.pending_op_count = None;
                 self.pending_count = None;
             }
             _ => {}
@@ -684,7 +700,7 @@ impl Editor {
         Action::None
     }
 
-    fn apply_operator(&mut self, op: char, code: KeyCode) {
+    fn apply_operator(&mut self, op: char, code: KeyCode, count: usize) {
         match op {
             'g' => {
                 if code == KeyCode::Char('g') {
@@ -713,16 +729,18 @@ impl Editor {
                 }
             }
             'd' | 'y' | 'c' => {
-                // Doubled operator (dd/yy/cc) acts on the whole current line.
+                // Doubled operator (dd/yy/cc) acts on `count` whole lines.
                 let doubled = code == KeyCode::Char(op);
                 let target = if doubled {
-                    Some(OpTarget::Lines(self.cursor.row, self.cursor.row))
+                    let last = self.buffer.line_count().saturating_sub(1);
+                    OpTarget::Lines(self.cursor.row, (self.cursor.row + count - 1).min(last))
                 } else {
-                    self.motion_target(code)
+                    match self.motion_target(code, count) {
+                        Some(t) => t,
+                        None => return,
+                    }
                 };
-                if let Some(t) = target {
-                    self.apply_op(op, t);
-                }
+                self.apply_op(op, target);
             }
             _ => {}
         }
@@ -732,21 +750,21 @@ impl Editor {
 
     /// The text span a motion covers, relative to the cursor, for use by an
     /// operator (`d`/`y`/`c`). `None` for keys that aren't operator motions.
-    fn motion_target(&self, code: KeyCode) -> Option<OpTarget> {
+    fn motion_target(&self, code: KeyCode, count: usize) -> Option<OpTarget> {
         let row = self.cursor.row;
         let col = self.cursor.col;
         let len = self.cur_len();
         let last = self.buffer.line_count().saturating_sub(1);
         Some(match code {
-            KeyCode::Char('w') => OpTarget::Chars(col, self.word_forward_col()),
-            KeyCode::Char('e') => OpTarget::Chars(col, (self.word_end_col() + 1).min(len)),
+            KeyCode::Char('w') => OpTarget::Chars(col, self.word_forward_col_n(count)),
+            KeyCode::Char('e') => OpTarget::Chars(col, (self.word_end_col_n(count) + 1).min(len)),
             KeyCode::Char('$') | KeyCode::End => OpTarget::Chars(col, len),
             KeyCode::Char('0') | KeyCode::Home => OpTarget::Chars(0, col),
             KeyCode::Char('^') => OpTarget::Chars(self.first_nonblank_col(), col),
-            KeyCode::Char('l') | KeyCode::Right => OpTarget::Chars(col, (col + 1).min(len)),
-            KeyCode::Char('h') | KeyCode::Left => OpTarget::Chars(col.saturating_sub(1), col),
-            KeyCode::Char('j') | KeyCode::Down => OpTarget::Lines(row, (row + 1).min(last)),
-            KeyCode::Char('k') | KeyCode::Up => OpTarget::Lines(row.saturating_sub(1), row),
+            KeyCode::Char('l') | KeyCode::Right => OpTarget::Chars(col, (col + count).min(len)),
+            KeyCode::Char('h') | KeyCode::Left => OpTarget::Chars(col.saturating_sub(count), col),
+            KeyCode::Char('j') | KeyCode::Down => OpTarget::Lines(row, (row + count).min(last)),
+            KeyCode::Char('k') | KeyCode::Up => OpTarget::Lines(row.saturating_sub(count), row),
             KeyCode::Char('G') => OpTarget::Lines(row, last),
             _ => return None,
         })
@@ -819,40 +837,47 @@ impl Editor {
         line.chars().take_while(|c| c.is_whitespace()).count()
     }
 
-    /// The column of the next word start on the current line (bounded to EOL).
-    fn word_forward_col(&self) -> usize {
+    /// The column `count` word-starts forward on the current line (bounded to EOL).
+    fn word_forward_col_n(&self, count: usize) -> usize {
         let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
         let len = chars.len();
         let mut col = self.cursor.col;
-        if col >= len {
-            return len;
-        }
-        let class = Self::char_class(chars[col]);
-        while col < len && Self::char_class(chars[col]) == class && class != 0 {
-            col += 1;
-        }
-        while col < len && chars[col].is_whitespace() {
-            col += 1;
+        for _ in 0..count.max(1) {
+            if col >= len {
+                break;
+            }
+            let class = Self::char_class(chars[col]);
+            while col < len && Self::char_class(chars[col]) == class && class != 0 {
+                col += 1;
+            }
+            while col < len && chars[col].is_whitespace() {
+                col += 1;
+            }
         }
         col
     }
 
-    /// The column of the end of the next word on the current line.
-    fn word_end_col(&self) -> usize {
+    /// The column of the end of the `count`-th word forward on the current line.
+    fn word_end_col_n(&self, count: usize) -> usize {
         let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
         let len = chars.len();
-        let mut i = self.cursor.col + 1;
-        while i < len && chars[i].is_whitespace() {
+        let mut i = self.cursor.col;
+        for _ in 0..count.max(1) {
             i += 1;
-        }
-        if i < len {
-            let class = Self::char_class(chars[i]);
-            while i + 1 < len && Self::char_class(chars[i + 1]) == class {
+            while i < len && chars[i].is_whitespace() {
                 i += 1;
             }
+            if i < len {
+                let class = Self::char_class(chars[i]);
+                while i + 1 < len && Self::char_class(chars[i + 1]) == class {
+                    i += 1;
+                }
+            }
+        }
+        if i < len {
             i
         } else {
-            self.cursor.col
+            len.saturating_sub(1)
         }
     }
 
@@ -1870,6 +1895,45 @@ mod tests {
         }
         assert_eq!(ed.top, 5);
         assert_eq!(ed.cursor.row, 5);
+    }
+
+    #[test]
+    fn count_before_operator_3dd() {
+        let mut ed = ed_with("a\nb\nc\nd\ne");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('d'));
+        ed.handle_key(key('d')); // delete 3 lines
+        assert_eq!(ed.buffer.line(0), Some("d"));
+        assert_eq!(ed.buffer.line_count(), 2);
+    }
+
+    #[test]
+    fn count_between_operator_and_motion_d3w() {
+        let mut ed = ed_with("one two three four");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('3'));
+        ed.handle_key(key('w')); // delete 3 words
+        assert_eq!(ed.buffer.line(0), Some("four"));
+    }
+
+    #[test]
+    fn multiplied_counts_2d3w() {
+        let mut ed = ed_with("a b c d e f g");
+        ed.handle_key(key('2'));
+        ed.handle_key(key('d'));
+        ed.handle_key(key('3'));
+        ed.handle_key(key('w')); // 2*3 = 6 words deleted
+        assert_eq!(ed.buffer.line(0), Some("g"));
+    }
+
+    #[test]
+    fn count_paste_3p() {
+        let mut ed = ed_with("x");
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y')); // yank "x" linewise
+        ed.handle_key(key('3'));
+        ed.handle_key(key('p')); // paste 3 times
+        assert_eq!(ed.buffer.line_count(), 4);
     }
 
     #[test]

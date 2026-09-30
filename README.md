@@ -73,6 +73,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 - **Operators + motions:** `d`, `y`, `c` compose with motions — `dw`/`yw`/`cw`,
   `d$`/`y$`, `d0`/`y0`, `de`, `dl`/`dh`, `dj`/`dk` (line-wise), `dG`/`yG`/`cG`
   (to end of file), and the doubled forms `dd`/`yy`/`cc`.
+- **Counts:** prefix motions, operators and paste with a number — `5j`, `3dd`,
+  `d3w`, `2d3w` (multiplied), `3p`.
 - **Registers:** `"a`–`"z` prefix any yank/delete/paste to use a named register
   (e.g. `"ayy` … `"ap`); the unnamed register is used otherwise.
 - **Insert mode:** autoindent on Enter (`:set autoindent`/`noai`), `Ctrl-w`
@@ -236,7 +238,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **147 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **151 tests** across buffer, editor, syntax, themes, commands,
 config, plugins, modes, and UI layout.
 
 ---
