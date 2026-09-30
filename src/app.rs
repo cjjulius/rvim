@@ -334,6 +334,9 @@ impl App {
                     self.editor.show_line_numbers = true;
                 }
             }
+            ExCommand::ToggleAutoIndent(on) => {
+                self.editor.autoindent = on;
+            }
             ExCommand::SetFiletype(name) => match Language::from_name(&name) {
                 Some(lang) => {
                     self.editor.set_language(lang);
@@ -477,6 +480,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          MODES\n\
          \ti / a / I / A      insert (before/after/line-start/line-end)\n\
          \to / O              open line below / above\n\
+         \t  (insert) C-w/C-u delete word-before / to line-start\n\
          \tv / V              visual / visual-line\n\
          \t  (visual) u/U/~   lower / upper / toggle case of selection\n\
          \tEsc                back to normal mode\n\
@@ -512,6 +516,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:ls :bn :bp :b<n>  list / next / prev / goto buffer   :bd close\n\
          \t:theme <name>      themes: {themes}\n\
          \t:set number|nonumber   :set relativenumber|nornu\n\
+         \t:set autoindent|noai\n\
          \t:set ft=<lang>     rust tsql pgsql trino snowflake z80 sql\n\
          \t:set mouse|nomouse toggle mouse support\n\
          \t:sort[!] [u]       sort lines (! reverse, u unique)\n\
