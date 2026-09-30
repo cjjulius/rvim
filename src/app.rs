@@ -169,6 +169,23 @@ impl App {
         self.editor.message = format!("buffer closed; now \"{}\"", Self::buffer_name(&self.editor));
     }
 
+    /// Build the tab-bar entries (active first, then the others in order).
+    fn tab_entries(&self) -> Vec<ui::TabEntry> {
+        let mut tabs = vec![ui::TabEntry {
+            name: Self::buffer_name(&self.editor),
+            active: true,
+            dirty: self.editor.buffer.is_dirty(),
+        }];
+        for ed in &self.others {
+            tabs.push(ui::TabEntry {
+                name: Self::buffer_name(ed),
+                active: false,
+                dirty: ed.buffer.is_dirty(),
+            });
+        }
+        tabs
+    }
+
     /// `:ls` — a one-line listing of open buffers (active marked `%`).
     fn buffer_list(&mut self) {
         let mut parts = vec![format!("1 %{}", Self::buffer_name(&self.editor))];
@@ -197,17 +214,19 @@ impl App {
             }
 
             // Update viewport so scrolling tracks the cursor.
+            let tabs = self.tab_entries();
             let (cols, rows) = TerminalGuard::size()?;
             let layout = Layout::compute(
                 cols,
                 rows,
                 self.editor.buffer.line_count(),
                 self.editor.show_line_numbers,
+                tabs.len() > 1,
             );
             self.editor
                 .set_viewport(layout.text_rows as usize, layout.text_cols as usize);
 
-            ui::render(&mut out, &self.editor, self.themes.current(), &self.syntax)?;
+            ui::render(&mut out, &self.editor, self.themes.current(), &self.syntax, &tabs)?;
 
             match event::read()? {
                 Event::Key(key) => {
@@ -238,8 +257,8 @@ impl App {
     fn handle_mouse(&mut self, m: event::MouseEvent, layout: &Layout) {
         match m.kind {
             MouseEventKind::Down(MouseButton::Left) => {
-                if m.row < layout.text_rows {
-                    let row = self.editor.top + m.row as usize;
+                if m.row >= layout.top_offset && m.row < layout.top_offset + layout.text_rows {
+                    let row = self.editor.top + (m.row - layout.top_offset) as usize;
                     let col = self
                         .editor
                         .left

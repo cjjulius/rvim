@@ -22,13 +22,22 @@ pub struct Layout {
     pub gutter_width: u16,
     pub text_rows: u16,
     pub text_cols: u16,
+    /// Screen rows reserved at the very top (1 for the tab bar, else 0).
+    pub top_offset: u16,
 }
 
 impl Layout {
-    pub fn compute(cols: u16, rows: u16, line_count: usize, show_numbers: bool) -> Self {
+    pub fn compute(
+        cols: u16,
+        rows: u16,
+        line_count: usize,
+        show_numbers: bool,
+        show_tabline: bool,
+    ) -> Self {
         let gutter_width = gutter_width(line_count, show_numbers);
-        // Two reserved rows: status line + command line.
-        let text_rows = rows.saturating_sub(2).max(1);
+        let top_offset = if show_tabline { 1 } else { 0 };
+        // Reserved rows: tab bar (optional) + status line + command line.
+        let text_rows = rows.saturating_sub(2 + top_offset).max(1);
         let text_cols = cols.saturating_sub(gutter_width).max(1);
         Self {
             cols,
@@ -36,6 +45,7 @@ impl Layout {
             gutter_width,
             text_rows,
             text_cols,
+            top_offset,
         }
     }
 }
@@ -106,6 +116,23 @@ pub fn search_match_ranges(line: &str, needle: &str) -> Vec<(usize, usize)> {
     ranges
 }
 
+/// One entry in the tab/buffer bar.
+pub struct TabEntry {
+    pub name: String,
+    pub active: bool,
+    pub dirty: bool,
+}
+
+/// The label for a tab: ` <n> <basename>[+] `.
+pub fn tab_label(index: usize, name: &str, dirty: bool) -> String {
+    let base = std::path::Path::new(name)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or(name);
+    let mark = if dirty { "+" } else { "" };
+    format!(" {index} {base}{mark} ")
+}
+
 /// Whether `(row, col)` lies within the (inclusive) selection.
 pub fn in_selection(sel: (Position, Position), linewise: bool, row: usize, col: usize) -> bool {
     let (s, e) = sel;
@@ -132,11 +159,23 @@ pub fn render(
     editor: &Editor,
     theme: &Theme,
     syntax: &Registry,
+    tabs: &[TabEntry],
 ) -> io::Result<()> {
     let (cols, rows) = crossterm::terminal::size()?;
-    let layout = Layout::compute(cols, rows, editor.buffer.line_count(), editor.show_line_numbers);
+    let show_tabline = tabs.len() > 1;
+    let layout = Layout::compute(
+        cols,
+        rows,
+        editor.buffer.line_count(),
+        editor.show_line_numbers,
+        show_tabline,
+    );
 
     queue!(out, Hide, MoveTo(0, 0))?;
+
+    if show_tabline {
+        draw_tabline(out, theme, &layout, tabs)?;
+    }
 
     let sel = editor.selection();
     let linewise = editor.mode == Mode::VisualLine;
@@ -153,7 +192,7 @@ pub fn render(
 
     for y in 0..layout.text_rows {
         let row = editor.top + y as usize;
-        queue!(out, MoveTo(0, y))?;
+        queue!(out, MoveTo(0, layout.top_offset + y))?;
         draw_gutter(out, editor, theme, &layout, row)?;
 
         let line_bg = if row == editor.cursor.row {
@@ -193,15 +232,53 @@ pub fn render(
         queue!(out, MoveTo(x.min(layout.cols.saturating_sub(1)), layout.rows - 1), Show)?;
     } else {
         let cx = layout.gutter_width + (editor.cursor.col.saturating_sub(editor.left)) as u16;
-        let cy = (editor.cursor.row.saturating_sub(editor.top)) as u16;
+        let cy = layout.top_offset + (editor.cursor.row.saturating_sub(editor.top)) as u16;
         queue!(
             out,
-            MoveTo(cx.min(layout.cols.saturating_sub(1)), cy.min(layout.text_rows - 1)),
+            MoveTo(
+                cx.min(layout.cols.saturating_sub(1)),
+                cy.min(layout.top_offset + layout.text_rows - 1)
+            ),
             Show
         )?;
     }
 
     out.flush()
+}
+
+fn draw_tabline(
+    out: &mut impl Write,
+    theme: &Theme,
+    layout: &Layout,
+    tabs: &[TabEntry],
+) -> io::Result<()> {
+    queue!(out, MoveTo(0, 0))?;
+    let mut used = 0usize;
+    let total = layout.cols as usize;
+    for (i, tab) in tabs.iter().enumerate() {
+        let label = tab_label(i + 1, &tab.name, tab.dirty);
+        let (fg, bg) = if tab.active {
+            (theme.mode_fg, theme.mode_bg)
+        } else {
+            (theme.status_fg, theme.status_bg)
+        };
+        let shown: String = label.chars().take(total.saturating_sub(used)).collect();
+        if shown.is_empty() {
+            break;
+        }
+        used += shown.chars().count();
+        queue!(out, SetForegroundColor(fg), SetBackgroundColor(bg), Print(shown))?;
+    }
+    // Fill the rest of the tab bar.
+    if used < total {
+        queue!(
+            out,
+            SetForegroundColor(theme.status_fg),
+            SetBackgroundColor(theme.status_bg),
+            Print(" ".repeat(total - used))
+        )?;
+    }
+    queue!(out, ResetColor)
 }
 
 fn draw_gutter(
@@ -466,10 +543,25 @@ mod tests {
 
     #[test]
     fn layout_reserves_two_rows() {
-        let l = Layout::compute(80, 24, 10, true);
+        let l = Layout::compute(80, 24, 10, true, false);
         assert_eq!(l.text_rows, 22);
         assert_eq!(l.gutter_width, 4);
         assert_eq!(l.text_cols, 76);
+        assert_eq!(l.top_offset, 0);
+    }
+
+    #[test]
+    fn layout_reserves_tabline_row() {
+        let l = Layout::compute(80, 24, 10, true, true);
+        assert_eq!(l.top_offset, 1);
+        assert_eq!(l.text_rows, 21); // one fewer for the tab bar
+    }
+
+    #[test]
+    fn tab_label_uses_basename_and_dirty_marker() {
+        assert_eq!(tab_label(1, "src/main.rs", false), " 1 main.rs ");
+        assert_eq!(tab_label(2, "notes.txt", true), " 2 notes.txt+ ");
+        assert_eq!(tab_label(3, "[No Name]", false), " 3 [No Name] ");
     }
 
     #[test]
