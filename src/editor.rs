@@ -70,6 +70,10 @@ pub struct Editor {
     pending_op_count: Option<usize>,
     /// After `d`/`y`/`c` + `i`/`a`: the (operator, i-or-a) awaiting an object char.
     pending_textobj: Option<(char, char)>,
+    /// After `gu`/`gU`/`g~`: a case operator awaiting a motion/object.
+    pending_case: Option<CaseOp>,
+    /// After a case operator + `i`/`a`: awaiting an object char.
+    pending_case_obj: Option<(CaseOp, char)>,
     pending_replace: bool,
     pending_find: Option<char>,
     last_find: Option<(char, char)>,
@@ -136,6 +140,8 @@ impl Editor {
             pending_op: None,
             pending_op_count: None,
             pending_textobj: None,
+            pending_case: None,
+            pending_case_obj: None,
             pending_replace: false,
             pending_find: None,
             last_find: None,
@@ -470,6 +476,8 @@ impl Editor {
             && self.pending_op.is_none()
             && self.pending_count.is_none()
             && self.pending_textobj.is_none()
+            && self.pending_case.is_none()
+            && self.pending_case_obj.is_none()
             && !self.pending_replace
             && self.pending_find.is_none()
             && self.pending_mark.is_none()
@@ -663,6 +671,33 @@ impl Editor {
             }
             self.clamp_cursor(false);
             self.scroll_into_view();
+            return Action::None;
+        }
+
+        // Object char after a case operator + `i`/`a` (e.g. `guiw`).
+        if let Some((cop, iora)) = self.pending_case_obj.take() {
+            if let KeyCode::Char(obj) = key.code {
+                if let Some(t) = self.text_object(iora, obj) {
+                    self.apply_case_op(cop, t);
+                }
+            }
+            return Action::None;
+        }
+
+        // Motion / object / doubled after `gu`/`gU`/`g~`.
+        if let Some(cop) = self.pending_case.take() {
+            match key.code {
+                KeyCode::Char('i') => self.pending_case_obj = Some((cop, 'i')),
+                KeyCode::Char('a') => self.pending_case_obj = Some((cop, 'a')),
+                KeyCode::Char(c) if c == cop.key() => {
+                    self.apply_case_op(cop, OpTarget::Lines(self.cursor.row, self.cursor.row));
+                }
+                code => {
+                    if let Some(t) = self.motion_target(code, 1) {
+                        self.apply_case_op(cop, t);
+                    }
+                }
+            }
             return Action::None;
         }
 
@@ -928,13 +963,17 @@ impl Editor {
 
     fn apply_operator(&mut self, op: char, code: KeyCode, count: usize) {
         match op {
-            'g' => {
-                if code == KeyCode::Char('g') {
+            'g' => match code {
+                KeyCode::Char('g') => {
                     self.record_jump();
                     self.cursor.row = 0;
                     self.cursor.col = 0;
                 }
-            }
+                KeyCode::Char('u') => self.pending_case = Some(CaseOp::Lower),
+                KeyCode::Char('U') => self.pending_case = Some(CaseOp::Upper),
+                KeyCode::Char('~') => self.pending_case = Some(CaseOp::Toggle),
+                _ => {}
+            },
             'z' => match code {
                 KeyCode::Char('z') => self.center_line(),
                 KeyCode::Char('t') => self.line_to_top(),
@@ -1053,6 +1092,39 @@ impl Editor {
                     self.store_register(text, true);
                     self.cursor.row = a;
                 }
+            }
+        }
+        self.clamp_cursor(false);
+        self.scroll_into_view();
+    }
+
+    /// Apply a case transform (`gu`/`gU`/`g~`) over a computed span.
+    fn apply_case_op(&mut self, cop: CaseOp, target: OpTarget) {
+        self.checkpoint();
+        match target {
+            OpTarget::Chars(s, e) => {
+                let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+                let len = chars.len();
+                let (s, e) = (s.min(len), e.min(len));
+                let (s, e) = (s.min(e), s.max(e));
+                let new: String = chars
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &c)| if i >= s && i < e { cop.apply(c) } else { c })
+                    .collect();
+                self.buffer.set_line(self.cursor.row, new);
+                self.cursor.col = s;
+            }
+            OpTarget::Lines(a, b) => {
+                let last = self.buffer.line_count().saturating_sub(1);
+                let (a, b) = (a.min(last), b.min(last));
+                let (a, b) = (a.min(b), a.max(b));
+                for row in a..=b {
+                    let new: String =
+                        self.buffer.line(row).unwrap_or("").chars().map(|c| cop.apply(c)).collect();
+                    self.buffer.set_line(row, new);
+                }
+                self.cursor.row = a;
             }
         }
         self.clamp_cursor(false);
@@ -1971,6 +2043,15 @@ enum CaseOp {
 }
 
 impl CaseOp {
+    /// The trigger key for this operator (used to detect the doubled form).
+    fn key(self) -> char {
+        match self {
+            CaseOp::Lower => 'u',
+            CaseOp::Upper => 'U',
+            CaseOp::Toggle => '~',
+        }
+    }
+
     fn apply(self, c: char) -> char {
         match self {
             CaseOp::Lower => c.to_lowercase().next().unwrap_or(c),
@@ -2237,6 +2318,44 @@ mod tests {
         }
         assert_eq!(ed.top, 5);
         assert_eq!(ed.cursor.row, 5);
+    }
+
+    #[test]
+    fn case_op_gu_with_motion() {
+        let mut ed = ed_with("HELLO WORLD");
+        ed.handle_key(key('g'));
+        ed.handle_key(key('u'));
+        ed.handle_key(key('w')); // lowercase "HELLO " -> "hello "
+        assert_eq!(ed.buffer.line(0), Some("hello WORLD"));
+    }
+
+    #[test]
+    fn case_op_g_upper_with_text_object() {
+        let mut ed = ed_with("foo bar baz");
+        ed.handle_key(key('w')); // on "bar"
+        ed.handle_key(key('g'));
+        ed.handle_key(key('U'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('w')); // uppercase inner word
+        assert_eq!(ed.buffer.line(0), Some("foo BAR baz"));
+    }
+
+    #[test]
+    fn case_op_doubled_line() {
+        let mut ed = ed_with("MixedCase Line");
+        ed.handle_key(key('g'));
+        ed.handle_key(key('u'));
+        ed.handle_key(key('u')); // guu -> lowercase whole line
+        assert_eq!(ed.buffer.line(0), Some("mixedcase line"));
+    }
+
+    #[test]
+    fn case_op_toggle_with_dollar() {
+        let mut ed = ed_with("aBcD");
+        ed.handle_key(key('g'));
+        ed.handle_key(key('~'));
+        ed.handle_key(key('$')); // toggle to end of line
+        assert_eq!(ed.buffer.line(0), Some("AbCd"));
     }
 
     #[test]
