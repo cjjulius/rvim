@@ -510,6 +510,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          SEARCH\n\
          \t/pat  ?pat         search fwd / back  n / N  next / prev\n\
          \tm<x> `<x> '<x>     set mark / jump exact / jump line   `` prev pos\n\
+         \tq<x> q  @<x>  @@   record macro / stop / replay / repeat\n\
          \n\
          COMMANDS\n\
          \t:w [file]  :q  :q!  :wq  :x   write / quit variants\n\

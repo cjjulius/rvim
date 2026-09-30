@@ -74,6 +74,18 @@ pub struct Editor {
     marks: HashMap<char, Position>,
     pending_mark: Option<PendingMark>,
     previous_pos: Position,
+    recording: Option<char>,
+    macros: HashMap<char, Vec<KeyEvent>>,
+    last_macro: Option<char>,
+    expect_macro: Option<MacroMode>,
+    replay_depth: usize,
+}
+
+/// Whether the key after `q` / `@` records into or replays a macro register.
+#[derive(Debug, Clone, Copy)]
+enum MacroMode {
+    Record,
+    Play,
 }
 
 /// What the next key after `m` / `` ` `` / `'` does with a mark.
@@ -121,6 +133,11 @@ impl Editor {
             marks: HashMap::new(),
             pending_mark: None,
             previous_pos: Position::default(),
+            recording: None,
+            macros: HashMap::new(),
+            last_macro: None,
+            expect_macro: None,
+            replay_depth: 0,
         }
     }
 
@@ -138,6 +155,39 @@ impl Editor {
     /// The active search query (empty if none).
     pub fn search_query(&self) -> &str {
         &self.last_search
+    }
+
+    /// The register currently being recorded into, if any (for the status line).
+    pub fn recording_register(&self) -> Option<char> {
+        self.recording
+    }
+
+    fn start_recording(&mut self, reg: char) {
+        self.recording = Some(reg);
+        self.macros.insert(reg, Vec::new());
+        self.message = format!("recording @{reg}");
+    }
+
+    /// Replay macro register `reg` (or the last one for `@@`). Ex-commands
+    /// inside a macro are not executed during replay.
+    fn play_macro(&mut self, reg: char) {
+        let target = if reg == '@' { self.last_macro } else { Some(reg) };
+        let Some(target) = target else {
+            self.message = "No previously played macro".into();
+            return;
+        };
+        self.last_macro = Some(target);
+        let Some(keys) = self.macros.get(&target).cloned() else {
+            return;
+        };
+        if self.replay_depth > 50 {
+            return; // guard against runaway recursive macros
+        }
+        self.replay_depth += 1;
+        for k in keys {
+            let _ = self.handle_key(k);
+        }
+        self.replay_depth = self.replay_depth.saturating_sub(1);
     }
 
     /// The prefix character shown before the command line (`:`, `/`, `?`).
@@ -333,6 +383,32 @@ impl Editor {
 
     /// Handle a key event. Returns an [`Action`] for the app.
     pub fn handle_key(&mut self, key: KeyEvent) -> Action {
+        // The key after `q`/`@` selects the macro register (never recorded).
+        if let Some(mm) = self.expect_macro.take() {
+            if let KeyCode::Char(c) = key.code {
+                match mm {
+                    MacroMode::Record => self.start_recording(c),
+                    MacroMode::Play => self.play_macro(c),
+                }
+            }
+            return Action::None;
+        }
+
+        // While recording, capture the raw key (except the `q` that stops it).
+        if let Some(reg) = self.recording {
+            let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+            let is_stop = self.mode == Mode::Normal
+                && matches!(key.code, KeyCode::Char('q'))
+                && !ctrl
+                && self.replay_depth == 0;
+            if is_stop {
+                self.recording = None;
+                self.message = "recorded".into();
+                return Action::None;
+            }
+            self.macros.entry(reg).or_default().push(key);
+        }
+
         // Command-line editing takes priority when active.
         if self.mode == Mode::Command {
             return self.handle_cmdline(key);
@@ -614,6 +690,8 @@ impl Editor {
             KeyCode::Char('m') => self.pending_mark = Some(PendingMark::Set),
             KeyCode::Char('`') => self.pending_mark = Some(PendingMark::JumpExact),
             KeyCode::Char('\'') => self.pending_mark = Some(PendingMark::JumpLine),
+            KeyCode::Char('q') => self.expect_macro = Some(MacroMode::Record),
+            KeyCode::Char('@') => self.expect_macro = Some(MacroMode::Play),
             KeyCode::Char('G') => self.goto_line_or_end(count),
             KeyCode::Char('g') => self.pending_op = Some('g'),
             KeyCode::Char('z') => self.pending_op = Some('z'),
@@ -1958,6 +2036,47 @@ mod tests {
         }
         assert_eq!(ed.top, 5);
         assert_eq!(ed.cursor.row, 5);
+    }
+
+    #[test]
+    fn macro_record_and_replay() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        // Record into register q: delete a line (dd).
+        ed.handle_key(key('q'));
+        ed.handle_key(key('q')); // start recording into q
+        assert_eq!(ed.recording_register(), Some('q'));
+        ed.handle_key(key('d'));
+        ed.handle_key(key('d')); // dd (recorded)
+        ed.handle_key(key('q')); // stop recording
+        assert_eq!(ed.recording_register(), None);
+        assert_eq!(ed.buffer.line(0), Some("b"));
+        // Replay: delete another line.
+        ed.handle_key(key('@'));
+        ed.handle_key(key('q'));
+        assert_eq!(ed.buffer.line(0), Some("c"));
+        // @@ repeats the last macro.
+        ed.handle_key(key('@'));
+        ed.handle_key(key('@'));
+        assert_eq!(ed.buffer.line(0), Some("d"));
+    }
+
+    #[test]
+    fn macro_records_insert_sequence() {
+        let mut ed = ed_with("x\ny");
+        ed.handle_key(key('q'));
+        ed.handle_key(key('a')); // record into a
+        ed.handle_key(key('I')); // insert at line start
+        ed.handle_key(key('>'));
+        ed.handle_key(key(' '));
+        ed.handle_key(special(KeyCode::Esc));
+        ed.handle_key(key('q')); // stop
+        assert_eq!(ed.buffer.line(0), Some("> x"));
+        // Replay on the next line.
+        ed.handle_key(key('j'));
+        ed.handle_key(key('0'));
+        ed.handle_key(key('@'));
+        ed.handle_key(key('a'));
+        assert_eq!(ed.buffer.line(1), Some("> y"));
     }
 
     #[test]
