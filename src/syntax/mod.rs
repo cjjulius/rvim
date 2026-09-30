@@ -141,11 +141,24 @@ fn sniff_sql_dialect(line: &str) -> Option<Language> {
     }
 }
 
-/// The interface every highlighter implements. Line-based for simplicity and
-/// predictable performance; multi-line constructs are handled per-line.
+/// The interface every highlighter implements.
+///
+/// Highlighting is line-based, but a single `bool` of carry-over state
+/// (`in_block` — "this line begins inside a block comment") lets multi-line
+/// constructs like `/* … */` span lines. Stateless callers use
+/// [`highlight_line`](Highlighter::highlight_line).
 pub trait Highlighter: Send + Sync {
     fn language(&self) -> Language;
-    fn highlight_line(&self, line: &str) -> Vec<Token>;
+
+    /// Highlight `line`, given whether it starts inside a block comment.
+    /// Returns the tokens and whether the *next* line starts inside a block
+    /// comment.
+    fn highlight_line_stateful(&self, line: &str, in_block: bool) -> (Vec<Token>, bool);
+
+    /// Convenience: highlight a standalone line (not inside a block comment).
+    fn highlight_line(&self, line: &str) -> Vec<Token> {
+        self.highlight_line_stateful(line, false).0
+    }
 }
 
 /// A declarative description of a language's lexical surface.
@@ -250,7 +263,7 @@ impl Highlighter for SpecHighlighter {
         self.spec.language
     }
 
-    fn highlight_line(&self, line: &str) -> Vec<Token> {
+    fn highlight_line_stateful(&self, line: &str, in_block: bool) -> (Vec<Token>, bool) {
         let chars: Vec<(usize, char)> = line.char_indices().collect();
         let end_byte = line.len();
         let mut tokens = Vec::new();
@@ -258,6 +271,23 @@ impl Highlighter for SpecHighlighter {
 
         // Byte offset of char index `k` (or end of line).
         let byte_at = |k: usize| chars.get(k).map(|&(b, _)| b).unwrap_or(end_byte);
+
+        // If we begin inside a block comment, consume up to its closer (or the
+        // whole line, staying in-block).
+        if in_block {
+            if let Some((_open, close)) = self.spec.block_comment {
+                if let Some(p) = line.find(close) {
+                    let end = p + close.len();
+                    tokens.push(Token::new(0, end, TokenKind::Comment));
+                    while i < chars.len() && chars[i].0 < end {
+                        i += 1;
+                    }
+                } else {
+                    tokens.push(Token::new(0, end_byte, TokenKind::Comment));
+                    return (tokens, true);
+                }
+            }
+        }
 
         while i < chars.len() {
             let (start_b, c) = chars[i];
@@ -281,19 +311,24 @@ impl Highlighter for SpecHighlighter {
                 break;
             }
 
-            // Block comment (single-line handling; open without close runs to EOL).
+            // Block comment. If the closer is missing, the comment runs to EOL
+            // and the next line begins inside the block.
             if let Some((open, close)) = self.spec.block_comment {
                 if let Some(after_open) = rest.strip_prefix(open) {
-                    let close_at = after_open
-                        .find(close)
-                        .map(|p| start_b + open.len() + p + close.len())
-                        .unwrap_or(end_byte);
-                    tokens.push(Token::new(start_b, close_at, TokenKind::Comment));
-                    // advance i to first char at/after close_at
-                    while i < chars.len() && chars[i].0 < close_at {
-                        i += 1;
+                    match after_open.find(close) {
+                        Some(p) => {
+                            let close_at = start_b + open.len() + p + close.len();
+                            tokens.push(Token::new(start_b, close_at, TokenKind::Comment));
+                            while i < chars.len() && chars[i].0 < close_at {
+                                i += 1;
+                            }
+                            continue;
+                        }
+                        None => {
+                            tokens.push(Token::new(start_b, end_byte, TokenKind::Comment));
+                            return (tokens, true);
+                        }
                     }
-                    continue;
                 }
             }
 
@@ -399,7 +434,7 @@ impl Highlighter for SpecHighlighter {
             i += 1;
         }
 
-        tokens
+        (tokens, false)
     }
 }
 
@@ -448,6 +483,25 @@ impl Registry {
             Some(h) => h.highlight_line(line),
             None => Vec::new(),
         }
+    }
+
+    /// Stateful highlight carrying block-comment state across lines. Returns the
+    /// tokens and whether the next line starts inside a block comment.
+    pub fn highlight_stateful(&self, lang: Language, line: &str, in_block: bool) -> (Vec<Token>, bool) {
+        match self.get(lang) {
+            Some(h) => h.highlight_line_stateful(line, in_block),
+            None => (Vec::new(), false),
+        }
+    }
+
+    /// Compute whether the line at `row` begins inside a block comment, by
+    /// folding state from the top of the buffer.
+    pub fn block_state_at(&self, lang: Language, lines: &[String], row: usize) -> bool {
+        let mut in_block = false;
+        for line in lines.iter().take(row) {
+            in_block = self.highlight_stateful(lang, line, in_block).1;
+        }
+        in_block
     }
 }
 
@@ -527,6 +581,49 @@ mod tests {
         ] {
             assert!(r.get(lang).is_some(), "missing highlighter for {lang:?}");
         }
+    }
+
+    #[test]
+    fn block_comment_spans_lines() {
+        let r = Registry::with_builtins();
+        // Opening without a closer leaves the next line in-block.
+        let (toks, in_block) = r.highlight_stateful(Language::Rust, "let x = 1; /* start", false);
+        assert!(in_block);
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment));
+
+        // A fully-commented middle line stays in-block.
+        let (mid, still) = r.highlight_stateful(Language::Rust, "still comment", true);
+        assert!(still);
+        assert_eq!(mid.len(), 1);
+        assert_eq!(mid[0].kind, TokenKind::Comment);
+
+        // The closer ends the block; code after it is highlighted again.
+        let (end, done) = r.highlight_stateful(Language::Rust, "done */ let y = 2;", true);
+        assert!(!done);
+        assert!(end.iter().any(|t| t.kind == TokenKind::Comment));
+        assert!(end.iter().any(|t| t.kind == TokenKind::Keyword)); // `let`
+    }
+
+    #[test]
+    fn block_state_at_folds_from_top() {
+        let r = Registry::with_builtins();
+        let lines: Vec<String> = ["code /* open", "inside", "close */ code", "after"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert!(!r.block_state_at(Language::Rust, &lines, 0)); // line 0 not in block
+        assert!(r.block_state_at(Language::Rust, &lines, 1)); // line 1 inside
+        assert!(r.block_state_at(Language::Rust, &lines, 2)); // line 2 starts inside
+        assert!(!r.block_state_at(Language::Rust, &lines, 3)); // line 3 after close
+    }
+
+    #[test]
+    fn single_line_block_comment_still_works() {
+        let r = Registry::with_builtins();
+        let (toks, in_block) = r.highlight_stateful(Language::Rust, "a /* c */ let b", false);
+        assert!(!in_block);
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment));
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword));
     }
 
     #[test]

@@ -131,7 +131,9 @@ then tokenized and color-coded:
 | Z80 assembly          | `.z80`, `.asm`, `.s`                |
 
 A generic `.sql` file can be pinned to a dialect with a first-line hint such as
-`-- dialect: trino`, or at runtime with `:set ft=snowflake`.
+`-- dialect: trino`, or at runtime with `:set ft=snowflake`. Block comments
+(`/* … */`) are tracked across line boundaries, so multi-line comments stay
+correctly colored even when scrolled.
 
 ### Accessibility & navigation
 - **High-contrast theme** (`:theme high-contrast`) — pure black/white chrome with
@@ -204,7 +206,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **106 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **109 tests** across buffer, editor, syntax, themes, commands,
 config, plugins, modes, and UI layout.
 
 ---
@@ -212,7 +214,7 @@ config, plugins, modes, and UI layout.
 ## Roadmap
 
 - Regex support for `:s` (currently literal matching)
-- Multi-line syntax state (block comments/strings spanning lines)
+- Multi-line string highlighting (block comments spanning lines ✅ done)
 - Split windows / multiple buffers & tabs
 - User-defined key mappings in `~/.rvimrc` (config file loading ✅ done)
 - Registers (named), macros (`q`), marks
