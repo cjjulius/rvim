@@ -59,7 +59,12 @@ pub struct Editor {
     pending_count: Option<usize>,
     pending_op: Option<char>,
     pending_replace: bool,
+    pending_find: Option<char>,
+    last_find: Option<(char, char)>,
 }
+
+/// Spaces inserted/removed by the `>>` / `<<` shift operators.
+const SHIFT_WIDTH: usize = 4;
 
 impl Editor {
     /// A fresh editor over an empty scratch buffer.
@@ -84,6 +89,8 @@ impl Editor {
             pending_count: None,
             pending_op: None,
             pending_replace: false,
+            pending_find: None,
+            last_find: None,
         }
     }
 
@@ -343,6 +350,17 @@ impl Editor {
             return Action::None;
         }
 
+        // Pending `f`/`F`/`t`/`T` find-char target.
+        if let Some(cmd) = self.pending_find.take() {
+            if let KeyCode::Char(c) = key.code {
+                self.do_find(cmd, c);
+                self.last_find = Some((cmd, c));
+            }
+            self.clamp_cursor(false);
+            self.scroll_into_view();
+            return Action::None;
+        }
+
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         if ctrl {
             match key.code {
@@ -396,6 +414,13 @@ impl Editor {
             KeyCode::Char('^') => self.move_first_nonblank(),
             KeyCode::Char('w') => self.move_word_forward(count),
             KeyCode::Char('b') => self.move_word_backward(count),
+            KeyCode::Char('e') => self.move_word_end(),
+            KeyCode::Char('f') => self.pending_find = Some('f'),
+            KeyCode::Char('F') => self.pending_find = Some('F'),
+            KeyCode::Char('t') => self.pending_find = Some('t'),
+            KeyCode::Char('T') => self.pending_find = Some('T'),
+            KeyCode::Char(';') => self.repeat_find(false),
+            KeyCode::Char(',') => self.repeat_find(true),
             KeyCode::Char('G') => self.goto_line_or_end(count),
             KeyCode::Char('g') => self.pending_op = Some('g'),
             KeyCode::Char('d') => {
@@ -422,6 +447,25 @@ impl Editor {
             }
             KeyCode::Char('x') => self.delete_char_under(count),
             KeyCode::Char('r') => self.pending_replace = true,
+            KeyCode::Char('D') => self.delete_to_eol(),
+            KeyCode::Char('C') => self.change_to_eol(),
+            KeyCode::Char('s') => self.substitute_char(),
+            KeyCode::Char('S') => self.substitute_line(),
+            KeyCode::Char('~') => self.toggle_case(),
+            KeyCode::Char('>') => {
+                if self.mode.is_visual() {
+                    self.shift_selection(true);
+                } else {
+                    self.pending_op = Some('>');
+                }
+            }
+            KeyCode::Char('<') => {
+                if self.mode.is_visual() {
+                    self.shift_selection(false);
+                } else {
+                    self.pending_op = Some('<');
+                }
+            }
             KeyCode::Char('i') => self.enter_insert_here(),
             KeyCode::Char('a') => {
                 self.move_right(1, true);
@@ -503,6 +547,16 @@ impl Editor {
                 self.enter_insert_here();
             }
             ('y', KeyCode::Char('y')) => self.yank_line_op(),
+            ('>', KeyCode::Char('>')) => {
+                self.checkpoint();
+                self.indent_line(self.cursor.row);
+                self.move_first_nonblank();
+            }
+            ('<', KeyCode::Char('<')) => {
+                self.checkpoint();
+                self.dedent_line(self.cursor.row);
+                self.move_first_nonblank();
+            }
             _ => {}
         }
         self.clamp_cursor(false);
@@ -605,6 +659,174 @@ impl Editor {
                 self.cursor.col = col;
             }
         }
+    }
+
+    fn move_word_end(&mut self) {
+        let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+        let len = chars.len();
+        let mut i = self.cursor.col + 1;
+        while i < len && chars[i].is_whitespace() {
+            i += 1;
+        }
+        if i < len {
+            let class = Self::char_class(chars[i]);
+            while i + 1 < len && Self::char_class(chars[i + 1]) == class {
+                i += 1;
+            }
+            self.cursor.col = i;
+        }
+    }
+
+    fn do_find(&mut self, cmd: char, target: char) {
+        let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+        let col = self.cursor.col;
+        match cmd {
+            'f' => {
+                if let Some(i) = (col + 1..chars.len()).find(|&i| chars[i] == target) {
+                    self.cursor.col = i;
+                }
+            }
+            'F' => {
+                if let Some(i) = (0..col).rev().find(|&i| chars[i] == target) {
+                    self.cursor.col = i;
+                }
+            }
+            't' => {
+                if let Some(i) = (col + 1..chars.len()).find(|&i| chars[i] == target) {
+                    self.cursor.col = i.saturating_sub(1);
+                }
+            }
+            'T' => {
+                if let Some(i) = (0..col).rev().find(|&i| chars[i] == target) {
+                    self.cursor.col = i + 1;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn repeat_find(&mut self, reverse: bool) {
+        let Some((cmd, target)) = self.last_find else {
+            self.message = "No previous f/t search".into();
+            return;
+        };
+        let effective = if reverse {
+            match cmd {
+                'f' => 'F',
+                'F' => 'f',
+                't' => 'T',
+                'T' => 't',
+                other => other,
+            }
+        } else {
+            cmd
+        };
+        self.do_find(effective, target);
+        self.clamp_cursor(false);
+    }
+
+    fn toggle_case(&mut self) {
+        let line = self.buffer.line(self.cursor.row).unwrap_or("");
+        let Some(ch) = line.chars().nth(self.cursor.col) else {
+            return;
+        };
+        let toggled: String = if ch.is_uppercase() {
+            ch.to_lowercase().collect()
+        } else if ch.is_lowercase() {
+            ch.to_uppercase().collect()
+        } else {
+            return; // non-alphabetic: no change, no cursor move
+        };
+        self.checkpoint();
+        // Handle the (rare) case where case change alters char count.
+        if toggled.chars().count() == 1 {
+            self.buffer.replace_char(self.cursor, toggled.chars().next().unwrap());
+        } else {
+            self.buffer.delete_char(self.cursor);
+            self.buffer.insert_str(self.cursor, &toggled);
+        }
+        self.move_right(1, false);
+    }
+
+    fn change_to_eol(&mut self) {
+        self.checkpoint();
+        let line = self.buffer.line(self.cursor.row).unwrap_or("").to_string();
+        let byte = line
+            .char_indices()
+            .nth(self.cursor.col)
+            .map(|(i, _)| i)
+            .unwrap_or(line.len());
+        self.register = Register {
+            text: line[byte..].to_string(),
+            linewise: false,
+        };
+        self.buffer.set_line(self.cursor.row, line[..byte].to_string());
+        self.mode = Mode::Insert;
+    }
+
+    fn substitute_char(&mut self) {
+        if self.cur_len() == 0 {
+            self.enter_insert_here();
+            return;
+        }
+        self.checkpoint();
+        self.buffer.delete_char(self.cursor);
+        self.mode = Mode::Insert;
+    }
+
+    fn substitute_line(&mut self) {
+        self.checkpoint();
+        let indent = self.leading_indent(self.cursor.row);
+        self.buffer.set_line(self.cursor.row, indent.clone());
+        self.cursor.col = indent.chars().count();
+        self.mode = Mode::Insert;
+    }
+
+    fn indent_line(&mut self, row: usize) {
+        let line = self.buffer.line(row).unwrap_or("").to_string();
+        self.buffer.set_line(row, format!("{}{line}", " ".repeat(SHIFT_WIDTH)));
+    }
+
+    fn dedent_line(&mut self, row: usize) {
+        let line = self.buffer.line(row).unwrap_or("");
+        let mut removed = 0;
+        let new: String = {
+            let mut chars = line.chars().peekable();
+            // Remove up to SHIFT_WIDTH leading spaces, or a single leading tab.
+            while removed < SHIFT_WIDTH {
+                match chars.peek() {
+                    Some(' ') => {
+                        chars.next();
+                        removed += 1;
+                    }
+                    Some('\t') if removed == 0 => {
+                        chars.next();
+                        removed += SHIFT_WIDTH;
+                    }
+                    _ => break,
+                }
+            }
+            chars.collect()
+        };
+        if removed > 0 {
+            self.buffer.set_line(row, new);
+        }
+    }
+
+    fn shift_selection(&mut self, indent: bool) {
+        if let Some((start, end)) = self.selection() {
+            self.checkpoint();
+            for row in start.row..=end.row {
+                if indent {
+                    self.indent_line(row);
+                } else {
+                    self.dedent_line(row);
+                }
+            }
+            self.cursor.row = start.row;
+            self.move_first_nonblank();
+        }
+        self.mode = Mode::Normal;
     }
 
     fn move_word_backward(&mut self, count: usize) {
@@ -1164,6 +1386,117 @@ mod tests {
         ed.handle_key(key('r'));
         ed.handle_key(key('b'));
         assert_eq!(ed.buffer.line(0), Some("bat"));
+    }
+
+    #[test]
+    fn find_char_f_and_t() {
+        let mut ed = ed_with("hello world");
+        ed.handle_key(key('f'));
+        ed.handle_key(key('o'));
+        assert_eq!(ed.cursor.col, 4);
+        let mut ed2 = ed_with("hello world");
+        ed2.handle_key(key('t'));
+        ed2.handle_key(key('o'));
+        assert_eq!(ed2.cursor.col, 3);
+    }
+
+    #[test]
+    fn find_char_f_backward() {
+        let mut ed = ed_with("hello");
+        ed.handle_key(key('$')); // col 4 ('o')
+        ed.handle_key(key('F'));
+        ed.handle_key(key('l'));
+        assert_eq!(ed.cursor.col, 3);
+    }
+
+    #[test]
+    fn repeat_find_semicolon_and_comma() {
+        let mut ed = ed_with("o.o.o");
+        ed.handle_key(key('f'));
+        ed.handle_key(key('o')); // col 2
+        assert_eq!(ed.cursor.col, 2);
+        ed.handle_key(key(';')); // next o -> col 4
+        assert_eq!(ed.cursor.col, 4);
+        ed.handle_key(key(',')); // reverse -> col 2
+        assert_eq!(ed.cursor.col, 2);
+    }
+
+    #[test]
+    fn word_end_motion() {
+        let mut ed = ed_with("foo bar");
+        ed.handle_key(key('e'));
+        assert_eq!(ed.cursor.col, 2);
+        ed.handle_key(key('e'));
+        assert_eq!(ed.cursor.col, 6);
+    }
+
+    #[test]
+    fn delete_to_eol_with_d() {
+        let mut ed = ed_with("hello world");
+        ed.handle_key(key('5'));
+        ed.handle_key(key('l')); // col 5
+        ed.handle_key(key('D'));
+        assert_eq!(ed.buffer.line(0), Some("hello"));
+    }
+
+    #[test]
+    fn change_to_eol_with_c() {
+        let mut ed = ed_with("hello world");
+        ed.handle_key(key('5'));
+        ed.handle_key(key('l')); // col 5
+        ed.handle_key(key('C'));
+        assert_eq!(ed.mode, Mode::Insert);
+        ed.handle_key(key('!'));
+        assert_eq!(ed.buffer.line(0), Some("hello!"));
+    }
+
+    #[test]
+    fn toggle_case_tilde() {
+        let mut ed = ed_with("aBc");
+        ed.handle_key(key('~'));
+        assert_eq!(ed.buffer.line(0), Some("ABc"));
+        assert_eq!(ed.cursor.col, 1);
+    }
+
+    #[test]
+    fn indent_and_dedent_line() {
+        let mut ed = ed_with("code");
+        ed.handle_key(key('>'));
+        ed.handle_key(key('>'));
+        assert_eq!(ed.buffer.line(0), Some("    code"));
+        ed.handle_key(key('<'));
+        ed.handle_key(key('<'));
+        assert_eq!(ed.buffer.line(0), Some("code"));
+    }
+
+    #[test]
+    fn visual_line_indent() {
+        let mut ed = ed_with("a\nb\nc");
+        ed.handle_key(key('V'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('>'));
+        assert_eq!(ed.buffer.line(0), Some("    a"));
+        assert_eq!(ed.buffer.line(1), Some("    b"));
+        assert_eq!(ed.buffer.line(2), Some("c"));
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn substitute_char_s() {
+        let mut ed = ed_with("cat");
+        ed.handle_key(key('s'));
+        assert_eq!(ed.mode, Mode::Insert);
+        ed.handle_key(key('b'));
+        assert_eq!(ed.buffer.line(0), Some("bat"));
+    }
+
+    #[test]
+    fn substitute_line_s_keeps_indent() {
+        let mut ed = ed_with("    keep");
+        ed.handle_key(key('S'));
+        assert_eq!(ed.mode, Mode::Insert);
+        ed.handle_key(key('x'));
+        assert_eq!(ed.buffer.line(0), Some("    x"));
     }
 
     #[test]
