@@ -5,7 +5,7 @@
 use crate::buffer::Position;
 use crate::editor::Editor;
 use crate::mode::Mode;
-use crate::syntax::{Registry, Token};
+use crate::syntax::{Registry, Token, TokenKind};
 use crate::theme::Theme;
 use crossterm::cursor::{Hide, MoveTo, Show};
 use crossterm::style::{
@@ -69,6 +69,23 @@ pub fn gutter_label(row: usize, cursor_row: usize, relative: bool, width: usize)
     } else {
         format!("{s:>field$} ")
     }
+}
+
+/// Map each character (given as `(byte_offset, char)`) to the token kind that
+/// covers it, in a single pass. Assumes `tokens` are ordered by `start` and
+/// non-overlapping (as emitted by the tokenizer) — O(chars + tokens).
+pub fn char_token_kinds(chars: &[(usize, char)], tokens: &[Token]) -> Vec<Option<TokenKind>> {
+    let mut kinds = vec![None; chars.len()];
+    let mut ti = 0usize;
+    for (ci, (b, _)) in chars.iter().enumerate() {
+        while ti < tokens.len() && tokens[ti].end <= *b {
+            ti += 1;
+        }
+        if ti < tokens.len() && tokens[ti].start <= *b {
+            kinds[ci] = Some(tokens[ti].kind);
+        }
+    }
+    kinds
 }
 
 /// Whether `(row, col)` lies within the (inclusive) selection.
@@ -213,14 +230,12 @@ fn draw_text_line(
 ) -> io::Result<()> {
     let chars: Vec<(usize, char)> = line.char_indices().collect();
 
-    // Per-char foreground based on tokens.
+    // Per-char foreground based on tokens (single pass).
+    let kinds = char_token_kinds(&chars, tokens);
     let mut fg = vec![theme.fg; chars.len()];
-    for tok in tokens {
-        let color = theme.token_color(tok.kind);
-        for (ci, (b, _)) in chars.iter().enumerate() {
-            if *b >= tok.start && *b < tok.end {
-                fg[ci] = color;
-            }
+    for (ci, kind) in kinds.iter().enumerate() {
+        if let Some(k) = kind {
+            fg[ci] = theme.token_color(*k);
         }
     }
 
@@ -360,6 +375,29 @@ mod tests {
         assert_eq!(gutter_width(1000, true), 5); // 4 digits + 1
         assert_eq!(gutter_width(100000, true), 7); // 6 digits + 1
         assert_eq!(gutter_width(42, false), 0);
+    }
+
+    #[test]
+    fn char_token_kinds_maps_and_leaves_gaps() {
+        // "ab cd": token covers bytes 0..2 (Keyword) and 3..5 (Number).
+        let chars: Vec<(usize, char)> = "ab cd".char_indices().collect();
+        let tokens = vec![
+            Token::new(0, 2, TokenKind::Keyword),
+            Token::new(3, 5, TokenKind::Number),
+        ];
+        let kinds = char_token_kinds(&chars, tokens.as_slice());
+        assert_eq!(kinds[0], Some(TokenKind::Keyword));
+        assert_eq!(kinds[1], Some(TokenKind::Keyword));
+        assert_eq!(kinds[2], None); // the space
+        assert_eq!(kinds[3], Some(TokenKind::Number));
+        assert_eq!(kinds[4], Some(TokenKind::Number));
+    }
+
+    #[test]
+    fn char_token_kinds_empty_tokens() {
+        let chars: Vec<(usize, char)> = "abc".char_indices().collect();
+        let kinds = char_token_kinds(&chars, &[]);
+        assert_eq!(kinds, vec![None, None, None]);
     }
 
     #[test]

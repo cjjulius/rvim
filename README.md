@@ -63,7 +63,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 ### Modal editing (vim-style)
 - **Modes:** Normal, Insert, Visual, Visual-Line, Command.
 - **Motions:** `h j k l`, arrows, `w`/`b`/`e` (word), `0`/`^`/`$`, `gg`/`G`,
-  `<n>G`, `f`/`F`/`t`/`T`+`;`/`,` (find char on line), `Ctrl-d`/`Ctrl-u` (half-page).
+  `<n>G`, `f`/`F`/`t`/`T`+`;`/`,` (find char on line), `%` (matching bracket),
+  `Ctrl-d`/`Ctrl-u` (half-page).
 - **Editing:** `i a I A o O`, `x`, `r<c>`, `~` (toggle case), `s`/`S`,
   `dd`/`dw`/`d$`/`D`, `cc`/`cw`/`C`, `yy`, `p`/`P`, `J` (join),
   `>>`/`<<` (indent/dedent, also on a visual selection), counts (e.g. `5j`).
@@ -206,7 +207,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **109 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **115 tests** across buffer, editor, syntax, themes, commands,
 config, plugins, modes, and UI layout.
 
 ---
