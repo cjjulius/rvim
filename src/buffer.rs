@@ -34,6 +34,9 @@ pub struct Buffer {
     lines: Vec<String>,
     path: Option<PathBuf>,
     dirty: bool,
+    /// Monotonic counter bumped on every content mutation; used to detect that
+    /// a change occurred (e.g. for the `.` repeat command).
+    revision: u64,
     undo_stack: Vec<Snapshot>,
     redo_stack: Vec<Snapshot>,
 }
@@ -51,6 +54,7 @@ impl Buffer {
             lines: vec![String::new()],
             path: None,
             dirty: false,
+            revision: 0,
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
         }
@@ -71,6 +75,7 @@ impl Buffer {
             lines,
             path: None,
             dirty: false,
+            revision: 0,
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
         }
@@ -104,6 +109,17 @@ impl Buffer {
     /// Whether there are unsaved changes.
     pub fn is_dirty(&self) -> bool {
         self.dirty
+    }
+
+    /// The current content revision (bumped on every mutation).
+    pub fn revision(&self) -> u64 {
+        self.revision
+    }
+
+    /// Mark the buffer modified and bump the revision counter.
+    fn touch(&mut self) {
+        self.dirty = true;
+        self.revision = self.revision.wrapping_add(1);
     }
 
     /// Number of lines (always >= 1).
@@ -176,7 +192,7 @@ impl Buffer {
             cursor: current_cursor,
         });
         self.lines = snap.lines;
-        self.dirty = true;
+        self.touch();
         Some(snap.cursor)
     }
 
@@ -188,7 +204,7 @@ impl Buffer {
             cursor: current_cursor,
         });
         self.lines = snap.lines;
-        self.dirty = true;
+        self.touch();
         Some(snap.cursor)
     }
 
@@ -206,7 +222,7 @@ impl Buffer {
         if let Some(line) = self.lines.get_mut(pos.row) {
             let bi = Self::byte_index(line, pos.col);
             line.insert(bi, ch);
-            self.dirty = true;
+            self.touch();
         }
     }
 
@@ -215,7 +231,7 @@ impl Buffer {
         if let Some(line) = self.lines.get_mut(pos.row) {
             let bi = Self::byte_index(line, pos.col);
             line.insert_str(bi, text);
-            self.dirty = true;
+            self.touch();
         }
     }
 
@@ -228,7 +244,7 @@ impl Buffer {
         }
         let ch = line[bi..].chars().next()?;
         line.remove(bi);
-        self.dirty = true;
+        self.touch();
         Some(ch)
     }
 
@@ -240,7 +256,7 @@ impl Buffer {
         let bi = Self::byte_index(&self.lines[pos.row], pos.col);
         let rest = self.lines[pos.row].split_off(bi);
         self.lines.insert(pos.row + 1, rest);
-        self.dirty = true;
+        self.touch();
     }
 
     /// Join `row + 1` onto the end of `row` (with a single space, vim-style),
@@ -256,7 +272,7 @@ impl Buffer {
             cur.push(' ');
         }
         cur.push_str(trimmed);
-        self.dirty = true;
+        self.touch();
         true
     }
 
@@ -264,7 +280,7 @@ impl Buffer {
     pub fn insert_line(&mut self, row: usize, text: impl Into<String>) {
         let row = row.min(self.lines.len());
         self.lines.insert(row, text.into());
-        self.dirty = true;
+        self.touch();
     }
 
     /// Delete a whole line, returning its contents. The buffer always keeps at
@@ -277,7 +293,7 @@ impl Buffer {
         if self.lines.is_empty() {
             self.lines.push(String::new());
         }
-        self.dirty = true;
+        self.touch();
         Some(removed)
     }
 
@@ -289,7 +305,7 @@ impl Buffer {
             if bi < line.len() {
                 let removed_len = line[bi..].chars().next().map(|c| c.len_utf8()).unwrap_or(0);
                 line.replace_range(bi..bi + removed_len, &ch.to_string());
-                self.dirty = true;
+                self.touch();
             }
         }
     }
@@ -298,7 +314,7 @@ impl Buffer {
     pub fn set_line(&mut self, row: usize, text: impl Into<String>) {
         if let Some(line) = self.lines.get_mut(row) {
             *line = text.into();
-            self.dirty = true;
+            self.touch();
         }
     }
 }
