@@ -78,6 +78,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 - **Text objects:** `d`/`y`/`c` + `i`/`a` + object — `iw`/`aw` (word),
   `i(` `i{` `i[` `i<` and `i"` `i'` `` i` `` (inner), `a(` … (around, includes
   the delimiters). E.g. `diw`, `ci(`, `yi"`, `da{`.
+- **Case operators:** `gu`/`gU`/`g~` (lower/upper/toggle) over a motion, a text
+  object, or doubled for the whole line — `guw`, `gUiw`, `g~$`, `guu`.
 - **Registers:** `"a`–`"z` prefix any yank/delete/paste to use a named register
   (e.g. `"ayy` … `"ap`); the unnamed register is used otherwise.
 - **Marks:** `m<letter>` sets a mark, `` `<letter> `` jumps to it (exact),
@@ -248,7 +250,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **165 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **169 tests** across buffer, editor, syntax, themes, commands,
 config, plugins, modes, and UI layout.
 
 ---
