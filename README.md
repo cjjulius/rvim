@@ -98,8 +98,9 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 - **Visual mode:** `v`/`V` then `d`/`y`/`c`, `>`/`<` (indent), and
   `u`/`U`/`~` (lower/upper/toggle case of the selection).
 - **Search:** `/pattern`, `?pattern`, `n`/`N` (wraps around); patterns are
-  **regular expressions** (e.g. `/\bfn\s+\w+`). All matches are highlighted —
-  clear the highlight with `:noh` (`:set hlsearch`/`nohlsearch`).
+  **regular expressions** (e.g. `/\bfn\s+\w+`). `*`/`#` search the word under the
+  cursor (whole word) forward/back; `g*`/`g#` do so as a substring. All matches
+  are highlighted — clear with `:noh` (`:set hlsearch`/`nohlsearch`).
 
 ### Multiple buffers
 Open several files and switch between them:
@@ -257,7 +258,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **179 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **183 tests** across buffer, editor, syntax, themes, commands,
 config, pattern, plugins, modes, and UI layout.
 
 ---
