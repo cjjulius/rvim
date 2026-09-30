@@ -500,8 +500,8 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          EDITING\n\
          \tx                  delete char        r<c>  replace char\n\
          \t~                  toggle case        s / S  subst char / line\n\
-         \tdd / dw / d$ / D   delete line/word/to-eol\n\
-         \tcc / cw / C        change line/word/to-eol\n\
+         \td/y/c + motion     e.g. dw d$ d0 de dj dG yw y$ cc  (dd/yy/cc)\n\
+         \tD / C              delete / change to end of line\n\
          \t>> / <<            indent / dedent (also in visual mode)\n\
          \tyy / p / P         yank line / paste after / before\n\
          \t\"a yy / \"a p       use named register a (any a-z)\n\

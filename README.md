@@ -68,8 +68,11 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 - **Scrolling:** `zz`/`zt`/`zb` (center/top/bottom the current line),
   `Ctrl-e`/`Ctrl-y` (scroll one line).
 - **Editing:** `i a I A o O`, `x`, `r<c>`, `~` (toggle case), `s`/`S`,
-  `dd`/`dw`/`d$`/`D`, `cc`/`cw`/`C`, `yy`, `p`/`P`, `J` (join),
-  `>>`/`<<` (indent/dedent, also on a visual selection), counts (e.g. `5j`).
+  `D`/`C`, `p`/`P`, `J` (join), `>>`/`<<` (indent/dedent, also on a visual
+  selection), counts (e.g. `5j`).
+- **Operators + motions:** `d`, `y`, `c` compose with motions — `dw`/`yw`/`cw`,
+  `d$`/`y$`, `d0`/`y0`, `de`, `dl`/`dh`, `dj`/`dk` (line-wise), `dG`/`yG`/`cG`
+  (to end of file), and the doubled forms `dd`/`yy`/`cc`.
 - **Registers:** `"a`–`"z` prefix any yank/delete/paste to use a named register
   (e.g. `"ayy` … `"ap`); the unnamed register is used otherwise.
 - **Insert mode:** autoindent on Enter (`:set autoindent`/`noai`), `Ctrl-w`
@@ -233,7 +236,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **140 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **147 tests** across buffer, editor, syntax, themes, commands,
 config, plugins, modes, and UI layout.
 
 ---
