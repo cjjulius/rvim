@@ -64,7 +64,9 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 - **Modes:** Normal, Insert, Visual, Visual-Line, Command.
 - **Motions:** `h j k l`, arrows, `w`/`b`/`e` (word), `0`/`^`/`$`, `gg`/`G`,
   `<n>G`, `f`/`F`/`t`/`T`+`;`/`,` (find char on line), `%` (matching bracket),
-  `Ctrl-d`/`Ctrl-u` (half-page).
+  `H`/`M`/`L` (top/middle/bottom of screen), `Ctrl-d`/`Ctrl-u` (half-page).
+- **Scrolling:** `zz`/`zt`/`zb` (center/top/bottom the current line),
+  `Ctrl-e`/`Ctrl-y` (scroll one line).
 - **Editing:** `i a I A o O`, `x`, `r<c>`, `~` (toggle case), `s`/`S`,
   `dd`/`dw`/`d$`/`D`, `cc`/`cw`/`C`, `yy`, `p`/`P`, `J` (join),
   `>>`/`<<` (indent/dedent, also on a visual selection), counts (e.g. `5j`).
@@ -208,7 +210,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **118 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **122 tests** across buffer, editor, syntax, themes, commands,
 config, plugins, modes, and UI layout.
 
 ---
