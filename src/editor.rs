@@ -8,6 +8,7 @@
 use crate::buffer::{Buffer, Position};
 use crate::command::{LineAddr, SubRange, SubstituteSpec};
 use crate::mode::Mode;
+use std::collections::HashMap;
 use crate::syntax::{detect_language, Language};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -57,6 +58,9 @@ pub struct Editor {
 
     line_kind: LineKind,
     register: Register,
+    registers: HashMap<char, Register>,
+    pending_register: Option<char>,
+    expect_register: bool,
     visual_anchor: Position,
     last_search: String,
     pending_count: Option<usize>,
@@ -88,6 +92,9 @@ impl Editor {
             view_cols: 80,
             line_kind: LineKind::Ex,
             register: Register::default(),
+            registers: HashMap::new(),
+            pending_register: None,
+            expect_register: false,
             visual_anchor: Position::default(),
             last_search: String::new(),
             pending_count: None,
@@ -395,6 +402,15 @@ impl Editor {
             return Action::None;
         }
 
+        // Register name after `"` (e.g. `"a`).
+        if self.expect_register {
+            self.expect_register = false;
+            if let KeyCode::Char(c) = key.code {
+                self.pending_register = Some(c.to_ascii_lowercase());
+            }
+            return Action::None;
+        }
+
         // Pending `f`/`F`/`t`/`T` find-char target.
         if let Some(cmd) = self.pending_find.take() {
             if let KeyCode::Char(c) = key.code {
@@ -479,6 +495,7 @@ impl Editor {
                     self.cursor = p;
                 }
             }
+            KeyCode::Char('"') => self.expect_register = true,
             KeyCode::Char('G') => self.goto_line_or_end(count),
             KeyCode::Char('g') => self.pending_op = Some('g'),
             KeyCode::Char('z') => self.pending_op = Some('z'),
@@ -911,10 +928,7 @@ impl Editor {
             .nth(self.cursor.col)
             .map(|(i, _)| i)
             .unwrap_or(line.len());
-        self.register = Register {
-            text: line[byte..].to_string(),
-            linewise: false,
-        };
+        self.store_register(line[byte..].to_string(), false);
         self.buffer.set_line(self.cursor.row, line[..byte].to_string());
         self.mode = Mode::Insert;
     }
@@ -1054,10 +1068,7 @@ impl Editor {
                 removed.push(c);
             }
         }
-        self.register = Register {
-            text: removed,
-            linewise: false,
-        };
+        self.store_register(removed, false);
         self.clamp_cursor(false);
     }
 
@@ -1070,10 +1081,7 @@ impl Editor {
             .map(|(i, _)| i)
             .unwrap_or(line.len());
         let kept = line[..byte].to_string();
-        self.register = Register {
-            text: line[byte..].to_string(),
-            linewise: false,
-        };
+        self.store_register(line[byte..].to_string(), false);
         self.buffer.set_line(self.cursor.row, kept);
         self.clamp_cursor(false);
     }
@@ -1081,10 +1089,7 @@ impl Editor {
     fn delete_line_op(&mut self) {
         self.checkpoint();
         let removed = self.buffer.delete_line(self.cursor.row).unwrap_or_default();
-        self.register = Register {
-            text: removed,
-            linewise: true,
-        };
+        self.store_register(removed, true);
         if self.cursor.row >= self.buffer.line_count() {
             self.cursor.row = self.buffer.line_count().saturating_sub(1);
         }
@@ -1108,35 +1113,50 @@ impl Editor {
         }
         let removed: String = chars[start..end].iter().collect();
         let kept: String = chars[..start].iter().chain(&chars[end..]).collect();
-        self.register = Register {
-            text: removed,
-            linewise: false,
-        };
+        self.store_register(removed, false);
         self.buffer.set_line(self.cursor.row, kept);
         self.clamp_cursor(false);
     }
 
     fn yank_line_op(&mut self) {
         let line = self.buffer.line(self.cursor.row).unwrap_or("").to_string();
-        self.register = Register {
-            text: line,
-            linewise: true,
-        };
+        self.store_register(line, true);
         self.message = "1 line yanked".into();
     }
 
+    /// Store text into the unnamed register, and into a named register too if
+    /// one is pending (`"a…`). Clears the pending register.
+    fn store_register(&mut self, text: String, linewise: bool) {
+        let reg = Register { text, linewise };
+        if let Some(name) = self.pending_register.take() {
+            self.registers.insert(name, reg.clone());
+        }
+        self.register = reg;
+    }
+
+    /// The register to read for a paste: the pending named one if set, else the
+    /// unnamed register. Clears the pending register.
+    fn active_register(&mut self) -> Register {
+        if let Some(name) = self.pending_register.take() {
+            self.registers.get(&name).cloned().unwrap_or_default()
+        } else {
+            self.register.clone()
+        }
+    }
+
     fn paste(&mut self, after: bool) {
-        if self.register.text.is_empty() && !self.register.linewise {
+        let reg = self.active_register();
+        if reg.text.is_empty() && !reg.linewise {
             return;
         }
         self.checkpoint();
-        if self.register.linewise {
+        if reg.linewise {
             let row = if after {
                 self.cursor.row + 1
             } else {
                 self.cursor.row
             };
-            self.buffer.insert_line(row, self.register.text.clone());
+            self.buffer.insert_line(row, reg.text.clone());
             self.cursor.row = row;
             self.move_first_nonblank();
         } else {
@@ -1144,8 +1164,8 @@ impl Editor {
             if after && self.cur_len() > 0 {
                 pos.col += 1;
             }
-            self.buffer.insert_str(pos, &self.register.text);
-            self.cursor.col = pos.col + self.register.text.chars().count().saturating_sub(1);
+            self.buffer.insert_str(pos, &reg.text);
+            self.cursor.col = pos.col + reg.text.chars().count().saturating_sub(1);
         }
         self.clamp_cursor(false);
     }
@@ -1228,10 +1248,8 @@ impl Editor {
     fn visual_yank(&mut self) {
         if let Some((start, end)) = self.selection() {
             let linewise = self.mode == Mode::VisualLine;
-            self.register = Register {
-                text: self.extract_range(start, end, linewise),
-                linewise,
-            };
+            let text = self.extract_range(start, end, linewise);
+            self.store_register(text, linewise);
         }
         self.mode = Mode::Normal;
     }
@@ -1240,10 +1258,8 @@ impl Editor {
         if let Some((start, end)) = self.selection() {
             let linewise = self.mode == Mode::VisualLine;
             self.checkpoint();
-            self.register = Register {
-                text: self.extract_range(start, end, linewise),
-                linewise,
-            };
+            let text = self.extract_range(start, end, linewise);
+            self.store_register(text, linewise);
             self.delete_range(start, end, linewise);
             self.cursor = if linewise {
                 Position::new(start.row.min(self.buffer.line_count().saturating_sub(1)), 0)
@@ -1694,6 +1710,43 @@ mod tests {
         }
         assert_eq!(ed.top, 5);
         assert_eq!(ed.cursor.row, 5);
+    }
+
+    #[test]
+    fn named_register_yank_and_paste() {
+        let mut ed = ed_with("alpha\nbeta\ngamma");
+        // Yank line 0 into register a.
+        ed.handle_key(key('"'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y'));
+        // Move down and paste from register a.
+        ed.handle_key(key('j'));
+        ed.handle_key(key('"'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(2), Some("alpha"));
+    }
+
+    #[test]
+    fn named_register_independent_from_unnamed() {
+        let mut ed = ed_with("keep\nother");
+        // Yank "keep" into register a.
+        ed.handle_key(key('"'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y'));
+        // Now yank "other" into the unnamed register.
+        ed.handle_key(key('j'));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y'));
+        // Unnamed paste yields "other"; register a still holds "keep".
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(2), Some("other"));
+        ed.handle_key(key('"'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(3), Some("keep"));
     }
 
     #[test]
