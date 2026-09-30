@@ -190,6 +190,16 @@ impl App {
                 self.editor.message = format!("rvim {}", crate::VERSION);
             }
             ExCommand::Goto(n) => self.editor.goto_line(n),
+            ExCommand::Substitute(spec) => {
+                let (subs, lines) = self.editor.substitute(&spec);
+                self.editor.message = if subs == 0 {
+                    format!("E486: Pattern not found: {}", spec.pattern)
+                } else {
+                    let s_p = if subs == 1 { "" } else { "s" };
+                    let l_p = if lines == 1 { "" } else { "s" };
+                    format!("{subs} substitution{s_p} on {lines} line{l_p}")
+                };
+            }
             ExCommand::Passthrough { name, args } => self.run_passthrough(&name, &args),
         }
     }
@@ -379,6 +389,25 @@ mod tests {
         assert!(!app.quit);
         app.run_ex("q!");
         assert!(app.quit);
+    }
+
+    #[test]
+    fn run_ex_substitute_whole_file() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("cat\ncat\ndog");
+        app.run_ex("%s/cat/COW/g");
+        assert_eq!(app.editor.buffer.line(0), Some("COW"));
+        assert_eq!(app.editor.buffer.line(1), Some("COW"));
+        assert_eq!(app.editor.buffer.line(2), Some("dog"));
+        assert!(app.editor.message.contains("2 substitutions"));
+    }
+
+    #[test]
+    fn run_ex_substitute_not_found_message() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("hello");
+        app.run_ex("s/zzz/x/");
+        assert!(app.editor.message.contains("Pattern not found"));
     }
 
     #[test]
