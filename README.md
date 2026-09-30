@@ -75,6 +75,9 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
   (to end of file), and the doubled forms `dd`/`yy`/`cc`.
 - **Counts:** prefix motions, operators and paste with a number — `5j`, `3dd`,
   `d3w`, `2d3w` (multiplied), `3p`.
+- **Text objects:** `d`/`y`/`c` + `i`/`a` + object — `iw`/`aw` (word),
+  `i(` `i{` `i[` `i<` and `i"` `i'` `` i` `` (inner), `a(` … (around, includes
+  the delimiters). E.g. `diw`, `ci(`, `yi"`, `da{`.
 - **Registers:** `"a`–`"z` prefix any yank/delete/paste to use a named register
   (e.g. `"ayy` … `"ap`); the unnamed register is used otherwise.
 - **Marks:** `m<letter>` sets a mark, `` `<letter> `` jumps to it (exact),
@@ -245,7 +248,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **160 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **165 tests** across buffer, editor, syntax, themes, commands,
 config, plugins, modes, and UI layout.
 
 ---
@@ -256,8 +259,8 @@ config, plugins, modes, and UI layout.
 - Multi-line string highlighting (block comments spanning lines ✅ done)
 - Split windows & tabs (multiple buffers ✅ done)
 - User-defined key mappings in `~/.rvimrc` (config file loading ✅ done)
-- Ex-commands inside replayed macros; text objects (` ciw`, `di(` )
-  (named registers ✅, marks ✅, macros ✅, `.` repeat ✅ done)
+- Ex-commands inside replayed macros; cross-line text objects
+  (named registers ✅, marks ✅, macros ✅, `.` repeat ✅, text objects ✅ done)
 - Richer mouse (drag-select), and a menu bar
 - More accessibility options (screen-reader hints, configurable font-agnostic cues)
 - Dynamic plugin loading
