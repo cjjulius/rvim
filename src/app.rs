@@ -198,6 +198,13 @@ impl App {
             ExCommand::ToggleNumbers(on) => {
                 self.editor.show_line_numbers = on;
             }
+            ExCommand::ToggleRelativeNumbers(on) => {
+                self.editor.relative_numbers = on;
+                // Relative numbers are only meaningful with the gutter shown.
+                if on {
+                    self.editor.show_line_numbers = true;
+                }
+            }
             ExCommand::SetFiletype(name) => match Language::from_name(&name) {
                 Some(lang) => {
                     self.editor.set_language(lang);
@@ -348,7 +355,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:w [file]  :q  :q!  :wq  :x   write / quit variants\n\
          \t:e <file>          open file\n\
          \t:theme <name>      themes: {themes}\n\
-         \t:set number|nonumber\n\
+         \t:set number|nonumber   :set relativenumber|nornu\n\
          \t:set ft=<lang>     rust tsql pgsql trino snowflake z80 sql\n\
          \t:set mouse|nomouse toggle mouse support\n\
          \t:{{n}}               jump to line n\n\
@@ -446,6 +453,25 @@ mod tests {
         assert!(app.want_mouse);
         app.run_ex("set nomouse");
         assert!(!app.want_mouse);
+    }
+
+    #[test]
+    fn run_ex_relativenumber_forces_gutter_on() {
+        let mut app = App::new();
+        app.run_ex("set nonumber");
+        assert!(!app.editor.show_line_numbers);
+        app.run_ex("set relativenumber");
+        assert!(app.editor.relative_numbers);
+        assert!(app.editor.show_line_numbers); // forced back on
+        app.run_ex("set nornu");
+        assert!(!app.editor.relative_numbers);
+    }
+
+    #[test]
+    fn run_ex_high_contrast_theme() {
+        let mut app = App::new();
+        app.run_ex("theme high-contrast");
+        assert_eq!(app.themes.current().name, "high-contrast");
     }
 
     #[test]

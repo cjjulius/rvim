@@ -50,11 +50,12 @@ pub struct ThemeRegistry {
 }
 
 impl ThemeRegistry {
-    /// Build a registry with the three starter themes: matrix, retrowave,
-    /// cobalt (matrix is the default / index 0).
+    /// Build a registry with the built-in themes (matrix is the default).
+    /// `high-contrast` is a colorblind-friendly, maximum-contrast accessibility
+    /// theme built on the Okabe–Ito palette.
     pub fn with_builtins() -> Self {
         Self {
-            themes: vec![matrix(), retrowave(), cobalt()],
+            themes: vec![matrix(), retrowave(), cobalt(), high_contrast()],
             current: 0,
         }
     }
@@ -211,6 +212,42 @@ pub fn cobalt() -> Theme {
     }
 }
 
+/// High-contrast accessibility theme — pure black/white with a colorblind-safe
+/// (Okabe–Ito) token palette for maximum legibility.
+pub fn high_contrast() -> Theme {
+    Theme {
+        name: "high-contrast".into(),
+        bg: rgb(0, 0, 0),
+        fg: rgb(255, 255, 255),
+        cursor_line_bg: rgb(40, 40, 40),
+        selection_bg: rgb(70, 70, 130),
+        gutter_bg: rgb(0, 0, 0),
+        gutter_fg: rgb(150, 150, 150),
+        current_line_nr_fg: rgb(255, 255, 255),
+        status_bg: rgb(255, 255, 255),
+        status_fg: rgb(0, 0, 0),
+        mode_bg: rgb(240, 228, 66),
+        mode_fg: rgb(0, 0, 0),
+        message_fg: rgb(255, 255, 255),
+        tokens: token_map(&[
+            (TokenKind::Keyword, rgb(240, 228, 66)),   // yellow
+            (TokenKind::Type, rgb(86, 180, 233)),      // sky blue
+            (TokenKind::Function, rgb(255, 255, 255)), // white
+            (TokenKind::Builtin, rgb(0, 200, 150)),    // bluish green
+            (TokenKind::String, rgb(230, 159, 0)),     // orange
+            (TokenKind::Char, rgb(230, 159, 0)),
+            (TokenKind::Number, rgb(230, 130, 190)),   // reddish purple
+            (TokenKind::Comment, rgb(160, 160, 160)),  // grey
+            (TokenKind::Operator, rgb(240, 228, 66)),
+            (TokenKind::Punctuation, rgb(210, 210, 210)),
+            (TokenKind::Preprocessor, rgb(230, 110, 40)), // vermillion
+            (TokenKind::Label, rgb(240, 228, 66)),
+            (TokenKind::Register, rgb(86, 180, 233)),
+            (TokenKind::Variable, rgb(230, 130, 190)),
+        ]),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -219,7 +256,18 @@ mod tests {
     fn registry_starts_on_matrix() {
         let r = ThemeRegistry::with_builtins();
         assert_eq!(r.current().name, "matrix");
-        assert_eq!(r.names(), vec!["matrix", "retrowave", "cobalt"]);
+        assert_eq!(
+            r.names(),
+            vec!["matrix", "retrowave", "cobalt", "high-contrast"]
+        );
+    }
+
+    #[test]
+    fn high_contrast_is_selectable() {
+        let mut r = ThemeRegistry::with_builtins();
+        assert!(r.set_current("high-contrast"));
+        assert_eq!(r.current().bg, rgb(0, 0, 0));
+        assert_eq!(r.current().fg, rgb(255, 255, 255));
     }
 
     #[test]
@@ -236,6 +284,7 @@ mod tests {
         let mut r = ThemeRegistry::with_builtins();
         assert_eq!(r.cycle(), "retrowave");
         assert_eq!(r.cycle(), "cobalt");
+        assert_eq!(r.cycle(), "high-contrast");
         assert_eq!(r.cycle(), "matrix");
     }
 

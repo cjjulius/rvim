@@ -46,6 +46,9 @@ pub struct Editor {
     pub message: String,
     pub cmdline: String,
     pub show_line_numbers: bool,
+    /// When true, non-current lines show their distance from the cursor
+    /// (hybrid: the current line still shows its absolute number).
+    pub relative_numbers: bool,
     pub view_rows: usize,
     pub view_cols: usize,
 
@@ -71,6 +74,7 @@ impl Editor {
             message: String::new(),
             cmdline: String::new(),
             show_line_numbers: true,
+            relative_numbers: false,
             view_rows: 24,
             view_cols: 80,
             line_kind: LineKind::Ex,

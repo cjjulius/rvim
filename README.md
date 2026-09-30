@@ -73,7 +73,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 ### Command line (ex commands)
 `:w [file]` · `:q` · `:q!` · `:wq` · `:x` · `:e <file>` · `:<n>` (goto line) ·
 `:s/pat/rep/[g]` (search & replace) · `:theme <name>` · `:set number|nonumber` ·
-`:set ft=<lang>` · `:set mouse|nomouse` · `:source <file>` · `:help` · `:version`
+`:set relativenumber|norelativenumber` · `:set ft=<lang>` · `:set mouse|nomouse` ·
+`:source <file>` · `:help` · `:version`
 
 **Search & replace** (`:s`) supports ranges and the `g` (global) flag:
 
@@ -107,11 +108,12 @@ You can also load a settings file at runtime with `:source <file>`. See
 Three built-in themes, switchable live with `:theme <name>` (or cycle with a
 bare `:theme`):
 
-| Theme       | Vibe                                    |
-|-------------|-----------------------------------------|
-| `matrix`    | green phosphor on black (default)       |
-| `retrowave` | neon pink/cyan on deep purple           |
-| `cobalt`    | warm gold/cyan accents on deep blue     |
+| Theme            | Vibe                                              |
+|------------------|---------------------------------------------------|
+| `matrix`         | green phosphor on black (default)                 |
+| `retrowave`      | neon pink/cyan on deep purple                     |
+| `cobalt`         | warm gold/cyan accents on deep blue               |
+| `high-contrast`  | **accessibility:** pure black/white, colorblind-safe (Okabe–Ito) token palette |
 
 ### Syntax highlighting + language autodetection
 Languages are detected from the file extension (with a content-based fallback),
@@ -129,6 +131,14 @@ then tokenized and color-coded:
 
 A generic `.sql` file can be pinned to a dialect with a first-line hint such as
 `-- dialect: trino`, or at runtime with `:set ft=snowflake`.
+
+### Accessibility & navigation
+- **High-contrast theme** (`:theme high-contrast`) — pure black/white chrome with
+  a colorblind-safe Okabe–Ito token palette for maximum legibility.
+- **Relative line numbers** (`:set relativenumber` / `:set rnu`) — hybrid mode:
+  the cursor line shows its absolute number (left-aligned to stand out), every
+  other line shows its distance, so `12j` / `8k` jumps are countable at a glance.
+  `:set norelativenumber` (`nornu`) returns to absolute numbers.
 
 ### Mouse support
 `:set mouse` enables click-to-position and scroll-wheel paging;
@@ -193,7 +203,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **89 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **95 tests** across buffer, editor, syntax, themes, commands,
 config, plugins, modes, and UI layout.
 
 ---
@@ -206,6 +216,7 @@ config, plugins, modes, and UI layout.
 - User-defined key mappings in `~/.rvimrc` (config file loading ✅ done)
 - Registers (named), macros (`q`), marks
 - Richer mouse (drag-select), and a menu bar
+- More accessibility options (screen-reader hints, configurable font-agnostic cues)
 - Dynamic plugin loading
 
 ---
