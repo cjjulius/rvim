@@ -66,6 +66,8 @@ pub enum ExCommand {
     Substitute(SubstituteSpec),
     /// `:source <file>` — run ex-commands from a file.
     Source(String),
+    /// `:noh` / `:set hlsearch|nohlsearch` — toggle search-match highlighting.
+    ToggleHlSearch(bool),
     /// Anything unrecognized — offered to plugins as (name, args).
     Passthrough { name: String, args: String },
     /// Empty input.
@@ -119,6 +121,7 @@ pub fn parse(input: &str) -> ExCommand {
                 args: String::new(),
             },
         },
+        "noh" | "nohl" | "nohlsearch" => ExCommand::ToggleHlSearch(false),
         "help" | "h" => ExCommand::Help,
         "version" | "ver" => ExCommand::Version,
         "set" | "se" => parse_set(rest),
@@ -199,6 +202,8 @@ fn parse_set(rest: &str) -> ExCommand {
         "nonumber" | "nonu" => ExCommand::ToggleNumbers(false),
         "relativenumber" | "rnu" => ExCommand::ToggleRelativeNumbers(true),
         "norelativenumber" | "nornu" => ExCommand::ToggleRelativeNumbers(false),
+        "hlsearch" | "hls" => ExCommand::ToggleHlSearch(true),
+        "nohlsearch" | "nohls" => ExCommand::ToggleHlSearch(false),
         _ => {
             if let Some(v) = opt
                 .strip_prefix("ft=")
@@ -290,6 +295,14 @@ mod tests {
     #[test]
     fn edit() {
         assert_eq!(parse("e main.rs"), ExCommand::Edit("main.rs".into()));
+    }
+
+    #[test]
+    fn nohlsearch_variants() {
+        assert_eq!(parse("noh"), ExCommand::ToggleHlSearch(false));
+        assert_eq!(parse("nohlsearch"), ExCommand::ToggleHlSearch(false));
+        assert_eq!(parse("set hlsearch"), ExCommand::ToggleHlSearch(true));
+        assert_eq!(parse("set nohls"), ExCommand::ToggleHlSearch(false));
     }
 
     #[test]

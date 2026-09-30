@@ -49,6 +49,9 @@ pub struct Editor {
     /// When true, non-current lines show their distance from the cursor
     /// (hybrid: the current line still shows its absolute number).
     pub relative_numbers: bool,
+    /// Whether search matches are currently highlighted (`:noh` clears it until
+    /// the next search).
+    pub hlsearch: bool,
     pub view_rows: usize,
     pub view_cols: usize,
 
@@ -80,6 +83,7 @@ impl Editor {
             cmdline: String::new(),
             show_line_numbers: true,
             relative_numbers: false,
+            hlsearch: true,
             view_rows: 24,
             view_cols: 80,
             line_kind: LineKind::Ex,
@@ -103,6 +107,11 @@ impl Editor {
         ed.buffer = buffer;
         ed.language = lang;
         Ok(ed)
+    }
+
+    /// The active search query (empty if none).
+    pub fn search_query(&self) -> &str {
+        &self.last_search
     }
 
     /// The prefix character shown before the command line (`:`, `/`, `?`).
@@ -263,11 +272,13 @@ impl Editor {
                     LineKind::Ex => Action::RunEx(text),
                     LineKind::SearchFwd => {
                         self.last_search = text;
+                        self.hlsearch = true;
                         self.search(true);
                         Action::None
                     }
                     LineKind::SearchBack => {
                         self.last_search = text;
+                        self.hlsearch = true;
                         self.search(false);
                         Action::None
                     }
@@ -1192,6 +1203,7 @@ impl Editor {
             self.message = "No previous search".into();
             return;
         }
+        self.hlsearch = true;
         let n = self.buffer.line_count();
         if forward {
             // rest of current line after cursor, then following lines, then wrap

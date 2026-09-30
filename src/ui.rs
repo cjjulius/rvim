@@ -88,6 +88,24 @@ pub fn char_token_kinds(chars: &[(usize, char)], tokens: &[Token]) -> Vec<Option
     kinds
 }
 
+/// Char-index ranges `[start, end)` of every occurrence of `needle` in `line`.
+/// Empty when `needle` is empty. Non-overlapping, left to right.
+pub fn search_match_ranges(line: &str, needle: &str) -> Vec<(usize, usize)> {
+    if needle.is_empty() {
+        return Vec::new();
+    }
+    let nchars = needle.chars().count();
+    let mut ranges = Vec::new();
+    let mut start = 0usize;
+    while let Some(rel) = line[start..].find(needle) {
+        let bstart = start + rel;
+        let cstart = line[..bstart].chars().count();
+        ranges.push((cstart, cstart + nchars));
+        start = bstart + needle.len();
+    }
+    ranges
+}
+
 /// Whether `(row, col)` lies within the (inclusive) selection.
 pub fn in_selection(sel: (Position, Position), linewise: bool, row: usize, col: usize) -> bool {
     let (s, e) = sel;
@@ -122,6 +140,11 @@ pub fn render(
 
     let sel = editor.selection();
     let linewise = editor.mode == Mode::VisualLine;
+    let search = if editor.hlsearch && !editor.search_query().is_empty() {
+        Some(editor.search_query())
+    } else {
+        None
+    };
 
     // Carry block-comment state from the top of the buffer to the first visible
     // line, then thread it through the visible rows.
@@ -145,6 +168,7 @@ pub fn render(
             in_block = next_block;
             draw_text_line(
                 out, line, &tokens, theme, &layout, editor.left, row, line_bg, sel, linewise,
+                search,
             )?;
         } else {
             // Past end of buffer: tilde like vim.
@@ -227,8 +251,10 @@ fn draw_text_line(
     line_bg: Color,
     sel: Option<(Position, Position)>,
     linewise: bool,
+    search: Option<&str>,
 ) -> io::Result<()> {
     let chars: Vec<(usize, char)> = line.char_indices().collect();
+    let matches = search.map(|n| search_match_ranges(line, n)).unwrap_or_default();
 
     // Per-char foreground based on tokens (single pass).
     let kinds = char_token_kinds(&chars, tokens);
@@ -257,7 +283,15 @@ fn draw_text_line(
         let selected = sel
             .map(|s| in_selection(s, linewise, row, ci))
             .unwrap_or(false);
-        let bg = if selected { theme.selection_bg } else { line_bg };
+        let in_match = matches.iter().any(|&(s, e)| ci >= s && ci < e);
+        // Priority: selection > search match > line background.
+        let bg = if selected {
+            theme.selection_bg
+        } else if in_match {
+            theme.search_bg
+        } else {
+            line_bg
+        };
         let cfg = fg[ci];
         if !started {
             run_fg = cfg;
@@ -375,6 +409,19 @@ mod tests {
         assert_eq!(gutter_width(1000, true), 5); // 4 digits + 1
         assert_eq!(gutter_width(100000, true), 7); // 6 digits + 1
         assert_eq!(gutter_width(42, false), 0);
+    }
+
+    #[test]
+    fn search_match_ranges_finds_all() {
+        assert_eq!(search_match_ranges("a bar b bar", "bar"), vec![(2, 5), (8, 11)]);
+        assert_eq!(search_match_ranges("no hits here", "xyz"), vec![]);
+        assert_eq!(search_match_ranges("anything", ""), vec![]);
+    }
+
+    #[test]
+    fn search_match_ranges_overlapping_are_non_overlapping() {
+        // "aaaa" searching "aa" yields non-overlapping matches at 0 and 2.
+        assert_eq!(search_match_ranges("aaaa", "aa"), vec![(0, 2), (2, 4)]);
     }
 
     #[test]

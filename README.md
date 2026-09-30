@@ -70,13 +70,14 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
   `>>`/`<<` (indent/dedent, also on a visual selection), counts (e.g. `5j`).
 - **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history).
 - **Visual mode:** `v`/`V` then `d`/`y`/`c`.
-- **Search:** `/pattern`, `?pattern`, `n`/`N` (wraps around).
+- **Search:** `/pattern`, `?pattern`, `n`/`N` (wraps around); all matches are
+  highlighted — clear the highlight with `:noh` (`:set hlsearch`/`nohlsearch`).
 
 ### Command line (ex commands)
 `:w [file]` · `:q` · `:q!` · `:wq` · `:x` · `:e <file>` · `:<n>` (goto line) ·
 `:s/pat/rep/[g]` (search & replace) · `:theme <name>` · `:set number|nonumber` ·
 `:set relativenumber|norelativenumber` · `:set ft=<lang>` · `:set mouse|nomouse` ·
-`:source <file>` · `:help` · `:version`
+`:noh` / `:set hlsearch|nohlsearch` · `:source <file>` · `:help` · `:version`
 
 **Search & replace** (`:s`) supports ranges and the `g` (global) flag:
 
@@ -207,7 +208,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **115 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **118 tests** across buffer, editor, syntax, themes, commands,
 config, plugins, modes, and UI layout.
 
 ---
