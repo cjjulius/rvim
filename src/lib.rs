@@ -4,6 +4,7 @@
 //! (languages, themes, plugins, motions) can be added with minimal coupling:
 //!
 //! - [`buffer`]   — the text storage + edit primitives (with undo/redo).
+//! - [`config`]   — startup `~/.rvimrc` loading + `:source`.
 //! - [`mode`]     — the modal state machine (Normal / Insert / Visual / Command).
 //! - [`editor`]   — cursor, viewport and high-level editing operations.
 //! - [`command`]  — the `:` ex-command parser/dispatcher.
@@ -17,6 +18,7 @@
 pub mod app;
 pub mod buffer;
 pub mod command;
+pub mod config;
 pub mod editor;
 pub mod mode;
 pub mod plugin;

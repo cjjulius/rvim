@@ -73,7 +73,7 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 ### Command line (ex commands)
 `:w [file]` · `:q` · `:q!` · `:wq` · `:x` · `:e <file>` · `:<n>` (goto line) ·
 `:s/pat/rep/[g]` (search & replace) · `:theme <name>` · `:set number|nonumber` ·
-`:set ft=<lang>` · `:set mouse|nomouse` · `:help` · `:version`
+`:set ft=<lang>` · `:set mouse|nomouse` · `:source <file>` · `:help` · `:version`
 
 **Search & replace** (`:s`) supports ranges and the `g` (global) flag:
 
@@ -87,6 +87,21 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 
 Matching is **literal** (not yet regex — see roadmap). A single undo (`u`)
 reverts an entire substitution.
+
+### Configuration (`~/.rvimrc`)
+On startup rvim runs the ex-commands in `~/.rvimrc` (or `$RVIMRC`, or
+`%USERPROFILE%\.rvimrc` on Windows). Comments start with `"` or `#`:
+
+```text
+" ~/.rvimrc
+theme cobalt
+set number
+set mouse
+```
+
+Skip it with `rvim --no-config`. A CLI `--theme` overrides the config file.
+You can also load a settings file at runtime with `:source <file>`. See
+[`examples/rvimrc.example`](examples/rvimrc.example).
 
 ### Color theming
 Three built-in themes, switchable live with `:theme <name>` (or cycle with a
@@ -135,6 +150,7 @@ src/
 ├── buffer.rs      text storage + edit primitives + undo/redo
 ├── mode.rs        the modal state enum
 ├── command.rs     ex-command parser (`:...`)
+├── config.rs      ~/.rvimrc loading + parsing
 ├── terminal.rs    raw-mode / alt-screen RAII guard (cross-platform)
 ├── ui.rs          gutter + highlighted text + status/command lines
 ├── theme.rs       Theme + ThemeRegistry (matrix, retrowave, cobalt)
@@ -177,8 +193,8 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **81 tests** across buffer, editor, syntax, themes, commands,
-plugins, modes, and UI layout.
+Current suite: **89 tests** across buffer, editor, syntax, themes, commands,
+config, plugins, modes, and UI layout.
 
 ---
 
@@ -187,7 +203,7 @@ plugins, modes, and UI layout.
 - Regex support for `:s` (currently literal matching)
 - Multi-line syntax state (block comments/strings spanning lines)
 - Split windows / multiple buffers & tabs
-- Config file (`~/.rvimrc`) and user keymaps
+- User-defined key mappings in `~/.rvimrc` (config file loading ✅ done)
 - Registers (named), macros (`q`), marks
 - Richer mouse (drag-select), and a menu bar
 - Dynamic plugin loading

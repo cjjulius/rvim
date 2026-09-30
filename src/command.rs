@@ -62,6 +62,8 @@ pub enum ExCommand {
     Goto(usize),
     /// `:s/pat/rep/`, `:%s/pat/rep/g`, `:a,bs/pat/rep/`
     Substitute(SubstituteSpec),
+    /// `:source <file>` — run ex-commands from a file.
+    Source(String),
     /// Anything unrecognized — offered to plugins as (name, args).
     Passthrough { name: String, args: String },
     /// Empty input.
@@ -108,6 +110,13 @@ pub fn parse(input: &str) -> ExCommand {
             },
         },
         "theme" | "colorscheme" | "colo" => ExCommand::SetTheme(arg),
+        "source" | "so" => match arg {
+            Some(a) => ExCommand::Source(a),
+            None => ExCommand::Passthrough {
+                name: word.to_string(),
+                args: String::new(),
+            },
+        },
         "help" | "h" => ExCommand::Help,
         "version" | "ver" => ExCommand::Version,
         "set" | "se" => parse_set(rest),
@@ -270,6 +279,12 @@ mod tests {
     #[test]
     fn edit() {
         assert_eq!(parse("e main.rs"), ExCommand::Edit("main.rs".into()));
+    }
+
+    #[test]
+    fn source_command() {
+        assert_eq!(parse("source ~/.rvimrc"), ExCommand::Source("~/.rvimrc".into()));
+        assert_eq!(parse("so init.vim"), ExCommand::Source("init.vim".into()));
     }
 
     #[test]
