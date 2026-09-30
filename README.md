@@ -80,6 +80,9 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
   the delimiters). E.g. `diw`, `ci(`, `yi"`, `da{`.
 - **Case operators:** `gu`/`gU`/`g~` (lower/upper/toggle) over a motion, a text
   object, or doubled for the whole line — `guw`, `gUiw`, `g~$`, `guu`.
+- **Comment toggling:** `gcc` toggles the current line, `gc<motion>` a range
+  (e.g. `gcj`, `gcG`), and `gc` in visual mode the selection — using the current
+  language's comment marker (`//`, `--`, `;`), indentation preserved.
 - **Registers:** `"a`–`"z` prefix any yank/delete/paste to use a named register
   (e.g. `"ayy` … `"ap`); the unnamed register is used otherwise.
 - **Marks:** `m<letter>` sets a mark, `` `<letter> `` jumps to it (exact),
@@ -250,7 +253,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **169 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **173 tests** across buffer, editor, syntax, themes, commands,
 config, plugins, modes, and UI layout.
 
 ---

@@ -503,6 +503,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \td/y/c + motion     e.g. dw d$ d0 de dj dG yw y$ cc  (dd/yy/cc)\n\
          \td/y/c + i/a + obj   text objects: diw daw ci( yi\" da{{ ...\n\
          \tgu / gU / g~ + mot  lower / upper / toggle case (guw gUiw guu)\n\
+         \tgcc  gc<motion>     toggle line comment (also visual gc)\n\
          \tD / C              delete / change to end of line\n\
          \t>> / <<            indent / dedent (also in visual mode)\n\
          \tyy / p / P         yank line / paste after / before\n\

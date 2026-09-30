@@ -9,7 +9,7 @@ use crate::buffer::{Buffer, Position};
 use crate::command::{LineAddr, SubRange, SubstituteSpec};
 use crate::mode::Mode;
 use std::collections::HashMap;
-use crate::syntax::{detect_language, Language};
+use crate::syntax::{detect_language, line_comment_token, Language};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 /// What the app should do after the editor handled a key.
@@ -74,6 +74,8 @@ pub struct Editor {
     pending_case: Option<CaseOp>,
     /// After a case operator + `i`/`a`: awaiting an object char.
     pending_case_obj: Option<(CaseOp, char)>,
+    /// After `gc`: a comment-toggle operator awaiting a motion.
+    pending_comment: bool,
     pending_replace: bool,
     pending_find: Option<char>,
     last_find: Option<(char, char)>,
@@ -142,6 +144,7 @@ impl Editor {
             pending_textobj: None,
             pending_case: None,
             pending_case_obj: None,
+            pending_comment: false,
             pending_replace: false,
             pending_find: None,
             last_find: None,
@@ -478,6 +481,7 @@ impl Editor {
             && self.pending_textobj.is_none()
             && self.pending_case.is_none()
             && self.pending_case_obj.is_none()
+            && !self.pending_comment
             && !self.pending_replace
             && self.pending_find.is_none()
             && self.pending_mark.is_none()
@@ -671,6 +675,22 @@ impl Editor {
             }
             self.clamp_cursor(false);
             self.scroll_into_view();
+            return Action::None;
+        }
+
+        // Motion / doubled after `gc` (comment toggle).
+        if self.pending_comment {
+            self.pending_comment = false;
+            let rows = match key.code {
+                KeyCode::Char('c') => Some((self.cursor.row, self.cursor.row)),
+                code => self.motion_target(code, 1).map(|t| match t {
+                    OpTarget::Chars(_, _) => (self.cursor.row, self.cursor.row),
+                    OpTarget::Lines(a, b) => (a, b),
+                }),
+            };
+            if let Some((a, b)) = rows {
+                self.toggle_comment_lines(a, b);
+            }
             return Action::None;
         }
 
@@ -972,6 +992,14 @@ impl Editor {
                 KeyCode::Char('u') => self.pending_case = Some(CaseOp::Lower),
                 KeyCode::Char('U') => self.pending_case = Some(CaseOp::Upper),
                 KeyCode::Char('~') => self.pending_case = Some(CaseOp::Toggle),
+                KeyCode::Char('c') => {
+                    if let Some((s, e)) = self.selection() {
+                        self.toggle_comment_lines(s.row, e.row);
+                        self.mode = Mode::Normal;
+                    } else {
+                        self.pending_comment = true;
+                    }
+                }
                 _ => {}
             },
             'z' => match code {
@@ -1127,6 +1155,57 @@ impl Editor {
                 self.cursor.row = a;
             }
         }
+        self.clamp_cursor(false);
+        self.scroll_into_view();
+    }
+
+    /// Toggle line comments over an inclusive row range using the current
+    /// language's comment marker. If every non-blank line is already commented,
+    /// uncomment; otherwise comment.
+    fn toggle_comment_lines(&mut self, a: usize, b: usize) {
+        let Some(token) = line_comment_token(self.language) else {
+            self.message = "No comment marker for this filetype".into();
+            return;
+        };
+        let last = self.buffer.line_count().saturating_sub(1);
+        let (a, b) = (a.min(last), b.min(last));
+        let (a, b) = (a.min(b), a.max(b));
+
+        // Are all non-blank lines already commented?
+        let mut any_nonblank = false;
+        let all_commented = (a..=b).all(|r| {
+            let line = self.buffer.line(r).unwrap_or("");
+            let t = line.trim_start();
+            if t.is_empty() {
+                true
+            } else {
+                any_nonblank = true;
+                t.starts_with(token)
+            }
+        });
+        if !any_nonblank {
+            return;
+        }
+
+        self.checkpoint();
+        for r in a..=b {
+            let line = self.buffer.line(r).unwrap_or("").to_string();
+            let trimmed = line.trim_start();
+            if trimmed.is_empty() {
+                continue; // leave blank lines untouched
+            }
+            let indent_len = line.len() - trimmed.len();
+            let (indent, rest) = line.split_at(indent_len);
+            if all_commented {
+                // Remove the token and a single following space if present.
+                let mut stripped = rest.strip_prefix(token).unwrap_or(rest);
+                stripped = stripped.strip_prefix(' ').unwrap_or(stripped);
+                self.buffer.set_line(r, format!("{indent}{stripped}"));
+            } else {
+                self.buffer.set_line(r, format!("{indent}{token} {rest}"));
+            }
+        }
+        self.cursor.row = a;
         self.clamp_cursor(false);
         self.scroll_into_view();
     }
@@ -2318,6 +2397,59 @@ mod tests {
         }
         assert_eq!(ed.top, 5);
         assert_eq!(ed.cursor.row, 5);
+    }
+
+    fn rust_ed(text: &str) -> Editor {
+        let mut ed = ed_with(text);
+        ed.language = Language::Rust;
+        ed
+    }
+
+    #[test]
+    fn comment_toggle_gcc() {
+        let mut ed = rust_ed("let x = 1;");
+        ed.handle_key(key('g'));
+        ed.handle_key(key('c'));
+        ed.handle_key(key('c')); // comment current line
+        assert_eq!(ed.buffer.line(0), Some("// let x = 1;"));
+        // Toggle back.
+        ed.handle_key(key('g'));
+        ed.handle_key(key('c'));
+        ed.handle_key(key('c'));
+        assert_eq!(ed.buffer.line(0), Some("let x = 1;"));
+    }
+
+    #[test]
+    fn comment_toggle_preserves_indent() {
+        let mut ed = rust_ed("    indented();");
+        ed.handle_key(key('g'));
+        ed.handle_key(key('c'));
+        ed.handle_key(key('c'));
+        assert_eq!(ed.buffer.line(0), Some("    // indented();"));
+    }
+
+    #[test]
+    fn comment_toggle_range_with_motion() {
+        let mut ed = rust_ed("a();\nb();\nc();");
+        ed.handle_key(key('g'));
+        ed.handle_key(key('c'));
+        ed.handle_key(key('j')); // comment current + next line
+        assert_eq!(ed.buffer.line(0), Some("// a();"));
+        assert_eq!(ed.buffer.line(1), Some("// b();"));
+        assert_eq!(ed.buffer.line(2), Some("c();"));
+    }
+
+    #[test]
+    fn comment_toggle_visual_and_sql_marker() {
+        let mut ed = ed_with("SELECT 1;\nFROM t;");
+        ed.language = Language::PgSql;
+        ed.handle_key(key('V'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('g'));
+        ed.handle_key(key('c'));
+        assert_eq!(ed.buffer.line(0), Some("-- SELECT 1;"));
+        assert_eq!(ed.buffer.line(1), Some("-- FROM t;"));
+        assert_eq!(ed.mode, Mode::Normal);
     }
 
     #[test]

@@ -90,6 +90,20 @@ impl Language {
     }
 }
 
+/// The primary line-comment marker for a language (for comment toggling).
+pub fn line_comment_token(lang: Language) -> Option<&'static str> {
+    match lang {
+        Language::Rust => Some("//"),
+        Language::SqlAnsi
+        | Language::TSql
+        | Language::PgSql
+        | Language::TrinoSql
+        | Language::SnowflakeSql => Some("--"),
+        Language::Z80 => Some(";"),
+        Language::PlainText => None,
+    }
+}
+
 /// Autodetect a language from a file path (by extension) and, as a fallback,
 /// the first line of content.
 pub fn detect_language(path: Option<&Path>, first_line: &str) -> Language {
