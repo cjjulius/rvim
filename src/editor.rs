@@ -71,6 +71,17 @@ pub struct Editor {
     pending_replace: bool,
     pending_find: Option<char>,
     last_find: Option<(char, char)>,
+    marks: HashMap<char, Position>,
+    pending_mark: Option<PendingMark>,
+    previous_pos: Position,
+}
+
+/// What the next key after `m` / `` ` `` / `'` does with a mark.
+#[derive(Debug, Clone, Copy)]
+enum PendingMark {
+    Set,
+    JumpExact,
+    JumpLine,
 }
 
 /// Spaces inserted/removed by the `>>` / `<<` shift operators.
@@ -107,6 +118,9 @@ impl Editor {
             pending_replace: false,
             pending_find: None,
             last_find: None,
+            marks: HashMap::new(),
+            pending_mark: None,
+            previous_pos: Position::default(),
         }
     }
 
@@ -139,6 +153,35 @@ impl Editor {
     pub fn redetect_language(&mut self) {
         let first = self.buffer.line(0).unwrap_or("").to_string();
         self.language = detect_language(self.buffer.path(), &first);
+    }
+
+    /// Remember the current position as the "previous" location (the `` `` ``
+    /// mark) before a jump.
+    fn record_jump(&mut self) {
+        self.previous_pos = self.cursor;
+    }
+
+    /// Jump to mark `c` (or the previous position for `` ` ``/`'`). `line_wise`
+    /// lands on the first non-blank of the target line.
+    fn jump_to_mark(&mut self, c: char, line_wise: bool) {
+        let target = if c == '`' || c == '\'' {
+            Some(self.previous_pos)
+        } else {
+            self.marks.get(&c).copied()
+        };
+        if let Some(mut p) = target {
+            self.record_jump();
+            let last = self.buffer.line_count().saturating_sub(1);
+            p.row = p.row.min(last);
+            self.cursor = p;
+            if line_wise {
+                self.move_first_nonblank();
+            }
+            self.clamp_cursor(false);
+            self.scroll_into_view();
+        } else {
+            self.message = format!("E20: Mark not set: {c}");
+        }
     }
 
     /// Jump to a 1-based line number (clamped), landing on the first non-blank.
@@ -478,6 +521,20 @@ impl Editor {
             return Action::None;
         }
 
+        // Mark letter after `m` / `` ` `` / `'`.
+        if let Some(pm) = self.pending_mark.take() {
+            if let KeyCode::Char(c) = key.code {
+                match pm {
+                    PendingMark::Set => {
+                        self.marks.insert(c, self.cursor);
+                    }
+                    PendingMark::JumpExact => self.jump_to_mark(c, false),
+                    PendingMark::JumpLine => self.jump_to_mark(c, true),
+                }
+            }
+            return Action::None;
+        }
+
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         if ctrl {
             match key.code {
@@ -554,6 +611,9 @@ impl Editor {
                 }
             }
             KeyCode::Char('"') => self.expect_register = true,
+            KeyCode::Char('m') => self.pending_mark = Some(PendingMark::Set),
+            KeyCode::Char('`') => self.pending_mark = Some(PendingMark::JumpExact),
+            KeyCode::Char('\'') => self.pending_mark = Some(PendingMark::JumpLine),
             KeyCode::Char('G') => self.goto_line_or_end(count),
             KeyCode::Char('g') => self.pending_op = Some('g'),
             KeyCode::Char('z') => self.pending_op = Some('z'),
@@ -704,6 +764,7 @@ impl Editor {
         match op {
             'g' => {
                 if code == KeyCode::Char('g') {
+                    self.record_jump();
                     self.cursor.row = 0;
                     self.cursor.col = 0;
                 }
@@ -923,6 +984,7 @@ impl Editor {
     }
 
     fn goto_line_or_end(&mut self, count: usize) {
+        self.record_jump();
         // With an explicit count `G` goes to that line; bare `G` goes to end.
         let target = if self.pending_count_was_explicit(count) {
             count.saturating_sub(1)
@@ -1531,6 +1593,7 @@ impl Editor {
             return;
         }
         self.hlsearch = true;
+        self.record_jump();
         let n = self.buffer.line_count();
         if forward {
             // rest of current line after cursor, then following lines, then wrap
@@ -1895,6 +1958,45 @@ mod tests {
         }
         assert_eq!(ed.top, 5);
         assert_eq!(ed.cursor.row, 5);
+    }
+
+    #[test]
+    fn mark_set_and_jump_exact() {
+        let mut ed = ed_with("l0\nl1\nl2\nl3");
+        ed.cursor = Position::new(2, 1);
+        ed.handle_key(key('m'));
+        ed.handle_key(key('a')); // set mark a at (2,1)
+        ed.handle_key(key('g'));
+        ed.handle_key(key('g')); // to top
+        assert_eq!(ed.cursor.row, 0);
+        ed.handle_key(key('`'));
+        ed.handle_key(key('a')); // jump back to mark a
+        assert_eq!(ed.cursor, Position::new(2, 1));
+    }
+
+    #[test]
+    fn mark_jump_line_lands_on_first_nonblank() {
+        let mut ed = ed_with("l0\n  indented\nl2");
+        ed.cursor = Position::new(1, 5);
+        ed.handle_key(key('m'));
+        ed.handle_key(key('x'));
+        ed.handle_key(key('g'));
+        ed.handle_key(key('g'));
+        ed.handle_key(key('\'')); // 'x -> line of mark, first non-blank
+        ed.handle_key(key('x'));
+        assert_eq!(ed.cursor.row, 1);
+        assert_eq!(ed.cursor.col, 2); // first non-blank
+    }
+
+    #[test]
+    fn backtick_backtick_returns_to_previous() {
+        let mut ed = ed_with("a\nb\nc\nd\ne");
+        ed.cursor = Position::new(1, 0);
+        ed.handle_key(key('G')); // jump to last line, records previous (1,0)
+        assert_eq!(ed.cursor.row, 4);
+        ed.handle_key(key('`'));
+        ed.handle_key(key('`')); // back to previous
+        assert_eq!(ed.cursor.row, 1);
     }
 
     #[test]
