@@ -79,6 +79,12 @@ pub struct Editor {
     last_macro: Option<char>,
     expect_macro: Option<MacroMode>,
     replay_depth: usize,
+    // `.` repeat: keys of the change in progress, the finalized last change,
+    // the buffer revision at the last resting point, and a replay guard.
+    dot_capture: Vec<KeyEvent>,
+    dot: Vec<KeyEvent>,
+    dot_rev_at_rest: u64,
+    dot_replaying: bool,
 }
 
 /// Whether the key after `q` / `@` records into or replays a macro register.
@@ -138,6 +144,10 @@ impl Editor {
             last_macro: None,
             expect_macro: None,
             replay_depth: 0,
+            dot_capture: Vec::new(),
+            dot: Vec::new(),
+            dot_rev_at_rest: 0,
+            dot_replaying: false,
         }
     }
 
@@ -409,18 +419,73 @@ impl Editor {
             self.macros.entry(reg).or_default().push(key);
         }
 
+        // `.` repeats the last change (only from a resting normal state).
+        if !self.dot_replaying
+            && self.mode == Mode::Normal
+            && matches!(key.code, KeyCode::Char('.'))
+            && self.at_rest()
+        {
+            self.replay_dot();
+            return Action::None;
+        }
+
+        // Accumulate keys for the `.` register unless we're replaying it.
+        if !self.dot_replaying {
+            self.dot_capture.push(key);
+        }
+
         // Command-line editing takes priority when active.
-        if self.mode == Mode::Command {
-            return self.handle_cmdline(key);
-        }
-        match self.mode {
-            Mode::Insert => {
-                self.handle_insert(key);
-                Action::None
+        let action = if self.mode == Mode::Command {
+            self.handle_cmdline(key)
+        } else {
+            match self.mode {
+                Mode::Insert => {
+                    self.handle_insert(key);
+                    Action::None
+                }
+                _ => self.handle_normal(key),
             }
-            Mode::Normal | Mode::Visual | Mode::VisualLine => self.handle_normal(key),
-            Mode::Command => Action::None,
+        };
+
+        // At a resting point, finalize (or discard) the captured change.
+        if !self.dot_replaying && self.at_rest() {
+            if self.buffer.revision() != self.dot_rev_at_rest {
+                self.dot = std::mem::take(&mut self.dot_capture);
+            } else {
+                self.dot_capture.clear();
+            }
+            self.dot_rev_at_rest = self.buffer.revision();
         }
+
+        action
+    }
+
+    /// Whether the editor is at a clean resting point in Normal mode (no pending
+    /// operator/count/prefix), used to bound `.`-repeat capture.
+    fn at_rest(&self) -> bool {
+        self.mode == Mode::Normal
+            && self.pending_op.is_none()
+            && self.pending_count.is_none()
+            && !self.pending_replace
+            && self.pending_find.is_none()
+            && self.pending_mark.is_none()
+            && !self.expect_register
+            && self.expect_macro.is_none()
+    }
+
+    /// Replay the keystrokes of the last change (`.`).
+    fn replay_dot(&mut self) {
+        if self.dot.is_empty() {
+            self.message = "Nothing to repeat".into();
+            return;
+        }
+        let keys = self.dot.clone();
+        self.dot_replaying = true;
+        for k in keys {
+            let _ = self.handle_key(k);
+        }
+        self.dot_replaying = false;
+        self.dot_rev_at_rest = self.buffer.revision();
     }
 
     fn handle_cmdline(&mut self, key: KeyEvent) -> Action {
@@ -2036,6 +2101,52 @@ mod tests {
         }
         assert_eq!(ed.top, 5);
         assert_eq!(ed.cursor.row, 5);
+    }
+
+    #[test]
+    fn dot_repeats_x() {
+        let mut ed = ed_with("abcdef");
+        ed.handle_key(key('x')); // delete 'a' -> "bcdef"
+        assert_eq!(ed.buffer.line(0), Some("bcdef"));
+        ed.handle_key(key('.')); // repeat -> "cdef"
+        assert_eq!(ed.buffer.line(0), Some("cdef"));
+        ed.handle_key(key('.')); // -> "def"
+        assert_eq!(ed.buffer.line(0), Some("def"));
+    }
+
+    #[test]
+    fn dot_repeats_dd() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('d')); // delete "a"
+        assert_eq!(ed.buffer.line(0), Some("b"));
+        ed.handle_key(key('.')); // delete "b"
+        assert_eq!(ed.buffer.line(0), Some("c"));
+    }
+
+    #[test]
+    fn dot_repeats_insert_change() {
+        let mut ed = ed_with("one\ntwo");
+        // Insert "# " at the start of the line.
+        ed.handle_key(key('I'));
+        ed.handle_key(key('#'));
+        ed.handle_key(key(' '));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("# one"));
+        // Move to next line and repeat.
+        ed.handle_key(key('j'));
+        ed.handle_key(key('.'));
+        assert_eq!(ed.buffer.line(1), Some("# two"));
+    }
+
+    #[test]
+    fn dot_unchanged_by_navigation() {
+        let mut ed = ed_with("abc\ndef");
+        ed.handle_key(key('x')); // change: delete 'a'
+        ed.handle_key(key('j')); // navigation (no change)
+        ed.handle_key(key('0'));
+        ed.handle_key(key('.')); // should repeat the delete, not the navigation
+        assert_eq!(ed.buffer.line(1), Some("ef"));
     }
 
     #[test]

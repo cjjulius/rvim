@@ -506,6 +506,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tyy / p / P         yank line / paste after / before\n\
          \t\"a yy / \"a p       use named register a (any a-z)\n\
          \tJ                  join lines         u / Ctrl-r  undo / redo\n\
+         \t.                  repeat last change\n\
          \n\
          SEARCH\n\
          \t/pat  ?pat         search fwd / back  n / N  next / prev\n\

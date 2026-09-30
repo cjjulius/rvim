@@ -84,6 +84,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
   repeats the last macro (a `recording @x` indicator shows in the status line).
 - **Insert mode:** autoindent on Enter (`:set autoindent`/`noai`), `Ctrl-w`
   (delete word before cursor), `Ctrl-u` (delete to line start), `Tab` (4 spaces).
+- **Repeat:** `.` repeats the last change (a delete, paste, replace, indent, or a
+  whole insert/change session).
 - **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history).
 - **Visual mode:** `v`/`V` then `d`/`y`/`c`, `>`/`<` (indent), and
   `u`/`U`/`~` (lower/upper/toggle case of the selection).
@@ -243,7 +245,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **156 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **160 tests** across buffer, editor, syntax, themes, commands,
 config, plugins, modes, and UI layout.
 
 ---
@@ -254,8 +256,8 @@ config, plugins, modes, and UI layout.
 - Multi-line string highlighting (block comments spanning lines ✅ done)
 - Split windows & tabs (multiple buffers ✅ done)
 - User-defined key mappings in `~/.rvimrc` (config file loading ✅ done)
-- The `.` repeat command; ex-commands inside replayed macros
-  (named registers ✅, marks ✅, macros ✅ done)
+- Ex-commands inside replayed macros; text objects (` ciw`, `di(` )
+  (named registers ✅, marks ✅, macros ✅, `.` repeat ✅ done)
 - Richer mouse (drag-select), and a menu bar
 - More accessibility options (screen-reader hints, configurable font-agnostic cues)
 - Dynamic plugin loading
