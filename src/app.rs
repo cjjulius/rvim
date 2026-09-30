@@ -337,14 +337,18 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \n\
          MOTIONS\n\
          \th j k l  arrows    move left/down/up/right\n\
-         \tw / b              word forward / back\n\
+         \tw / b / e          word forward / back / end\n\
+         \tf/F/t/T <c>        find char on line   ; ,  repeat / reverse\n\
          \t0 / ^ / $          line start / first non-blank / line end\n\
          \tgg / G             top / bottom (or <n>G, :<n>)\n\
          \tCtrl-d / Ctrl-u    half-page down / up\n\
          \n\
          EDITING\n\
          \tx                  delete char        r<c>  replace char\n\
-         \tdd / dw / d$       delete line/word/to-eol\n\
+         \t~                  toggle case        s / S  subst char / line\n\
+         \tdd / dw / d$ / D   delete line/word/to-eol\n\
+         \tcc / cw / C        change line/word/to-eol\n\
+         \t>> / <<            indent / dedent (also in visual mode)\n\
          \tyy / p / P         yank line / paste after / before\n\
          \tJ                  join lines         u / Ctrl-r  undo / redo\n\
          \n\

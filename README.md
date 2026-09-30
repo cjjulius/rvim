@@ -62,10 +62,11 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 
 ### Modal editing (vim-style)
 - **Modes:** Normal, Insert, Visual, Visual-Line, Command.
-- **Motions:** `h j k l`, arrows, `w`/`b` (word), `0`/`^`/`$`, `gg`/`G`,
-  `<n>G`, `Ctrl-d`/`Ctrl-u` (half-page).
-- **Editing:** `i a I A o O`, `x`, `r<c>`, `dd`/`dw`/`d$`, `cc`/`cw`, `yy`,
-  `p`/`P`, `J` (join), counts (e.g. `5j`).
+- **Motions:** `h j k l`, arrows, `w`/`b`/`e` (word), `0`/`^`/`$`, `gg`/`G`,
+  `<n>G`, `f`/`F`/`t`/`T`+`;`/`,` (find char on line), `Ctrl-d`/`Ctrl-u` (half-page).
+- **Editing:** `i a I A o O`, `x`, `r<c>`, `~` (toggle case), `s`/`S`,
+  `dd`/`dw`/`d$`/`D`, `cc`/`cw`/`C`, `yy`, `p`/`P`, `J` (join),
+  `>>`/`<<` (indent/dedent, also on a visual selection), counts (e.g. `5j`).
 - **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history).
 - **Visual mode:** `v`/`V` then `d`/`y`/`c`.
 - **Search:** `/pattern`, `?pattern`, `n`/`N` (wraps around).
@@ -203,7 +204,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **95 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **106 tests** across buffer, editor, syntax, themes, commands,
 config, plugins, modes, and UI layout.
 
 ---
