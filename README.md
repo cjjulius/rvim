@@ -89,6 +89,9 @@ Open several files and switch between them:
 | `:b <n>`             | switch to buffer number `n`               |
 | `:bd`                | close the current buffer                  |
 
+When more than one buffer is open, a **tab bar** appears across the top of the
+screen listing every buffer (active one highlighted, `+` marks unsaved changes).
+
 `:q` refuses to quit while any open buffer has unsaved changes (use `:q!` to
 override).
 
@@ -228,7 +231,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **133 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **135 tests** across buffer, editor, syntax, themes, commands,
 config, plugins, modes, and UI layout.
 
 ---
