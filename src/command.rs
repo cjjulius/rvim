@@ -54,6 +54,8 @@ pub enum ExCommand {
     ToggleNumbers(bool),
     /// `:set relativenumber` / `:set norelativenumber`
     ToggleRelativeNumbers(bool),
+    /// `:set autoindent` / `:set noautoindent`
+    ToggleAutoIndent(bool),
     /// `:set ft=<lang>`
     SetFiletype(String),
     /// `:help`
@@ -232,6 +234,8 @@ fn parse_set(rest: &str) -> ExCommand {
         "norelativenumber" | "nornu" => ExCommand::ToggleRelativeNumbers(false),
         "hlsearch" | "hls" => ExCommand::ToggleHlSearch(true),
         "nohlsearch" | "nohls" => ExCommand::ToggleHlSearch(false),
+        "autoindent" | "ai" => ExCommand::ToggleAutoIndent(true),
+        "noautoindent" | "noai" => ExCommand::ToggleAutoIndent(false),
         _ => {
             if let Some(v) = opt
                 .strip_prefix("ft=")
@@ -301,6 +305,13 @@ mod tests {
         assert_eq!(parse("set relativenumber"), ExCommand::ToggleRelativeNumbers(true));
         assert_eq!(parse("set rnu"), ExCommand::ToggleRelativeNumbers(true));
         assert_eq!(parse("set nornu"), ExCommand::ToggleRelativeNumbers(false));
+    }
+
+    #[test]
+    fn set_autoindent() {
+        assert_eq!(parse("set autoindent"), ExCommand::ToggleAutoIndent(true));
+        assert_eq!(parse("set ai"), ExCommand::ToggleAutoIndent(true));
+        assert_eq!(parse("set noai"), ExCommand::ToggleAutoIndent(false));
     }
 
     #[test]

@@ -53,6 +53,8 @@ pub struct Editor {
     /// Whether search matches are currently highlighted (`:noh` clears it until
     /// the next search).
     pub hlsearch: bool,
+    /// Whether Enter in insert mode copies the previous line's indentation.
+    pub autoindent: bool,
     pub view_rows: usize,
     pub view_cols: usize,
 
@@ -88,6 +90,7 @@ impl Editor {
             show_line_numbers: true,
             relative_numbers: false,
             hlsearch: true,
+            autoindent: true,
             view_rows: 24,
             view_cols: 80,
             line_kind: LineKind::Ex,
@@ -340,6 +343,16 @@ impl Editor {
     }
 
     fn handle_insert(&mut self, key: KeyEvent) {
+        // Insert-mode control shortcuts.
+        if key.modifiers.contains(KeyModifiers::CONTROL) {
+            match key.code {
+                KeyCode::Char('w') => self.insert_delete_word_before(),
+                KeyCode::Char('u') => self.insert_delete_to_line_start(),
+                _ => {}
+            }
+            self.scroll_into_view();
+            return;
+        }
         match key.code {
             KeyCode::Esc => {
                 self.mode = Mode::Normal;
@@ -354,9 +367,18 @@ impl Editor {
                 self.cursor.col += 1;
             }
             KeyCode::Enter => {
+                let indent = if self.autoindent {
+                    self.leading_indent(self.cursor.row)
+                } else {
+                    String::new()
+                };
                 self.buffer.split_line(self.cursor);
                 self.cursor.row += 1;
                 self.cursor.col = 0;
+                if !indent.is_empty() {
+                    self.buffer.insert_str(self.cursor, &indent);
+                    self.cursor.col = indent.chars().count();
+                }
             }
             KeyCode::Backspace => self.backspace(),
             KeyCode::Tab => {
@@ -389,6 +411,38 @@ impl Editor {
             self.cursor.col = prev_len;
             self.buffer.insert_str(self.cursor, &cur);
         }
+    }
+
+    /// `Ctrl-w` in insert mode: delete the word (and preceding spaces) before
+    /// the cursor.
+    fn insert_delete_word_before(&mut self) {
+        if self.cursor.col == 0 {
+            self.backspace();
+            return;
+        }
+        let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+        let col = self.cursor.col;
+        let mut start = col;
+        while start > 0 && chars[start - 1].is_whitespace() {
+            start -= 1;
+        }
+        if start > 0 {
+            let class = Self::char_class(chars[start - 1]);
+            while start > 0 && Self::char_class(chars[start - 1]) == class {
+                start -= 1;
+            }
+        }
+        let new: String = chars[..start].iter().chain(&chars[col..]).collect();
+        self.buffer.set_line(self.cursor.row, new);
+        self.cursor.col = start;
+    }
+
+    /// `Ctrl-u` in insert mode: delete from the line start to the cursor.
+    fn insert_delete_to_line_start(&mut self) {
+        let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+        let new: String = chars[self.cursor.col.min(chars.len())..].iter().collect();
+        self.buffer.set_line(self.cursor.row, new);
+        self.cursor.col = 0;
     }
 
     fn handle_normal(&mut self, key: KeyEvent) -> Action {
@@ -1710,6 +1764,45 @@ mod tests {
         }
         assert_eq!(ed.top, 5);
         assert_eq!(ed.cursor.row, 5);
+    }
+
+    #[test]
+    fn autoindent_on_enter() {
+        let mut ed = ed_with("    code");
+        ed.handle_key(key('A')); // append at end of line
+        ed.handle_key(special(KeyCode::Enter));
+        ed.handle_key(key('x'));
+        assert_eq!(ed.buffer.line(1), Some("    x"));
+    }
+
+    #[test]
+    fn no_autoindent_when_disabled() {
+        let mut ed = ed_with("    code");
+        ed.autoindent = false;
+        ed.handle_key(key('A'));
+        ed.handle_key(special(KeyCode::Enter));
+        ed.handle_key(key('x'));
+        assert_eq!(ed.buffer.line(1), Some("x"));
+    }
+
+    #[test]
+    fn insert_ctrl_w_deletes_word_before() {
+        let mut ed = ed_with("foo bar");
+        ed.handle_key(key('A')); // insert at end
+        ed.handle_key(KeyEvent::new(KeyCode::Char('w'), KeyModifiers::CONTROL));
+        assert_eq!(ed.buffer.line(0), Some("foo "));
+    }
+
+    #[test]
+    fn insert_ctrl_u_deletes_to_line_start() {
+        let mut ed = ed_with("hello");
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // col 3
+        ed.handle_key(key('i')); // insert before col 3
+        ed.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
+        assert_eq!(ed.buffer.line(0), Some("lo"));
+        assert_eq!(ed.cursor.col, 0);
     }
 
     #[test]

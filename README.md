@@ -72,6 +72,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
   `>>`/`<<` (indent/dedent, also on a visual selection), counts (e.g. `5j`).
 - **Registers:** `"a`–`"z` prefix any yank/delete/paste to use a named register
   (e.g. `"ayy` … `"ap`); the unnamed register is used otherwise.
+- **Insert mode:** autoindent on Enter (`:set autoindent`/`noai`), `Ctrl-w`
+  (delete word before cursor), `Ctrl-u` (delete to line start), `Tab` (4 spaces).
 - **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history).
 - **Visual mode:** `v`/`V` then `d`/`y`/`c`, `>`/`<` (indent), and
   `u`/`U`/`~` (lower/upper/toggle case of the selection).
@@ -231,7 +233,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **135 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **140 tests** across buffer, editor, syntax, themes, commands,
 config, plugins, modes, and UI layout.
 
 ---
