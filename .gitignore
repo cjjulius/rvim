@@ -14,3 +14,6 @@ Thumbs.db
 
 # Keep Cargo.lock for the binary crate (recommended for apps)
 !Cargo.lock
+
+# Claude Code harness scratch
+.claude/
