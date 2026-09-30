@@ -21,6 +21,7 @@ pub mod command;
 pub mod config;
 pub mod editor;
 pub mod mode;
+pub mod pattern;
 pub mod plugin;
 pub mod syntax;
 pub mod terminal;

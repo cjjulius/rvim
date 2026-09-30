@@ -97,8 +97,9 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 - **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history).
 - **Visual mode:** `v`/`V` then `d`/`y`/`c`, `>`/`<` (indent), and
   `u`/`U`/`~` (lower/upper/toggle case of the selection).
-- **Search:** `/pattern`, `?pattern`, `n`/`N` (wraps around); all matches are
-  highlighted — clear the highlight with `:noh` (`:set hlsearch`/`nohlsearch`).
+- **Search:** `/pattern`, `?pattern`, `n`/`N` (wraps around); patterns are
+  **regular expressions** (e.g. `/\bfn\s+\w+`). All matches are highlighted —
+  clear the highlight with `:noh` (`:set hlsearch`/`nohlsearch`).
 
 ### Multiple buffers
 Open several files and switch between them:
@@ -134,8 +135,10 @@ override).
 | `:2,5s/foo/bar/`   | first `foo` per line, lines 2–5               |
 | `:.,$s/foo//g`     | delete every `foo` from the cursor line to EOF|
 
-Matching is **literal** (not yet regex — see roadmap). A single undo (`u`)
-reverts an entire substitution.
+Patterns are **regular expressions**, and the replacement supports capture
+groups (`$1`, `${name}`) — e.g. `:%s/(\w+)=(\w+)/$2=$1/g`. An invalid regex
+falls back to a literal match. A single undo (`u`) reverts an entire
+substitution.
 
 ### Configuration (`~/.rvimrc`)
 On startup rvim runs the ex-commands in `~/.rvimrc` (or `$RVIMRC`, or
@@ -211,6 +214,7 @@ src/
 ├── mode.rs        the modal state enum
 ├── command.rs     ex-command parser (`:...`)
 ├── config.rs      ~/.rvimrc loading + parsing
+├── pattern.rs     regex compilation (literal fallback) for search & :s
 ├── terminal.rs    raw-mode / alt-screen RAII guard (cross-platform)
 ├── ui.rs          gutter + highlighted text + status/command lines
 ├── theme.rs       Theme + ThemeRegistry (matrix, retrowave, cobalt)
@@ -253,15 +257,15 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **173 tests** across buffer, editor, syntax, themes, commands,
-config, plugins, modes, and UI layout.
+Current suite: **179 tests** across buffer, editor, syntax, themes, commands,
+config, pattern, plugins, modes, and UI layout.
 
 ---
 
 ## Roadmap
 
-- Regex support for `:s` (currently literal matching)
-- Multi-line string highlighting (block comments spanning lines ✅ done)
+- Multi-line string highlighting (block comments spanning lines ✅ done;
+  regex search & substitute ✅ done)
 - Split windows & tabs (multiple buffers ✅ done)
 - User-defined key mappings in `~/.rvimrc` (config file loading ✅ done)
 - Ex-commands inside replayed macros; cross-line text objects

@@ -98,24 +98,6 @@ pub fn char_token_kinds(chars: &[(usize, char)], tokens: &[Token]) -> Vec<Option
     kinds
 }
 
-/// Char-index ranges `[start, end)` of every occurrence of `needle` in `line`.
-/// Empty when `needle` is empty. Non-overlapping, left to right.
-pub fn search_match_ranges(line: &str, needle: &str) -> Vec<(usize, usize)> {
-    if needle.is_empty() {
-        return Vec::new();
-    }
-    let nchars = needle.chars().count();
-    let mut ranges = Vec::new();
-    let mut start = 0usize;
-    while let Some(rel) = line[start..].find(needle) {
-        let bstart = start + rel;
-        let cstart = line[..bstart].chars().count();
-        ranges.push((cstart, cstart + nchars));
-        start = bstart + needle.len();
-    }
-    ranges
-}
-
 /// One entry in the tab/buffer bar.
 pub struct TabEntry {
     pub name: String,
@@ -179,11 +161,7 @@ pub fn render(
 
     let sel = editor.selection();
     let linewise = editor.mode == Mode::VisualLine;
-    let search = if editor.hlsearch && !editor.search_query().is_empty() {
-        Some(editor.search_query())
-    } else {
-        None
-    };
+    let search = editor.search_regex();
 
     // Carry block-comment state from the top of the buffer to the first visible
     // line, then thread it through the visible rows.
@@ -328,10 +306,10 @@ fn draw_text_line(
     line_bg: Color,
     sel: Option<(Position, Position)>,
     linewise: bool,
-    search: Option<&str>,
+    search: Option<&regex::Regex>,
 ) -> io::Result<()> {
     let chars: Vec<(usize, char)> = line.char_indices().collect();
-    let matches = search.map(|n| search_match_ranges(line, n)).unwrap_or_default();
+    let matches = search.map(|re| crate::pattern::match_ranges(re, line)).unwrap_or_default();
 
     // Per-char foreground based on tokens (single pass).
     let kinds = char_token_kinds(&chars, tokens);
@@ -490,19 +468,6 @@ mod tests {
         assert_eq!(gutter_width(1000, true), 5); // 4 digits + 1
         assert_eq!(gutter_width(100000, true), 7); // 6 digits + 1
         assert_eq!(gutter_width(42, false), 0);
-    }
-
-    #[test]
-    fn search_match_ranges_finds_all() {
-        assert_eq!(search_match_ranges("a bar b bar", "bar"), vec![(2, 5), (8, 11)]);
-        assert_eq!(search_match_ranges("no hits here", "xyz"), vec![]);
-        assert_eq!(search_match_ranges("anything", ""), vec![]);
-    }
-
-    #[test]
-    fn search_match_ranges_overlapping_are_non_overlapping() {
-        // "aaaa" searching "aa" yields non-overlapping matches at 0 and 2.
-        assert_eq!(search_match_ranges("aaaa", "aa"), vec![(0, 2), (2, 4)]);
     }
 
     #[test]
