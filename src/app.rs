@@ -48,6 +48,26 @@ impl App {
         self.themes.set_current(name);
     }
 
+    /// Load and apply the user's `rvimrc` (if present). Safe to call before
+    /// `run`; missing files are silently ignored.
+    pub fn load_config(&mut self) {
+        if let Some(path) = crate::config::default_config_path() {
+            if let Ok(text) = std::fs::read_to_string(&path) {
+                let cmds = crate::config::parse_config(&text);
+                let n = cmds.len();
+                self.apply_config_lines(&cmds);
+                self.editor.message = format!("{}: {n} settings applied", path.display());
+            }
+        }
+    }
+
+    /// Apply a list of ex-command strings (used for config and `:source`).
+    pub fn apply_config_lines(&mut self, lines: &[String]) {
+        for line in lines {
+            self.run_ex(line);
+        }
+    }
+
     /// Run the interactive event loop until the user quits.
     pub fn run(&mut self) -> io::Result<()> {
         let mut guard = TerminalGuard::enter()?;
@@ -200,6 +220,15 @@ impl App {
                     format!("{subs} substitution{s_p} on {lines} line{l_p}")
                 };
             }
+            ExCommand::Source(path) => match std::fs::read_to_string(&path) {
+                Ok(text) => {
+                    let cmds = crate::config::parse_config(&text);
+                    let n = cmds.len();
+                    self.apply_config_lines(&cmds);
+                    self.editor.message = format!("\"{path}\" sourced ({n} commands)");
+                }
+                Err(e) => self.editor.message = format!("E484: Can't open file {path}: {e}"),
+            },
             ExCommand::Passthrough { name, args } => self.run_passthrough(&name, &args),
         }
     }
@@ -417,5 +446,39 @@ mod tests {
         assert!(app.want_mouse);
         app.run_ex("set nomouse");
         assert!(!app.want_mouse);
+    }
+
+    #[test]
+    fn apply_config_lines_applies_settings() {
+        let mut app = App::new();
+        let lines = vec![
+            "theme cobalt".to_string(),
+            "set nonumber".to_string(),
+            "set mouse".to_string(),
+        ];
+        app.apply_config_lines(&lines);
+        assert_eq!(app.themes.current().name, "cobalt");
+        assert!(!app.editor.show_line_numbers);
+        assert!(app.want_mouse);
+    }
+
+    #[test]
+    fn source_command_runs_file() {
+        let dir = std::env::temp_dir();
+        let path = dir.join(format!("rvim_rc_{}.rc", std::process::id()));
+        std::fs::write(&path, "\" comment\ntheme retrowave\nset nonumber\n").unwrap();
+        let mut app = App::new();
+        app.run_ex(&format!("source {}", path.display()));
+        assert_eq!(app.themes.current().name, "retrowave");
+        assert!(!app.editor.show_line_numbers);
+        assert!(app.editor.message.contains("sourced"));
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn source_missing_file_reports_error() {
+        let mut app = App::new();
+        app.run_ex("source /no/such/rvimrc-xyz");
+        assert!(app.editor.message.contains("Can't open"));
     }
 }

@@ -11,6 +11,7 @@ USAGE:
 
 OPTIONS:
     --theme <name>   start with a color theme (matrix, retrowave, cobalt)
+    --no-config      skip loading ~/.rvimrc
     --version        print version and exit
     --help, -h       print this help and exit
 
@@ -19,6 +20,7 @@ Inside the editor, press :help for keybindings, :q to quit.";
 fn main() -> ExitCode {
     let mut theme: Option<String> = None;
     let mut file: Option<String> = None;
+    let mut no_config = false;
 
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -27,6 +29,7 @@ fn main() -> ExitCode {
                 println!("{USAGE}");
                 return ExitCode::SUCCESS;
             }
+            "--no-config" => no_config = true,
             "--version" | "-V" => {
                 println!("rvim {}", rvim::VERSION);
                 return ExitCode::SUCCESS;
@@ -57,6 +60,10 @@ fn main() -> ExitCode {
         None => App::new(),
     };
 
+    // Config first, so an explicit --theme on the CLI wins over the rvimrc.
+    if !no_config {
+        app.load_config();
+    }
     if let Some(t) = theme {
         app.set_theme(&t);
     }

@@ -1,0 +1,11 @@
+" rvim configuration — copy to ~/.rvimrc (or set $RVIMRC to point here).
+" Lines starting with " or # are comments. Each other line is an ex-command.
+
+" Pick a color theme: matrix | retrowave | cobalt
+theme cobalt
+
+" Show line numbers in the gutter
+set number
+
+" Enable mouse support (click to position, wheel to scroll)
+set mouse
