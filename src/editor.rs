@@ -8,9 +8,11 @@
 use crate::buffer::{Buffer, Position};
 use crate::command::{LineAddr, SubRange, SubstituteSpec};
 use crate::mode::Mode;
+use crate::pattern;
 use std::collections::HashMap;
 use crate::syntax::{detect_language, line_comment_token, Language};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use regex::Regex;
 
 /// What the app should do after the editor handled a key.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,6 +67,7 @@ pub struct Editor {
     expect_register: bool,
     visual_anchor: Position,
     last_search: String,
+    search_re: Option<Regex>,
     pending_count: Option<usize>,
     pending_op: Option<char>,
     pending_op_count: Option<usize>,
@@ -138,6 +141,7 @@ impl Editor {
             expect_register: false,
             visual_anchor: Position::default(),
             last_search: String::new(),
+            search_re: None,
             pending_count: None,
             pending_op: None,
             pending_op_count: None,
@@ -177,6 +181,22 @@ impl Editor {
     /// The active search query (empty if none).
     pub fn search_query(&self) -> &str {
         &self.last_search
+    }
+
+    /// The compiled search regex, for highlighting (only when `hlsearch` is on).
+    pub fn search_regex(&self) -> Option<&Regex> {
+        if self.hlsearch {
+            self.search_re.as_ref()
+        } else {
+            None
+        }
+    }
+
+    /// Set the search pattern and (re)compile its regex, enabling highlight.
+    fn set_search(&mut self, pat: String) {
+        self.search_re = pattern::build(&pat);
+        self.last_search = pat;
+        self.hlsearch = true;
     }
 
     /// The register currently being recorded into, if any (for the status line).
@@ -270,12 +290,13 @@ impl Editor {
         self.language = lang;
     }
 
-    /// Execute a `:s` substitution (literal matching). Returns
+    /// Execute a `:s` substitution (regex, with literal fallback). Replacement
+    /// uses regex syntax for captures (`$1`, `${name}`). Returns
     /// `(substitutions, lines_changed)`.
     pub fn substitute(&mut self, spec: &SubstituteSpec) -> (usize, usize) {
-        if spec.pattern.is_empty() {
+        let Some(re) = pattern::build(&spec.pattern) else {
             return (0, 0);
-        }
+        };
         let (start, end) = self.resolve_range(spec.range);
 
         // First pass: compute new lines without mutating, so we only push an
@@ -287,11 +308,17 @@ impl Editor {
                 break;
             }
             let line = self.buffer.line(row).unwrap_or("");
-            let (new, c) = replace_literal(line, &spec.pattern, &spec.replacement, spec.global);
-            if c > 0 {
-                subs += c;
-                edits.push((row, new));
+            let matches = re.find_iter(line).count();
+            if matches == 0 {
+                continue;
             }
+            let (new, c) = if spec.global {
+                (re.replace_all(line, spec.replacement.as_str()).into_owned(), matches)
+            } else {
+                (re.replace(line, spec.replacement.as_str()).into_owned(), 1)
+            };
+            subs += c;
+            edits.push((row, new));
         }
 
         if edits.is_empty() {
@@ -517,14 +544,12 @@ impl Editor {
                 match self.line_kind {
                     LineKind::Ex => Action::RunEx(text),
                     LineKind::SearchFwd => {
-                        self.last_search = text;
-                        self.hlsearch = true;
+                        self.set_search(text);
                         self.search(true);
                         Action::None
                     }
                     LineKind::SearchBack => {
-                        self.last_search = text;
-                        self.hlsearch = true;
+                        self.set_search(text);
                         self.search(false);
                         Action::None
                     }
@@ -2017,22 +2042,29 @@ impl Editor {
     }
 
     fn search_repeat(&mut self, forward: bool) {
-        let needle = self.last_search.clone();
-        if needle.is_empty() {
+        if self.last_search.is_empty() {
             self.message = "No previous search".into();
             return;
         }
+        // Ensure a compiled regex exists (e.g. after `n` with no prior compile).
+        if self.search_re.is_none() {
+            self.search_re = pattern::build(&self.last_search);
+        }
+        let Some(re) = self.search_re.clone() else {
+            return;
+        };
         self.hlsearch = true;
         self.record_jump();
+        let needle = self.last_search.clone();
         let n = self.buffer.line_count();
         if forward {
-            // rest of current line after cursor, then following lines, then wrap
             for step in 0..=n {
                 let row = (self.cursor.row + step) % n;
                 let line = self.buffer.line(row).unwrap_or("");
                 let from = if step == 0 { self.byte_after_cursor() } else { 0 };
-                if let Some(bpos) = line[from.min(line.len())..].find(&needle) {
-                    let byte = from + bpos;
+                let from = from.min(line.len());
+                if let Some(m) = re.find(&line[from..]) {
+                    let byte = from + m.start();
                     self.cursor.row = row;
                     self.cursor.col = line[..byte].chars().count();
                     self.message = format!("/{needle}");
@@ -2048,9 +2080,19 @@ impl Editor {
                 } else {
                     line.len()
                 };
-                if let Some(bpos) = line[..limit.min(line.len())].rfind(&needle) {
+                let limit = limit.min(line.len());
+                // Last match starting before `limit`.
+                let mut best = None;
+                for m in re.find_iter(line) {
+                    if m.start() < limit {
+                        best = Some(m.start());
+                    } else {
+                        break;
+                    }
+                }
+                if let Some(byte) = best {
                     self.cursor.row = row;
-                    self.cursor.col = line[..bpos].chars().count();
+                    self.cursor.col = line[..byte].chars().count();
                     self.message = format!("?{needle}");
                     return;
                 }
@@ -2145,30 +2187,6 @@ impl CaseOp {
                 }
             }
         }
-    }
-}
-
-/// Literal (non-regex) find/replace within one line. Returns the new line and
-/// the number of replacements made.
-fn replace_literal(line: &str, pat: &str, rep: &str, global: bool) -> (String, usize) {
-    if pat.is_empty() {
-        return (line.to_string(), 0);
-    }
-    if global {
-        let count = line.matches(pat).count();
-        if count == 0 {
-            (line.to_string(), 0)
-        } else {
-            (line.replace(pat, rep), count)
-        }
-    } else if let Some(idx) = line.find(pat) {
-        let mut s = String::with_capacity(line.len() - pat.len() + rep.len());
-        s.push_str(&line[..idx]);
-        s.push_str(rep);
-        s.push_str(&line[idx + pat.len()..]);
-        (s, 1)
-    } else {
-        (line.to_string(), 0)
     }
 }
 
@@ -3042,6 +3060,58 @@ mod tests {
         assert_eq!(ed.mode, Mode::Insert);
         ed.handle_key(key('x'));
         assert_eq!(ed.buffer.line(0), Some("    x"));
+    }
+
+    #[test]
+    fn substitute_regex_digits() {
+        let mut ed = ed_with("item12 and item345");
+        let spec = SubstituteSpec {
+            range: SubRange::CurrentLine,
+            pattern: r"\d+".into(),
+            replacement: "#".into(),
+            global: true,
+        };
+        let (subs, _) = ed.substitute(&spec);
+        assert_eq!(subs, 2);
+        assert_eq!(ed.buffer.line(0), Some("item# and item#"));
+    }
+
+    #[test]
+    fn substitute_regex_capture_group() {
+        let mut ed = ed_with("2026-09-30");
+        let spec = SubstituteSpec {
+            range: SubRange::CurrentLine,
+            pattern: r"(\d+)-(\d+)-(\d+)".into(),
+            replacement: "$3/$2/$1".into(),
+            global: false,
+        };
+        let (subs, _) = ed.substitute(&spec);
+        assert_eq!(subs, 1);
+        assert_eq!(ed.buffer.line(0), Some("30/09/2026"));
+    }
+
+    #[test]
+    fn substitute_invalid_regex_matches_literally() {
+        let mut ed = ed_with("a (b) c");
+        let spec = SubstituteSpec {
+            range: SubRange::CurrentLine,
+            pattern: "(b".into(), // invalid regex -> literal
+            replacement: "X".into(),
+            global: false,
+        };
+        let (subs, _) = ed.substitute(&spec);
+        assert_eq!(subs, 1);
+        assert_eq!(ed.buffer.line(0), Some("a X) c"));
+    }
+
+    #[test]
+    fn search_regex_finds_pattern() {
+        let mut ed = ed_with("alpha1\nbeta22\ngamma333");
+        ed.set_search(r"\d\d+".into()); // 2+ digits
+        ed.search_repeat(true);
+        assert_eq!(ed.cursor.row, 1); // beta22
+        ed.search_repeat(true);
+        assert_eq!(ed.cursor.row, 2); // gamma333
     }
 
     #[test]
