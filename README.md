@@ -77,6 +77,9 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
   `d3w`, `2d3w` (multiplied), `3p`.
 - **Registers:** `"a`–`"z` prefix any yank/delete/paste to use a named register
   (e.g. `"ayy` … `"ap`); the unnamed register is used otherwise.
+- **Marks:** `m<letter>` sets a mark, `` `<letter> `` jumps to it (exact),
+  `'<letter>` jumps to its line; `` `` `` / `''` return to the previous position
+  (also set by `G`, `gg`, and searches).
 - **Insert mode:** autoindent on Enter (`:set autoindent`/`noai`), `Ctrl-w`
   (delete word before cursor), `Ctrl-u` (delete to line start), `Tab` (4 spaces).
 - **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history).
@@ -238,7 +241,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **151 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **154 tests** across buffer, editor, syntax, themes, commands,
 config, plugins, modes, and UI layout.
 
 ---
@@ -249,7 +252,8 @@ config, plugins, modes, and UI layout.
 - Multi-line string highlighting (block comments spanning lines ✅ done)
 - Split windows & tabs (multiple buffers ✅ done)
 - User-defined key mappings in `~/.rvimrc` (config file loading ✅ done)
-- Registers (named), macros (`q`), marks
+- Macros (`q` record, `@` play); the `.` repeat command
+  (named registers ✅, marks ✅ done)
 - Richer mouse (drag-select), and a menu bar
 - More accessibility options (screen-reader hints, configurable font-agnostic cues)
 - Dynamic plugin loading
