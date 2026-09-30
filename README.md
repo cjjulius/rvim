@@ -71,7 +71,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
   `dd`/`dw`/`d$`/`D`, `cc`/`cw`/`C`, `yy`, `p`/`P`, `J` (join),
   `>>`/`<<` (indent/dedent, also on a visual selection), counts (e.g. `5j`).
 - **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history).
-- **Visual mode:** `v`/`V` then `d`/`y`/`c`.
+- **Visual mode:** `v`/`V` then `d`/`y`/`c`, `>`/`<` (indent), and
+  `u`/`U`/`~` (lower/upper/toggle case of the selection).
 - **Search:** `/pattern`, `?pattern`, `n`/`N` (wraps around); all matches are
   highlighted — clear the highlight with `:noh` (`:set hlsearch`/`nohlsearch`).
 
@@ -79,7 +80,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 `:w [file]` · `:q` · `:q!` · `:wq` · `:x` · `:e <file>` · `:<n>` (goto line) ·
 `:s/pat/rep/[g]` (search & replace) · `:theme <name>` · `:set number|nonumber` ·
 `:set relativenumber|norelativenumber` · `:set ft=<lang>` · `:set mouse|nomouse` ·
-`:noh` / `:set hlsearch|nohlsearch` · `:source <file>` · `:help` · `:version`
+`:noh` / `:set hlsearch|nohlsearch` · `:sort[!] [u]` · `:source <file>` ·
+`:help` · `:version`
 
 **Search & replace** (`:s`) supports ranges and the `g` (global) flag:
 
@@ -210,7 +212,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **122 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **127 tests** across buffer, editor, syntax, themes, commands,
 config, plugins, modes, and UI layout.
 
 ---

@@ -524,7 +524,16 @@ impl Editor {
             KeyCode::Char('C') => self.change_to_eol(),
             KeyCode::Char('s') => self.substitute_char(),
             KeyCode::Char('S') => self.substitute_line(),
-            KeyCode::Char('~') => self.toggle_case(),
+            KeyCode::Char('~') => {
+                if self.mode.is_visual() {
+                    self.transform_selection(CaseOp::Toggle);
+                } else {
+                    self.toggle_case();
+                }
+            }
+            KeyCode::Char('U') if self.mode.is_visual() => {
+                self.transform_selection(CaseOp::Upper);
+            }
             KeyCode::Char('>') => {
                 if self.mode.is_visual() {
                     self.shift_selection(true);
@@ -555,7 +564,9 @@ impl Editor {
             KeyCode::Char('o') => self.open_below(),
             KeyCode::Char('O') => self.open_above(),
             KeyCode::Char('u') => {
-                if let Some(pos) = self.buffer.undo(self.cursor) {
+                if self.mode.is_visual() {
+                    self.transform_selection(CaseOp::Lower);
+                } else if let Some(pos) = self.buffer.undo(self.cursor) {
                     self.cursor = pos;
                     self.clamp_cursor(false);
                 } else {
@@ -1141,6 +1152,70 @@ impl Editor {
 
     // ---- visual mode -----------------------------------------------------
 
+    /// Apply a case transform to the current visual selection, then return to
+    /// Normal mode.
+    fn transform_selection(&mut self, op: CaseOp) {
+        let Some((start, end)) = self.selection() else {
+            return;
+        };
+        let linewise = self.mode == Mode::VisualLine;
+        self.checkpoint();
+        for row in start.row..=end.row {
+            let chars: Vec<char> = self.buffer.line(row).unwrap_or("").chars().collect();
+            let len = chars.len();
+            let (c0, c1) = if linewise {
+                (0, len)
+            } else if start.row == end.row {
+                (start.col.min(len), (end.col + 1).min(len))
+            } else if row == start.row {
+                (start.col.min(len), len)
+            } else if row == end.row {
+                (0, (end.col + 1).min(len))
+            } else {
+                (0, len)
+            };
+            let new: String = chars
+                .iter()
+                .enumerate()
+                .map(|(i, &c)| if i >= c0 && i < c1 { op.apply(c) } else { c })
+                .collect();
+            self.buffer.set_line(row, new);
+        }
+        self.cursor = Position::new(start.row, if linewise { 0 } else { start.col });
+        self.mode = Mode::Normal;
+        self.clamp_cursor(false);
+    }
+
+    /// Sort every line in the buffer. `reverse` flips the order; `unique`
+    /// removes duplicate lines after sorting.
+    pub fn sort_buffer(&mut self, reverse: bool, unique: bool) {
+        if self.buffer.line_count() <= 1 {
+            return;
+        }
+        self.checkpoint();
+        let mut lines: Vec<String> = self.buffer.lines().to_vec();
+        lines.sort();
+        if unique {
+            lines.dedup();
+        }
+        if reverse {
+            lines.reverse();
+        }
+        for (row, line) in lines.iter().enumerate() {
+            if row < self.buffer.line_count() {
+                self.buffer.set_line(row, line.clone());
+            } else {
+                self.buffer.insert_line(row, line.clone());
+            }
+        }
+        // Remove any surplus lines if `unique` shrank the buffer.
+        while self.buffer.line_count() > lines.len() {
+            self.buffer.delete_line(self.buffer.line_count() - 1);
+        }
+        self.cursor = Position::default();
+        self.clamp_cursor(false);
+    }
+
     fn toggle_visual(&mut self, target: Mode) {
         if self.mode == target {
             self.mode = Mode::Normal;
@@ -1341,6 +1416,32 @@ impl Editor {
 impl Default for Editor {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// A case transformation applied to characters in a visual selection.
+#[derive(Debug, Clone, Copy)]
+enum CaseOp {
+    Lower,
+    Upper,
+    Toggle,
+}
+
+impl CaseOp {
+    fn apply(self, c: char) -> char {
+        match self {
+            CaseOp::Lower => c.to_lowercase().next().unwrap_or(c),
+            CaseOp::Upper => c.to_uppercase().next().unwrap_or(c),
+            CaseOp::Toggle => {
+                if c.is_uppercase() {
+                    c.to_lowercase().next().unwrap_or(c)
+                } else if c.is_lowercase() {
+                    c.to_uppercase().next().unwrap_or(c)
+                } else {
+                    c
+                }
+            }
+        }
     }
 }
 
@@ -1593,6 +1694,51 @@ mod tests {
         }
         assert_eq!(ed.top, 5);
         assert_eq!(ed.cursor.row, 5);
+    }
+
+    #[test]
+    fn visual_uppercase_selection() {
+        let mut ed = ed_with("hello world");
+        ed.handle_key(key('v'));
+        for _ in 0..4 {
+            ed.handle_key(key('l')); // select "hello"
+        }
+        ed.handle_key(key('U'));
+        assert_eq!(ed.buffer.line(0), Some("HELLO world"));
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn visual_line_lowercase_and_toggle() {
+        let mut ed = ed_with("MixedCase");
+        ed.handle_key(key('V'));
+        ed.handle_key(key('u'));
+        assert_eq!(ed.buffer.line(0), Some("mixedcase"));
+        ed.handle_key(key('V'));
+        ed.handle_key(key('~'));
+        assert_eq!(ed.buffer.line(0), Some("MIXEDCASE"));
+    }
+
+    #[test]
+    fn sort_buffer_ascending_and_reverse() {
+        let mut ed = ed_with("banana\napple\ncherry");
+        ed.sort_buffer(false, false);
+        assert_eq!(ed.buffer.line(0), Some("apple"));
+        assert_eq!(ed.buffer.line(1), Some("banana"));
+        assert_eq!(ed.buffer.line(2), Some("cherry"));
+        ed.sort_buffer(true, false);
+        assert_eq!(ed.buffer.line(0), Some("cherry"));
+        assert_eq!(ed.buffer.line(2), Some("apple"));
+    }
+
+    #[test]
+    fn sort_buffer_unique_removes_duplicates() {
+        let mut ed = ed_with("b\na\nb\nc\na");
+        ed.sort_buffer(false, true);
+        assert_eq!(ed.buffer.line_count(), 3);
+        assert_eq!(ed.buffer.line(0), Some("a"));
+        assert_eq!(ed.buffer.line(1), Some("b"));
+        assert_eq!(ed.buffer.line(2), Some("c"));
     }
 
     #[test]
