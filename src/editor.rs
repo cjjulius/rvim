@@ -975,6 +975,8 @@ impl Editor {
             KeyCode::Char('V') => self.toggle_visual(Mode::VisualLine),
             KeyCode::Char('n') => self.search_repeat(true),
             KeyCode::Char('N') => self.search_repeat(false),
+            KeyCode::Char('*') => self.search_word(true, true),
+            KeyCode::Char('#') => self.search_word(false, true),
             KeyCode::Char(':') => {
                 self.mode = Mode::Command;
                 self.line_kind = LineKind::Ex;
@@ -1017,6 +1019,8 @@ impl Editor {
                 KeyCode::Char('u') => self.pending_case = Some(CaseOp::Lower),
                 KeyCode::Char('U') => self.pending_case = Some(CaseOp::Upper),
                 KeyCode::Char('~') => self.pending_case = Some(CaseOp::Toggle),
+                KeyCode::Char('*') => self.search_word(true, false),
+                KeyCode::Char('#') => self.search_word(false, false),
                 KeyCode::Char('c') => {
                     if let Some((s, e)) = self.selection() {
                         self.toggle_comment_lines(s.row, e.row);
@@ -2033,6 +2037,45 @@ impl Editor {
     }
 
     // ---- search ----------------------------------------------------------
+
+    /// The word under (or next on the line after) the cursor.
+    fn word_under_cursor(&self) -> Option<String> {
+        let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+        if chars.is_empty() {
+            return None;
+        }
+        let is_word = |c: char| c.is_alphanumeric() || c == '_';
+        let mut col = self.cursor.col.min(chars.len() - 1);
+        if !is_word(chars[col]) {
+            col = (col..chars.len()).find(|&i| is_word(chars[i]))?;
+        }
+        let mut start = col;
+        while start > 0 && is_word(chars[start - 1]) {
+            start -= 1;
+        }
+        let mut end = col + 1;
+        while end < chars.len() && is_word(chars[end]) {
+            end += 1;
+        }
+        Some(chars[start..end].iter().collect())
+    }
+
+    /// `*`/`#` (whole word) and `g*`/`g#` (substring): search for the word under
+    /// the cursor.
+    fn search_word(&mut self, forward: bool, boundary: bool) {
+        let Some(word) = self.word_under_cursor() else {
+            self.message = "No word under cursor".into();
+            return;
+        };
+        let escaped = regex::escape(&word);
+        let pat = if boundary {
+            format!(r"\b{escaped}\b")
+        } else {
+            escaped
+        };
+        self.set_search(pat);
+        self.search_repeat(forward);
+    }
 
     fn search(&mut self, forward: bool) {
         if self.last_search.is_empty() {
@@ -3102,6 +3145,39 @@ mod tests {
         let (subs, _) = ed.substitute(&spec);
         assert_eq!(subs, 1);
         assert_eq!(ed.buffer.line(0), Some("a X) c"));
+    }
+
+    #[test]
+    fn star_searches_word_under_cursor() {
+        let mut ed = ed_with("foo bar foo baz");
+        // cursor on first "foo" (col 0)
+        ed.handle_key(key('*'));
+        assert_eq!(ed.cursor.col, 8); // second "foo"
+    }
+
+    #[test]
+    fn hash_searches_backward() {
+        let mut ed = ed_with("foo bar foo baz");
+        ed.cursor = Position::new(0, 8); // on second "foo"
+        ed.handle_key(key('#'));
+        assert_eq!(ed.cursor.col, 0); // first "foo"
+    }
+
+    #[test]
+    fn star_uses_word_boundaries() {
+        let mut ed = ed_with("foo foobar foo");
+        // whole-word "foo" is only at 0 and 11; from col 0, next is 11
+        ed.handle_key(key('*'));
+        assert_eq!(ed.cursor.col, 11);
+    }
+
+    #[test]
+    fn g_star_ignores_word_boundaries() {
+        let mut ed = ed_with("foo foobar");
+        // g* matches the substring "foo" inside "foobar" (col 4)
+        ed.handle_key(key('g'));
+        ed.handle_key(key('*'));
+        assert_eq!(ed.cursor.col, 4);
     }
 
     #[test]
