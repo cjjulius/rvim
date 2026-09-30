@@ -70,6 +70,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 - **Editing:** `i a I A o O`, `x`, `r<c>`, `~` (toggle case), `s`/`S`,
   `dd`/`dw`/`d$`/`D`, `cc`/`cw`/`C`, `yy`, `p`/`P`, `J` (join),
   `>>`/`<<` (indent/dedent, also on a visual selection), counts (e.g. `5j`).
+- **Registers:** `"a`–`"z` prefix any yank/delete/paste to use a named register
+  (e.g. `"ayy` … `"ap`); the unnamed register is used otherwise.
 - **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history).
 - **Visual mode:** `v`/`V` then `d`/`y`/`c`, `>`/`<` (indent), and
   `u`/`U`/`~` (lower/upper/toggle case of the selection).
@@ -212,7 +214,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **127 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **129 tests** across buffer, editor, syntax, themes, commands,
 config, plugins, modes, and UI layout.
 
 ---

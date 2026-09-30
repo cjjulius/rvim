@@ -371,6 +371,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tcc / cw / C        change line/word/to-eol\n\
          \t>> / <<            indent / dedent (also in visual mode)\n\
          \tyy / p / P         yank line / paste after / before\n\
+         \t\"a yy / \"a p       use named register a (any a-z)\n\
          \tJ                  join lines         u / Ctrl-r  undo / redo\n\
          \n\
          SEARCH\n\
