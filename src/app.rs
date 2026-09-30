@@ -217,6 +217,12 @@ impl App {
                 self.editor.message = format!("rvim {}", crate::VERSION);
             }
             ExCommand::Goto(n) => self.editor.goto_line(n),
+            ExCommand::ToggleHlSearch(on) => {
+                self.editor.hlsearch = on;
+                if !on {
+                    self.editor.message = "search highlight cleared".into();
+                }
+            }
             ExCommand::Substitute(spec) => {
                 let (subs, lines) = self.editor.substitute(&spec);
                 self.editor.message = if subs == 0 {
@@ -339,7 +345,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \th j k l  arrows    move left/down/up/right\n\
          \tw / b / e          word forward / back / end\n\
          \tf/F/t/T <c>        find char on line   ; ,  repeat / reverse\n\
-         \t%                  jump to matching bracket ()[]{}\n\
+         \t%                  jump to matching bracket () [] {{}}\n\
          \t0 / ^ / $          line start / first non-blank / line end\n\
          \tgg / G             top / bottom (or <n>G, :<n>)\n\
          \tCtrl-d / Ctrl-u    half-page down / up\n\
