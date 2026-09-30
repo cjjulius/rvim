@@ -1,4 +1,10 @@
 // A small Rust sample to show off rvim's highlighting.
+/*
+ * This is a multi-line block comment. rvim tracks block-comment state
+ * across line boundaries, so every line here stays comment-colored —
+ * including `keywords`, "strings", and 1234 numbers that would otherwise
+ * be highlighted.
+ */
 use std::collections::HashMap;
 
 /// Count word frequencies in a blob of text.

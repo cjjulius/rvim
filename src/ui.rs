@@ -5,7 +5,7 @@
 use crate::buffer::Position;
 use crate::editor::Editor;
 use crate::mode::Mode;
-use crate::syntax::Registry;
+use crate::syntax::{Registry, Token};
 use crate::theme::Theme;
 use crossterm::cursor::{Hide, MoveTo, Show};
 use crossterm::style::{
@@ -106,6 +106,11 @@ pub fn render(
     let sel = editor.selection();
     let linewise = editor.mode == Mode::VisualLine;
 
+    // Carry block-comment state from the top of the buffer to the first visible
+    // line, then thread it through the visible rows.
+    let mut in_block =
+        syntax.block_state_at(editor.language, editor.buffer.lines(), editor.top);
+
     for y in 0..layout.text_rows {
         let row = editor.top + y as usize;
         queue!(out, MoveTo(0, y))?;
@@ -118,7 +123,12 @@ pub fn render(
         };
 
         if let Some(line) = editor.buffer.line(row) {
-            draw_text_line(out, line, editor, theme, syntax, &layout, row, line_bg, sel, linewise)?;
+            let (tokens, next_block) =
+                syntax.highlight_stateful(editor.language, line, in_block);
+            in_block = next_block;
+            draw_text_line(
+                out, line, &tokens, theme, &layout, editor.left, row, line_bg, sel, linewise,
+            )?;
         } else {
             // Past end of buffer: tilde like vim.
             queue!(
@@ -192,21 +202,20 @@ fn draw_gutter(
 fn draw_text_line(
     out: &mut impl Write,
     line: &str,
-    editor: &Editor,
+    tokens: &[Token],
     theme: &Theme,
-    syntax: &Registry,
     layout: &Layout,
+    left: usize,
     row: usize,
     line_bg: Color,
     sel: Option<(Position, Position)>,
     linewise: bool,
 ) -> io::Result<()> {
-    let tokens = syntax.highlight(editor.language, line);
     let chars: Vec<(usize, char)> = line.char_indices().collect();
 
     // Per-char foreground based on tokens.
     let mut fg = vec![theme.fg; chars.len()];
-    for tok in &tokens {
+    for tok in tokens {
         let color = theme.token_color(tok.kind);
         for (ci, (b, _)) in chars.iter().enumerate() {
             if *b >= tok.start && *b < tok.end {
@@ -215,7 +224,6 @@ fn draw_text_line(
         }
     }
 
-    let left = editor.left;
     let width = layout.text_cols as usize;
 
     // Batch consecutive characters that share (fg, bg) into runs.

@@ -217,7 +217,13 @@ impl Highlighter for Z80Highlighter {
         Language::Z80
     }
 
-    fn highlight_line(&self, line: &str) -> Vec<Token> {
+    fn highlight_line_stateful(&self, line: &str, _in_block: bool) -> (Vec<Token>, bool) {
+        (self.highlight_line_impl(line), false)
+    }
+}
+
+impl Z80Highlighter {
+    fn highlight_line_impl(&self, line: &str) -> Vec<Token> {
         let chars: Vec<(usize, char)> = line.char_indices().collect();
         let end_byte = line.len();
         let byte_at = |k: usize| chars.get(k).map(|&(b, _)| b).unwrap_or(end_byte);
