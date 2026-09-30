@@ -227,6 +227,40 @@ impl Editor {
         self.scroll_into_view();
     }
 
+    /// `zz` — center the current line in the viewport.
+    fn center_line(&mut self) {
+        self.top = self.cursor.row.saturating_sub(self.view_rows / 2);
+    }
+
+    /// `zt` — scroll so the current line is at the top.
+    fn line_to_top(&mut self) {
+        self.top = self.cursor.row;
+    }
+
+    /// `zb` — scroll so the current line is at the bottom.
+    fn line_to_bottom(&mut self) {
+        self.top = (self.cursor.row + 1).saturating_sub(self.view_rows);
+    }
+
+    /// `Ctrl-e` / `Ctrl-y` — scroll the view by `delta` lines, keeping the
+    /// cursor on screen.
+    fn scroll_view(&mut self, delta: isize) {
+        let last = self.buffer.line_count().saturating_sub(1);
+        if delta >= 0 {
+            self.top = (self.top + delta as usize).min(last);
+        } else {
+            self.top = self.top.saturating_sub((-delta) as usize);
+        }
+        if self.cursor.row < self.top {
+            self.cursor.row = self.top;
+        }
+        let bottom = self.top + self.view_rows.saturating_sub(1);
+        if self.cursor.row > bottom {
+            self.cursor.row = bottom.min(last);
+        }
+        self.clamp_cursor(false);
+    }
+
     fn scroll_into_view(&mut self) {
         if self.cursor.row < self.top {
             self.top = self.cursor.row;
@@ -392,6 +426,14 @@ impl Editor {
                     self.move_up(self.view_rows / 2);
                     return Action::None;
                 }
+                KeyCode::Char('e') => {
+                    self.scroll_view(1);
+                    return Action::None;
+                }
+                KeyCode::Char('y') => {
+                    self.scroll_view(-1);
+                    return Action::None;
+                }
                 _ => {}
             }
         }
@@ -439,6 +481,21 @@ impl Editor {
             }
             KeyCode::Char('G') => self.goto_line_or_end(count),
             KeyCode::Char('g') => self.pending_op = Some('g'),
+            KeyCode::Char('z') => self.pending_op = Some('z'),
+            KeyCode::Char('H') => {
+                self.cursor.row = self.top.min(self.buffer.line_count().saturating_sub(1));
+                self.move_first_nonblank();
+            }
+            KeyCode::Char('M') => {
+                let last = self.buffer.line_count().saturating_sub(1);
+                self.cursor.row = (self.top + self.view_rows / 2).min(last);
+                self.move_first_nonblank();
+            }
+            KeyCode::Char('L') => {
+                let last = self.buffer.line_count().saturating_sub(1);
+                self.cursor.row = (self.top + self.view_rows.saturating_sub(1)).min(last);
+                self.move_first_nonblank();
+            }
             KeyCode::Char('d') => {
                 if self.mode.is_visual() {
                     self.visual_delete();
@@ -563,6 +620,9 @@ impl Editor {
                 self.enter_insert_here();
             }
             ('y', KeyCode::Char('y')) => self.yank_line_op(),
+            ('z', KeyCode::Char('z')) => self.center_line(),
+            ('z', KeyCode::Char('t')) => self.line_to_top(),
+            ('z', KeyCode::Char('b')) => self.line_to_bottom(),
             ('>', KeyCode::Char('>')) => {
                 self.checkpoint();
                 self.indent_line(self.cursor.row);
@@ -1471,6 +1531,68 @@ mod tests {
         ed.handle_key(key('r'));
         ed.handle_key(key('b'));
         assert_eq!(ed.buffer.line(0), Some("bat"));
+    }
+
+    fn big_buffer(lines: usize) -> Editor {
+        let text: Vec<String> = (0..lines).map(|i| format!("line{i}")).collect();
+        let mut ed = ed_with(&text.join("\n"));
+        ed.view_rows = 10;
+        ed
+    }
+
+    #[test]
+    fn zz_zt_zb_position_viewport() {
+        let mut ed = big_buffer(100);
+        ed.cursor.row = 50;
+        ed.handle_key(key('z'));
+        ed.handle_key(key('z'));
+        assert_eq!(ed.top, 45); // centered (50 - 10/2)
+
+        ed.handle_key(key('z'));
+        ed.handle_key(key('t'));
+        assert_eq!(ed.top, 50); // line to top
+
+        ed.handle_key(key('z'));
+        ed.handle_key(key('b'));
+        assert_eq!(ed.top, 41); // 50 + 1 - 10
+    }
+
+    #[test]
+    fn hml_jump_within_viewport() {
+        let mut ed = big_buffer(100);
+        ed.top = 20;
+        ed.cursor.row = 25;
+        ed.handle_key(key('H'));
+        assert_eq!(ed.cursor.row, 20);
+        ed.handle_key(key('M'));
+        assert_eq!(ed.cursor.row, 25); // 20 + 10/2
+        ed.handle_key(key('L'));
+        assert_eq!(ed.cursor.row, 29); // 20 + 10 - 1
+    }
+
+    #[test]
+    fn ctrl_e_and_y_scroll_one_line() {
+        let mut ed = big_buffer(100);
+        ed.top = 10;
+        ed.cursor.row = 15;
+        ed.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::CONTROL));
+        assert_eq!(ed.top, 11);
+        ed.handle_key(KeyEvent::new(KeyCode::Char('y'), KeyModifiers::CONTROL));
+        assert_eq!(ed.top, 10);
+    }
+
+    #[test]
+    fn ctrl_e_pulls_cursor_into_view() {
+        let mut ed = big_buffer(100);
+        ed.top = 0;
+        ed.cursor.row = 0;
+        // Scroll down 5 lines; cursor (row 0) would be above the view, so it
+        // should be pulled down to the new top.
+        for _ in 0..5 {
+            ed.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::CONTROL));
+        }
+        assert_eq!(ed.top, 5);
+        assert_eq!(ed.cursor.row, 5);
     }
 
     #[test]

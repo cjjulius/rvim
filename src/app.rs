@@ -348,7 +348,10 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t%                  jump to matching bracket () [] {{}}\n\
          \t0 / ^ / $          line start / first non-blank / line end\n\
          \tgg / G             top / bottom (or <n>G, :<n>)\n\
+         \tH / M / L          top / middle / bottom of screen\n\
+         \tzz / zt / zb       center / top / bottom current line\n\
          \tCtrl-d / Ctrl-u    half-page down / up\n\
+         \tCtrl-e / Ctrl-y    scroll one line down / up\n\
          \n\
          EDITING\n\
          \tx                  delete char        r<c>  replace char\n\
