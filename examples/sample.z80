@@ -1,0 +1,35 @@
+; Z80 assembly sample - clear the screen and print a byte
+        org     $8000
+
+SCREEN  equ     $4000
+COLOR   equ     %00111000       ; white on black
+
+start:
+        di
+        ld      hl, SCREEN
+        ld      bc, $1800       ; 6144 bytes of pixel data
+        ld      a, 0
+clear:
+        ld      (hl), a
+        inc     hl
+        dec     bc
+        ld      a, b
+        or      c
+        jr      nz, clear
+
+        ld      a, COLOR
+        ld      hl, SCREEN + $1800
+        ld      bc, 768
+attr:
+        ld      (hl), a
+        inc     hl
+        dec     bc
+        ld      a, b
+        or      c
+        jr      nz, attr
+
+        ei
+        ret
+
+        db      "DONE", 0
+        end     start

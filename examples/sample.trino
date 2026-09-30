@@ -1,0 +1,21 @@
+-- Trino / Starburst SQL sample
+WITH sessions AS (
+    SELECT
+        user_id,
+        session_id,
+        from_unixtime(ts / 1000)              AS event_time,
+        element_at(properties, 'page')        AS page
+    FROM hive.analytics.events
+    WHERE dt >= date_trunc('day', now() - INTERVAL '1' DAY)
+)
+SELECT
+    page,
+    approx_distinct(user_id)                  AS uniques,
+    cardinality(array_agg(session_id))        AS sessions,
+    count(*)                                  AS hits
+FROM sessions
+CROSS JOIN UNNEST(sequence(1, 3)) WITH ORDINALITY AS t(n, ord)
+WHERE regexp_like(page, '^/product/')
+GROUP BY page
+ORDER BY uniques DESC
+LIMIT 50;
