@@ -68,6 +68,8 @@ pub struct Editor {
     pending_count: Option<usize>,
     pending_op: Option<char>,
     pending_op_count: Option<usize>,
+    /// After `d`/`y`/`c` + `i`/`a`: the (operator, i-or-a) awaiting an object char.
+    pending_textobj: Option<(char, char)>,
     pending_replace: bool,
     pending_find: Option<char>,
     last_find: Option<(char, char)>,
@@ -133,6 +135,7 @@ impl Editor {
             pending_count: None,
             pending_op: None,
             pending_op_count: None,
+            pending_textobj: None,
             pending_replace: false,
             pending_find: None,
             last_find: None,
@@ -466,6 +469,7 @@ impl Editor {
         self.mode == Mode::Normal
             && self.pending_op.is_none()
             && self.pending_count.is_none()
+            && self.pending_textobj.is_none()
             && !self.pending_replace
             && self.pending_find.is_none()
             && self.pending_mark.is_none()
@@ -662,6 +666,16 @@ impl Editor {
             return Action::None;
         }
 
+        // Object char after `d`/`y`/`c` + `i`/`a` (e.g. `diw`, `ci(`).
+        if let Some((op, iora)) = self.pending_textobj.take() {
+            if let KeyCode::Char(obj) = key.code {
+                if let Some(t) = self.text_object(iora, obj) {
+                    self.apply_op(op, t);
+                }
+            }
+            return Action::None;
+        }
+
         // Mark letter after `m` / `` ` `` / `'`.
         if let Some(pm) = self.pending_mark.take() {
             if let KeyCode::Char(c) = key.code {
@@ -725,6 +739,15 @@ impl Editor {
         // count typed before the operator by the count typed before the motion.
         if let Some(op) = self.pending_op.take() {
             let op_count = self.pending_op_count.take().unwrap_or(1);
+            // `i`/`a` after d/y/c begins a text object (e.g. diw, ci().
+            if matches!(op, 'd' | 'y' | 'c')
+                && matches!(code, KeyCode::Char('i') | KeyCode::Char('a'))
+            {
+                if let KeyCode::Char(iora) = code {
+                    self.pending_textobj = Some((op, iora));
+                }
+                return Action::None;
+            }
             self.apply_operator(op, code, op_count.saturating_mul(count));
             return Action::None;
         }
@@ -1182,6 +1205,119 @@ impl Editor {
                 self.cursor.col = col;
             }
         }
+    }
+
+    /// Compute a text object span on the current line. `iora` is `i` (inner) or
+    /// `a` (around); `obj` selects the object (`w`, brackets, quotes).
+    fn text_object(&self, iora: char, obj: char) -> Option<OpTarget> {
+        let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+        if chars.is_empty() {
+            return None;
+        }
+        let col = self.cursor.col.min(chars.len() - 1);
+        let around = iora == 'a';
+
+        // Word object.
+        if obj == 'w' {
+            let class = Self::char_class(chars[col]);
+            let mut start = col;
+            while start > 0 && Self::char_class(chars[start - 1]) == class {
+                start -= 1;
+            }
+            let mut end = col + 1;
+            while end < chars.len() && Self::char_class(chars[end]) == class {
+                end += 1;
+            }
+            if around {
+                let before = end;
+                while end < chars.len() && chars[end].is_whitespace() {
+                    end += 1;
+                }
+                // If no trailing whitespace, absorb leading whitespace instead.
+                if end == before {
+                    while start > 0 && chars[start - 1].is_whitespace() {
+                        start -= 1;
+                    }
+                }
+            }
+            return Some(OpTarget::Chars(start, end));
+        }
+
+        // Pair / quote objects.
+        let (open, close) = match obj {
+            '(' | ')' | 'b' => ('(', ')'),
+            '{' | '}' | 'B' => ('{', '}'),
+            '[' | ']' => ('[', ']'),
+            '<' | '>' => ('<', '>'),
+            '"' => ('"', '"'),
+            '\'' => ('\'', '\''),
+            '`' => ('`', '`'),
+            _ => return None,
+        };
+        let (o, c) = if open == close {
+            Self::find_quotes(&chars, col, open)?
+        } else {
+            Self::find_pair(&chars, col, open, close)?
+        };
+        if around {
+            Some(OpTarget::Chars(o, c + 1))
+        } else {
+            Some(OpTarget::Chars(o + 1, c))
+        }
+    }
+
+    fn find_pair(chars: &[char], col: usize, open: char, close: char) -> Option<(usize, usize)> {
+        // Nearest enclosing open bracket at or before the cursor.
+        let mut depth = 0i32;
+        let mut o = None;
+        let mut i = col as isize;
+        while i >= 0 {
+            let c = chars[i as usize];
+            if c == close && (i as usize) != col {
+                depth += 1;
+            } else if c == open {
+                if depth == 0 {
+                    o = Some(i as usize);
+                    break;
+                }
+                depth -= 1;
+            }
+            i -= 1;
+        }
+        let o = o?;
+        // Matching close after it.
+        let mut depth = 0i32;
+        let mut j = o + 1;
+        while j < chars.len() {
+            let c = chars[j];
+            if c == open {
+                depth += 1;
+            } else if c == close {
+                if depth == 0 {
+                    return Some((o, j));
+                }
+                depth -= 1;
+            }
+            j += 1;
+        }
+        None
+    }
+
+    fn find_quotes(chars: &[char], col: usize, q: char) -> Option<(usize, usize)> {
+        let positions: Vec<usize> = chars
+            .iter()
+            .enumerate()
+            .filter(|(_, &c)| c == q)
+            .map(|(i, _)| i)
+            .collect();
+        for pair in positions.chunks(2) {
+            if let [a, b] = *pair {
+                if col >= a && col <= b {
+                    return Some((a, b));
+                }
+            }
+        }
+        None
     }
 
     /// Find the bracket matching the one at (or next on the line after) the
@@ -2101,6 +2237,59 @@ mod tests {
         }
         assert_eq!(ed.top, 5);
         assert_eq!(ed.cursor.row, 5);
+    }
+
+    #[test]
+    fn text_object_diw() {
+        let mut ed = ed_with("foo bar baz");
+        ed.handle_key(key('w')); // cursor on "bar" (col 4)
+        ed.handle_key(key('d'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('w')); // delete inner word "bar"
+        assert_eq!(ed.buffer.line(0), Some("foo  baz"));
+    }
+
+    #[test]
+    fn text_object_daw_removes_trailing_space() {
+        let mut ed = ed_with("foo bar baz");
+        ed.handle_key(key('w')); // on "bar"
+        ed.handle_key(key('d'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('w')); // delete "bar " (a word)
+        assert_eq!(ed.buffer.line(0), Some("foo baz"));
+    }
+
+    #[test]
+    fn text_object_ci_parens() {
+        let mut ed = ed_with("call(arg1, arg2)");
+        ed.cursor = Position::new(0, 6); // inside parens (on 'r' of arg1)
+        ed.handle_key(key('c'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('(')); // change inner parens
+        assert_eq!(ed.mode, Mode::Insert);
+        ed.handle_key(key('X'));
+        assert_eq!(ed.buffer.line(0), Some("call(X)"));
+    }
+
+    #[test]
+    fn text_object_di_quotes() {
+        let mut ed = ed_with("say \"hello world\" now");
+        // move cursor inside the quotes
+        ed.cursor = Position::new(0, 8);
+        ed.handle_key(key('d'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('"'));
+        assert_eq!(ed.buffer.line(0), Some("say \"\" now"));
+    }
+
+    #[test]
+    fn text_object_da_parens_includes_delims() {
+        let mut ed = ed_with("x(inner)y");
+        ed.cursor = Position::new(0, 3);
+        ed.handle_key(key('d'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('(')); // delete "(inner)"
+        assert_eq!(ed.buffer.line(0), Some("xy"));
     }
 
     #[test]
