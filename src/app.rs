@@ -14,7 +14,10 @@ use std::io::{self, BufWriter};
 
 /// Top-level editor application.
 pub struct App {
+    /// The active buffer.
     pub editor: Editor,
+    /// Other open buffers (inactive), in list order.
+    others: Vec<Editor>,
     themes: ThemeRegistry,
     syntax: Registry,
     plugins: PluginManager,
@@ -27,6 +30,7 @@ impl App {
     pub fn new() -> Self {
         Self {
             editor: Editor::new(),
+            others: Vec::new(),
             themes: ThemeRegistry::with_builtins(),
             syntax: Registry::with_builtins(),
             plugins: PluginManager::with_builtins(),
@@ -66,6 +70,113 @@ impl App {
         for line in lines {
             self.run_ex(line);
         }
+    }
+
+    // ---- buffer management ----------------------------------------------
+
+    fn buffer_name(ed: &Editor) -> String {
+        ed.buffer
+            .path()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "[No Name]".to_string())
+    }
+
+    /// Carry per-view preferences to a newly-activated editor.
+    fn inherit_prefs(&self, ed: &mut Editor) {
+        ed.show_line_numbers = self.editor.show_line_numbers;
+        ed.relative_numbers = self.editor.relative_numbers;
+        ed.hlsearch = self.editor.hlsearch;
+    }
+
+    /// `:e <file>` — edit a file, switching to it if already open.
+    fn edit_file(&mut self, path: &str) {
+        if self.editor.buffer.path().map(|p| p.display().to_string()).as_deref() == Some(path) {
+            self.editor.message = format!("already editing \"{path}\"");
+            return;
+        }
+        if let Some(i) = self
+            .others
+            .iter()
+            .position(|e| e.buffer.path().map(|p| p.display().to_string()).as_deref() == Some(path))
+        {
+            std::mem::swap(&mut self.editor, &mut self.others[i]);
+            self.editor.message = format!("\"{path}\" (buffer switched)");
+            return;
+        }
+        match Editor::from_file(path) {
+            Ok(mut ed) => {
+                self.inherit_prefs(&mut ed);
+                let lines = ed.buffer.line_count();
+                let old = std::mem::replace(&mut self.editor, ed);
+                if old.buffer.path().is_some() || old.buffer.is_dirty() {
+                    self.others.push(old);
+                }
+                self.editor.message = format!("\"{path}\" {lines} lines");
+            }
+            Err(e) => self.editor.message = format!("E212: Can't open \"{path}\": {e}"),
+        }
+    }
+
+    /// `:bn` — rotate to the next buffer.
+    fn buffer_next(&mut self) {
+        if self.others.is_empty() {
+            self.editor.message = "only one buffer".into();
+            return;
+        }
+        let next = self.others.remove(0);
+        let old = std::mem::replace(&mut self.editor, next);
+        self.others.push(old);
+        self.editor.message = format!("\"{}\"", Self::buffer_name(&self.editor));
+    }
+
+    /// `:bp` — rotate to the previous buffer.
+    fn buffer_prev(&mut self) {
+        if let Some(prev) = self.others.pop() {
+            let old = std::mem::replace(&mut self.editor, prev);
+            self.others.insert(0, old);
+            self.editor.message = format!("\"{}\"", Self::buffer_name(&self.editor));
+        } else {
+            self.editor.message = "only one buffer".into();
+        }
+    }
+
+    /// `:b <n>` — switch to the nth buffer (1 = active, 2.. = others).
+    fn buffer_goto(&mut self, n: usize) {
+        if n == 1 {
+            return;
+        }
+        let idx = n.wrapping_sub(2);
+        if idx < self.others.len() {
+            std::mem::swap(&mut self.editor, &mut self.others[idx]);
+            self.editor.message = format!("\"{}\"", Self::buffer_name(&self.editor));
+        } else {
+            self.editor.message = format!("E86: Buffer {n} does not exist");
+        }
+    }
+
+    /// `:bd` — close the current buffer (blocked if unsaved / last buffer).
+    fn buffer_delete(&mut self) {
+        if self.editor.buffer.is_dirty() {
+            self.editor.message =
+                "E89: No write since last change (add ! to override)".into();
+            return;
+        }
+        if self.others.is_empty() {
+            self.editor.message = "E90: cannot close last buffer".into();
+            return;
+        }
+        self.editor = self.others.remove(0);
+        self.editor.message = format!("buffer closed; now \"{}\"", Self::buffer_name(&self.editor));
+    }
+
+    /// `:ls` — a one-line listing of open buffers (active marked `%`).
+    fn buffer_list(&mut self) {
+        let mut parts = vec![format!("1 %{}", Self::buffer_name(&self.editor))];
+        for (i, ed) in self.others.iter().enumerate() {
+            let dirty = if ed.buffer.is_dirty() { "+" } else { "" };
+            parts.push(format!("{} {}{}", i + 2, Self::buffer_name(ed), dirty));
+        }
+        self.editor.message = parts.join("  |  ");
     }
 
     /// Run the interactive event loop until the user quits.
@@ -158,7 +269,9 @@ impl App {
                 self.do_write(arg);
             }
             ExCommand::Quit { force } => {
-                if self.editor.buffer.is_dirty() && !force {
+                let dirty = self.editor.buffer.is_dirty()
+                    || self.others.iter().any(|e| e.buffer.is_dirty());
+                if dirty && !force {
                     self.editor.message =
                         "E37: No write since last change (add ! to override)".into();
                 } else {
@@ -170,15 +283,12 @@ impl App {
                     self.quit = true;
                 }
             }
-            ExCommand::Edit(path) => match Editor::from_file(&path) {
-                Ok(mut ed) => {
-                    ed.show_line_numbers = self.editor.show_line_numbers;
-                    self.editor = ed;
-                    self.editor.message =
-                        format!("\"{path}\" {} lines", self.editor.buffer.line_count());
-                }
-                Err(e) => self.editor.message = format!("E212: Can't open \"{path}\": {e}"),
-            },
+            ExCommand::Edit(path) => self.edit_file(&path),
+            ExCommand::BufferList => self.buffer_list(),
+            ExCommand::BufferNext => self.buffer_next(),
+            ExCommand::BufferPrev => self.buffer_prev(),
+            ExCommand::Buffer(n) => self.buffer_goto(n),
+            ExCommand::BufferDelete => self.buffer_delete(),
             ExCommand::SetTheme(arg) => match arg {
                 Some(name) => {
                     if self.themes.set_current(&name) {
@@ -380,6 +490,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          COMMANDS\n\
          \t:w [file]  :q  :q!  :wq  :x   write / quit variants\n\
          \t:e <file>          open file\n\
+         \t:ls :bn :bp :b<n>  list / next / prev / goto buffer   :bd close\n\
          \t:theme <name>      themes: {themes}\n\
          \t:set number|nonumber   :set relativenumber|nornu\n\
          \t:set ft=<lang>     rust tsql pgsql trino snowflake z80 sql\n\
@@ -493,6 +604,50 @@ mod tests {
         assert!(app.editor.show_line_numbers); // forced back on
         app.run_ex("set nornu");
         assert!(!app.editor.relative_numbers);
+    }
+
+    #[test]
+    fn multiple_buffers_open_and_navigate() {
+        let mut app = App::new();
+        app.run_ex("e foo.rs"); // active foo.rs (initial scratch discarded)
+        app.run_ex("e bar.tsql"); // active bar.tsql, foo in others
+        assert!(app.editor.buffer.path().unwrap().ends_with("bar.tsql"));
+        assert_eq!(app.others.len(), 1);
+        // Language autodetected on switch.
+        assert_eq!(app.editor.language, Language::TSql);
+
+        app.run_ex("bn"); // rotate -> foo.rs
+        assert!(app.editor.buffer.path().unwrap().ends_with("foo.rs"));
+        app.run_ex("bp"); // back -> bar.tsql
+        assert!(app.editor.buffer.path().unwrap().ends_with("bar.tsql"));
+    }
+
+    #[test]
+    fn buffer_switch_when_already_open() {
+        let mut app = App::new();
+        app.run_ex("e a.rs");
+        app.run_ex("e b.rs");
+        // Re-opening a.rs should switch, not create a duplicate.
+        app.run_ex("e a.rs");
+        assert!(app.editor.buffer.path().unwrap().ends_with("a.rs"));
+        assert_eq!(app.others.len(), 1);
+    }
+
+    #[test]
+    fn buffer_list_and_delete() {
+        let mut app = App::new();
+        app.run_ex("e one.rs");
+        app.run_ex("e two.rs");
+        app.run_ex("ls");
+        assert!(app.editor.message.contains("one.rs"));
+        assert!(app.editor.message.contains("two.rs"));
+        // Delete current (two.rs); one.rs becomes active.
+        app.run_ex("bd");
+        assert!(app.editor.buffer.path().unwrap().ends_with("one.rs"));
+        assert!(app.others.is_empty());
+        // Can't delete the last buffer.
+        app.run_ex("bd");
+        assert!(app.editor.message.contains("cannot close last buffer"));
     }
 
     #[test]

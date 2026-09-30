@@ -70,6 +70,16 @@ pub enum ExCommand {
     ToggleHlSearch(bool),
     /// `:sort` / `:sort!` / `:sort u` — sort buffer lines.
     Sort { reverse: bool, unique: bool },
+    /// `:ls` / `:buffers` — list open buffers.
+    BufferList,
+    /// `:bn` / `:bnext`
+    BufferNext,
+    /// `:bp` / `:bprev`
+    BufferPrev,
+    /// `:b <n>` — switch to buffer number n.
+    Buffer(usize),
+    /// `:bd` / `:bdelete`
+    BufferDelete,
     /// Anything unrecognized — offered to plugins as (name, args).
     Passthrough { name: String, args: String },
     /// Empty input.
@@ -124,6 +134,17 @@ pub fn parse(input: &str) -> ExCommand {
             },
         },
         "noh" | "nohl" | "nohlsearch" => ExCommand::ToggleHlSearch(false),
+        "ls" | "buffers" | "files" => ExCommand::BufferList,
+        "bn" | "bnext" => ExCommand::BufferNext,
+        "bp" | "bprev" | "bprevious" => ExCommand::BufferPrev,
+        "bd" | "bdelete" => ExCommand::BufferDelete,
+        "b" | "bu" | "buf" | "buffer" => match arg.as_deref().and_then(|a| a.trim().parse::<usize>().ok()) {
+            Some(n) => ExCommand::Buffer(n),
+            None => ExCommand::Passthrough {
+                name: word.to_string(),
+                args: rest.to_string(),
+            },
+        },
         "sort" | "sort!" | "sor" | "sor!" => {
             let reverse = word.ends_with('!');
             let unique = rest.contains('u');
@@ -302,6 +323,17 @@ mod tests {
     #[test]
     fn edit() {
         assert_eq!(parse("e main.rs"), ExCommand::Edit("main.rs".into()));
+    }
+
+    #[test]
+    fn buffer_commands() {
+        assert_eq!(parse("ls"), ExCommand::BufferList);
+        assert_eq!(parse("buffers"), ExCommand::BufferList);
+        assert_eq!(parse("bn"), ExCommand::BufferNext);
+        assert_eq!(parse("bprev"), ExCommand::BufferPrev);
+        assert_eq!(parse("bd"), ExCommand::BufferDelete);
+        assert_eq!(parse("b 3"), ExCommand::Buffer(3));
+        assert_eq!(parse("buffer 2"), ExCommand::Buffer(2));
     }
 
     #[test]

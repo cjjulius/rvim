@@ -78,8 +78,22 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 - **Search:** `/pattern`, `?pattern`, `n`/`N` (wraps around); all matches are
   highlighted — clear the highlight with `:noh` (`:set hlsearch`/`nohlsearch`).
 
+### Multiple buffers
+Open several files and switch between them:
+
+| Command              | Effect                                   |
+|----------------------|------------------------------------------|
+| `:e <file>`          | open a file (switches to it if already open) |
+| `:ls` / `:buffers`   | list open buffers (active marked `%`, `+` = unsaved) |
+| `:bn` / `:bp`        | next / previous buffer                    |
+| `:b <n>`             | switch to buffer number `n`               |
+| `:bd`                | close the current buffer                  |
+
+`:q` refuses to quit while any open buffer has unsaved changes (use `:q!` to
+override).
+
 ### Command line (ex commands)
-`:w [file]` · `:q` · `:q!` · `:wq` · `:x` · `:e <file>` · `:<n>` (goto line) ·
+`:w [file]` · `:q` · `:q!` · `:wq` · `:x` · `:e <file>` · `:ls` · `:bn`/`:bp`/`:b <n>`/`:bd` · `:<n>` (goto line) ·
 `:s/pat/rep/[g]` (search & replace) · `:theme <name>` · `:set number|nonumber` ·
 `:set relativenumber|norelativenumber` · `:set ft=<lang>` · `:set mouse|nomouse` ·
 `:noh` / `:set hlsearch|nohlsearch` · `:sort[!] [u]` · `:source <file>` ·
@@ -214,7 +228,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **129 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **133 tests** across buffer, editor, syntax, themes, commands,
 config, plugins, modes, and UI layout.
 
 ---
@@ -223,7 +237,7 @@ config, plugins, modes, and UI layout.
 
 - Regex support for `:s` (currently literal matching)
 - Multi-line string highlighting (block comments spanning lines ✅ done)
-- Split windows / multiple buffers & tabs
+- Split windows & tabs (multiple buffers ✅ done)
 - User-defined key mappings in `~/.rvimrc` (config file loading ✅ done)
 - Registers (named), macros (`q`), marks
 - Richer mouse (drag-select), and a menu bar
