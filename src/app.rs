@@ -223,6 +223,16 @@ impl App {
                     self.editor.message = "search highlight cleared".into();
                 }
             }
+            ExCommand::Sort { reverse, unique } => {
+                let before = self.editor.buffer.line_count();
+                self.editor.sort_buffer(reverse, unique);
+                let after = self.editor.buffer.line_count();
+                self.editor.message = if unique && after < before {
+                    format!("sorted; {} duplicate line(s) removed", before - after)
+                } else {
+                    format!("sorted {after} lines")
+                };
+            }
             ExCommand::Substitute(spec) => {
                 let (subs, lines) = self.editor.substitute(&spec);
                 self.editor.message = if subs == 0 {
@@ -339,6 +349,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \ti / a / I / A      insert (before/after/line-start/line-end)\n\
          \to / O              open line below / above\n\
          \tv / V              visual / visual-line\n\
+         \t  (visual) u/U/~   lower / upper / toggle case of selection\n\
          \tEsc                back to normal mode\n\
          \n\
          MOTIONS\n\
@@ -372,6 +383,8 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set number|nonumber   :set relativenumber|nornu\n\
          \t:set ft=<lang>     rust tsql pgsql trino snowflake z80 sql\n\
          \t:set mouse|nomouse toggle mouse support\n\
+         \t:sort[!] [u]       sort lines (! reverse, u unique)\n\
+         \t:noh               clear search highlight\n\
          \t:{{n}}               jump to line n\n\
          \tplugin commands:   {plugins}\n",
         ver = crate::VERSION,

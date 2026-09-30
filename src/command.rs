@@ -68,6 +68,8 @@ pub enum ExCommand {
     Source(String),
     /// `:noh` / `:set hlsearch|nohlsearch` — toggle search-match highlighting.
     ToggleHlSearch(bool),
+    /// `:sort` / `:sort!` / `:sort u` — sort buffer lines.
+    Sort { reverse: bool, unique: bool },
     /// Anything unrecognized — offered to plugins as (name, args).
     Passthrough { name: String, args: String },
     /// Empty input.
@@ -122,6 +124,11 @@ pub fn parse(input: &str) -> ExCommand {
             },
         },
         "noh" | "nohl" | "nohlsearch" => ExCommand::ToggleHlSearch(false),
+        "sort" | "sort!" | "sor" | "sor!" => {
+            let reverse = word.ends_with('!');
+            let unique = rest.contains('u');
+            ExCommand::Sort { reverse, unique }
+        }
         "help" | "h" => ExCommand::Help,
         "version" | "ver" => ExCommand::Version,
         "set" | "se" => parse_set(rest),
@@ -295,6 +302,14 @@ mod tests {
     #[test]
     fn edit() {
         assert_eq!(parse("e main.rs"), ExCommand::Edit("main.rs".into()));
+    }
+
+    #[test]
+    fn sort_variants() {
+        assert_eq!(parse("sort"), ExCommand::Sort { reverse: false, unique: false });
+        assert_eq!(parse("sort!"), ExCommand::Sort { reverse: true, unique: false });
+        assert_eq!(parse("sort u"), ExCommand::Sort { reverse: false, unique: true });
+        assert_eq!(parse("sort! u"), ExCommand::Sort { reverse: true, unique: true });
     }
 
     #[test]
