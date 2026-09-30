@@ -80,6 +80,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 - **Marks:** `m<letter>` sets a mark, `` `<letter> `` jumps to it (exact),
   `'<letter>` jumps to its line; `` `` `` / `''` return to the previous position
   (also set by `G`, `gg`, and searches).
+- **Macros:** `q<reg>` records keystrokes, `q` stops, `@<reg>` replays, `@@`
+  repeats the last macro (a `recording @x` indicator shows in the status line).
 - **Insert mode:** autoindent on Enter (`:set autoindent`/`noai`), `Ctrl-w`
   (delete word before cursor), `Ctrl-u` (delete to line start), `Tab` (4 spaces).
 - **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history).
@@ -241,7 +243,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **154 tests** across buffer, editor, syntax, themes, commands,
+Current suite: **156 tests** across buffer, editor, syntax, themes, commands,
 config, plugins, modes, and UI layout.
 
 ---
@@ -252,8 +254,8 @@ config, plugins, modes, and UI layout.
 - Multi-line string highlighting (block comments spanning lines ✅ done)
 - Split windows & tabs (multiple buffers ✅ done)
 - User-defined key mappings in `~/.rvimrc` (config file loading ✅ done)
-- Macros (`q` record, `@` play); the `.` repeat command
-  (named registers ✅, marks ✅ done)
+- The `.` repeat command; ex-commands inside replayed macros
+  (named registers ✅, marks ✅, macros ✅ done)
 - Richer mouse (drag-select), and a menu bar
 - More accessibility options (screen-reader hints, configurable font-agnostic cues)
 - Dynamic plugin loading

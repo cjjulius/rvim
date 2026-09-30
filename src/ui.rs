@@ -431,8 +431,12 @@ fn draw_status_line(
     };
 
     let left = format!(" {mode} ");
+    let rec = match editor.recording_register() {
+        Some(r) => format!("recording @{r}  "),
+        None => String::new(),
+    };
     let mid = format!(" {file}{dirty} ");
-    let right = format!(" {lang} | {pos} | {pct}% ");
+    let right = format!(" {rec}{lang} | {pos} | {pct}% ");
 
     let total_w = layout.cols as usize;
     let used = left.chars().count() + mid.chars().count() + right.chars().count();
