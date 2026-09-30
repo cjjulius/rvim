@@ -685,40 +685,175 @@ impl Editor {
     }
 
     fn apply_operator(&mut self, op: char, code: KeyCode) {
-        match (op, code) {
-            ('g', KeyCode::Char('g')) => {
-                self.cursor.row = 0;
-                self.cursor.col = 0;
+        match op {
+            'g' => {
+                if code == KeyCode::Char('g') {
+                    self.cursor.row = 0;
+                    self.cursor.col = 0;
+                }
             }
-            ('d', KeyCode::Char('d')) => self.delete_line_op(),
-            ('d', KeyCode::Char('w')) => self.delete_word_op(),
-            ('d', KeyCode::Char('$')) => self.delete_to_eol(),
-            ('c', KeyCode::Char('c')) => {
-                self.delete_line_op();
-                self.open_above();
+            'z' => match code {
+                KeyCode::Char('z') => self.center_line(),
+                KeyCode::Char('t') => self.line_to_top(),
+                KeyCode::Char('b') => self.line_to_bottom(),
+                _ => {}
+            },
+            '>' => {
+                if code == KeyCode::Char('>') {
+                    self.checkpoint();
+                    self.indent_line(self.cursor.row);
+                    self.move_first_nonblank();
+                }
             }
-            ('c', KeyCode::Char('w')) => {
-                self.delete_word_op();
-                self.enter_insert_here();
+            '<' => {
+                if code == KeyCode::Char('<') {
+                    self.checkpoint();
+                    self.dedent_line(self.cursor.row);
+                    self.move_first_nonblank();
+                }
             }
-            ('y', KeyCode::Char('y')) => self.yank_line_op(),
-            ('z', KeyCode::Char('z')) => self.center_line(),
-            ('z', KeyCode::Char('t')) => self.line_to_top(),
-            ('z', KeyCode::Char('b')) => self.line_to_bottom(),
-            ('>', KeyCode::Char('>')) => {
-                self.checkpoint();
-                self.indent_line(self.cursor.row);
-                self.move_first_nonblank();
-            }
-            ('<', KeyCode::Char('<')) => {
-                self.checkpoint();
-                self.dedent_line(self.cursor.row);
-                self.move_first_nonblank();
+            'd' | 'y' | 'c' => {
+                // Doubled operator (dd/yy/cc) acts on the whole current line.
+                let doubled = code == KeyCode::Char(op);
+                let target = if doubled {
+                    Some(OpTarget::Lines(self.cursor.row, self.cursor.row))
+                } else {
+                    self.motion_target(code)
+                };
+                if let Some(t) = target {
+                    self.apply_op(op, t);
+                }
             }
             _ => {}
         }
         self.clamp_cursor(false);
         self.scroll_into_view();
+    }
+
+    /// The text span a motion covers, relative to the cursor, for use by an
+    /// operator (`d`/`y`/`c`). `None` for keys that aren't operator motions.
+    fn motion_target(&self, code: KeyCode) -> Option<OpTarget> {
+        let row = self.cursor.row;
+        let col = self.cursor.col;
+        let len = self.cur_len();
+        let last = self.buffer.line_count().saturating_sub(1);
+        Some(match code {
+            KeyCode::Char('w') => OpTarget::Chars(col, self.word_forward_col()),
+            KeyCode::Char('e') => OpTarget::Chars(col, (self.word_end_col() + 1).min(len)),
+            KeyCode::Char('$') | KeyCode::End => OpTarget::Chars(col, len),
+            KeyCode::Char('0') | KeyCode::Home => OpTarget::Chars(0, col),
+            KeyCode::Char('^') => OpTarget::Chars(self.first_nonblank_col(), col),
+            KeyCode::Char('l') | KeyCode::Right => OpTarget::Chars(col, (col + 1).min(len)),
+            KeyCode::Char('h') | KeyCode::Left => OpTarget::Chars(col.saturating_sub(1), col),
+            KeyCode::Char('j') | KeyCode::Down => OpTarget::Lines(row, (row + 1).min(last)),
+            KeyCode::Char('k') | KeyCode::Up => OpTarget::Lines(row.saturating_sub(1), row),
+            KeyCode::Char('G') => OpTarget::Lines(row, last),
+            _ => return None,
+        })
+    }
+
+    /// Apply operator `op` to a computed target span.
+    fn apply_op(&mut self, op: char, target: OpTarget) {
+        let is_change = op == 'c';
+        let is_delete = op == 'd' || is_change;
+        match target {
+            OpTarget::Chars(s, e) => {
+                let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+                let len = chars.len();
+                let (s, e) = (s.min(len), e.min(len));
+                let (s, e) = (s.min(e), s.max(e));
+                let text: String = chars[s..e].iter().collect();
+                if is_delete {
+                    self.checkpoint();
+                    let kept: String = chars[..s].iter().chain(&chars[e..]).collect();
+                    self.buffer.set_line(self.cursor.row, kept);
+                    self.store_register(text, false);
+                    self.cursor.col = s;
+                    if is_change {
+                        self.mode = Mode::Insert;
+                    }
+                } else {
+                    self.store_register(text, false);
+                    self.cursor.col = s;
+                }
+            }
+            OpTarget::Lines(a, b) => {
+                let last = self.buffer.line_count().saturating_sub(1);
+                let (a, b) = (a.min(last), b.min(last));
+                let (a, b) = (a.min(b), a.max(b));
+                let text = (a..=b)
+                    .map(|r| self.buffer.line(r).unwrap_or("").to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                if is_delete {
+                    self.checkpoint();
+                    for _ in a..=b {
+                        if self.buffer.line_count() == 1 {
+                            self.buffer.set_line(0, "");
+                            break;
+                        }
+                        self.buffer.delete_line(a);
+                    }
+                    self.store_register(text, true);
+                    if is_change {
+                        let at = a.min(self.buffer.line_count());
+                        self.buffer.insert_line(at, "");
+                        self.cursor = Position::new(at, 0);
+                        self.mode = Mode::Insert;
+                    } else {
+                        self.cursor.row = a.min(self.buffer.line_count().saturating_sub(1));
+                        self.move_first_nonblank();
+                    }
+                } else {
+                    self.store_register(text, true);
+                    self.cursor.row = a;
+                }
+            }
+        }
+        self.clamp_cursor(false);
+        self.scroll_into_view();
+    }
+
+    fn first_nonblank_col(&self) -> usize {
+        let line = self.buffer.line(self.cursor.row).unwrap_or("");
+        line.chars().take_while(|c| c.is_whitespace()).count()
+    }
+
+    /// The column of the next word start on the current line (bounded to EOL).
+    fn word_forward_col(&self) -> usize {
+        let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+        let len = chars.len();
+        let mut col = self.cursor.col;
+        if col >= len {
+            return len;
+        }
+        let class = Self::char_class(chars[col]);
+        while col < len && Self::char_class(chars[col]) == class && class != 0 {
+            col += 1;
+        }
+        while col < len && chars[col].is_whitespace() {
+            col += 1;
+        }
+        col
+    }
+
+    /// The column of the end of the next word on the current line.
+    fn word_end_col(&self) -> usize {
+        let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+        let len = chars.len();
+        let mut i = self.cursor.col + 1;
+        while i < len && chars[i].is_whitespace() {
+            i += 1;
+        }
+        if i < len {
+            let class = Self::char_class(chars[i]);
+            while i + 1 < len && Self::char_class(chars[i + 1]) == class {
+                i += 1;
+            }
+            i
+        } else {
+            self.cursor.col
+        }
     }
 
     // ---- motions ---------------------------------------------------------
@@ -1140,44 +1275,6 @@ impl Editor {
         self.clamp_cursor(false);
     }
 
-    fn delete_line_op(&mut self) {
-        self.checkpoint();
-        let removed = self.buffer.delete_line(self.cursor.row).unwrap_or_default();
-        self.store_register(removed, true);
-        if self.cursor.row >= self.buffer.line_count() {
-            self.cursor.row = self.buffer.line_count().saturating_sub(1);
-        }
-        self.move_first_nonblank();
-    }
-
-    fn delete_word_op(&mut self) {
-        self.checkpoint();
-        let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
-        let start = self.cursor.col;
-        if start >= chars.len() {
-            return;
-        }
-        let mut end = start;
-        let class = Self::char_class(chars[start]);
-        while end < chars.len() && Self::char_class(chars[end]) == class && class != 0 {
-            end += 1;
-        }
-        while end < chars.len() && chars[end].is_whitespace() {
-            end += 1;
-        }
-        let removed: String = chars[start..end].iter().collect();
-        let kept: String = chars[..start].iter().chain(&chars[end..]).collect();
-        self.store_register(removed, false);
-        self.buffer.set_line(self.cursor.row, kept);
-        self.clamp_cursor(false);
-    }
-
-    fn yank_line_op(&mut self) {
-        let line = self.buffer.line(self.cursor.row).unwrap_or("").to_string();
-        self.store_register(line, true);
-        self.message = "1 line yanked".into();
-    }
-
     /// Store text into the unnamed register, and into a named register too if
     /// one is pending (`"a…`). Clears the pending register.
     fn store_register(&mut self, text: String, linewise: bool) {
@@ -1489,6 +1586,15 @@ impl Default for Editor {
     }
 }
 
+/// The span an operator (`d`/`y`/`c`) acts on.
+#[derive(Debug, Clone, Copy)]
+enum OpTarget {
+    /// Character columns `[start, end)` on the current row.
+    Chars(usize, usize),
+    /// Inclusive line range.
+    Lines(usize, usize),
+}
+
 /// A case transformation applied to characters in a visual selection.
 #[derive(Debug, Clone, Copy)]
 enum CaseOp {
@@ -1764,6 +1870,78 @@ mod tests {
         }
         assert_eq!(ed.top, 5);
         assert_eq!(ed.cursor.row, 5);
+    }
+
+    #[test]
+    fn yank_word_and_paste() {
+        let mut ed = ed_with("foo bar");
+        ed.handle_key(key('y'));
+        ed.handle_key(key('w')); // yank "foo "
+        ed.handle_key(key('$'));
+        ed.handle_key(key('p')); // paste after last char
+        assert_eq!(ed.buffer.line(0), Some("foo barfoo "));
+    }
+
+    #[test]
+    fn yank_to_eol() {
+        let mut ed = ed_with("hello world");
+        ed.handle_key(key('w')); // cursor at col 6 (start of "world")
+        ed.handle_key(key('y'));
+        ed.handle_key(key('$')); // yank "world"
+        ed.handle_key(key('0'));
+        ed.handle_key(key('P')); // paste before line start
+        assert_eq!(ed.buffer.line(0), Some("worldhello world"));
+    }
+
+    #[test]
+    fn delete_to_line_start() {
+        let mut ed = ed_with("hello");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('l')); // col 3
+        ed.handle_key(key('d'));
+        ed.handle_key(key('0')); // delete cols [0,3)
+        assert_eq!(ed.buffer.line(0), Some("lo"));
+    }
+
+    #[test]
+    fn delete_down_two_lines() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('j')); // delete current + next (a, b)
+        assert_eq!(ed.buffer.line(0), Some("c"));
+        assert_eq!(ed.buffer.line_count(), 2);
+    }
+
+    #[test]
+    fn delete_to_end_with_d_g() {
+        let mut ed = ed_with("l0\nl1\nl2\nl3");
+        ed.handle_key(key('j')); // row 1
+        ed.handle_key(key('d'));
+        ed.handle_key(key('G')); // delete rows 1..=3
+        assert_eq!(ed.buffer.line_count(), 1);
+        assert_eq!(ed.buffer.line(0), Some("l0"));
+    }
+
+    #[test]
+    fn change_word_still_works() {
+        let mut ed = ed_with("foo bar");
+        ed.handle_key(key('c'));
+        ed.handle_key(key('w')); // change "foo " -> insert
+        assert_eq!(ed.mode, Mode::Insert);
+        ed.handle_key(key('X'));
+        assert_eq!(ed.buffer.line(0), Some("Xbar"));
+    }
+
+    #[test]
+    fn dd_and_yy_still_work() {
+        let mut ed = ed_with("one\ntwo\nthree");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('d'));
+        assert_eq!(ed.buffer.line(0), Some("two"));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(1), Some("two"));
     }
 
     #[test]
