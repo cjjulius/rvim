@@ -139,6 +139,9 @@ pub struct Editor {
     /// `Z` was pressed, awaiting the second key for `ZZ` (write & quit) or
     /// `ZQ` (quit without saving).
     pending_z_quit: bool,
+    /// The partially-typed Normal-mode command (count + operator + …) shown by
+    /// the showcmd indicator; cleared whenever the editor returns to rest.
+    pending_keys: String,
     last_find: Option<(char, char)>,
     marks: HashMap<char, Position>,
     pending_mark: Option<PendingMark>,
@@ -243,6 +246,7 @@ impl Editor {
             pending_bracket: None,
             pending_bracket_count: 1,
             pending_z_quit: false,
+            pending_keys: String::new(),
             last_find: None,
             marks: HashMap::new(),
             pending_mark: None,
@@ -873,7 +877,24 @@ impl Editor {
             self.dot_rev_at_rest = self.buffer.revision();
         }
 
+        // Track the partially-typed command for the showcmd indicator: grow it
+        // while a Normal-mode command is pending, clear it once we're at rest or
+        // leave Normal mode.
+        if self.mode == Mode::Normal && !self.at_rest() {
+            if let KeyCode::Char(c) = key.code {
+                self.pending_keys.push(c);
+            }
+        } else {
+            self.pending_keys.clear();
+        }
+
         action
+    }
+
+    /// The partially-typed Normal-mode command, for the showcmd indicator
+    /// (empty when the editor is at rest).
+    pub fn pending_command(&self) -> &str {
+        &self.pending_keys
     }
 
     /// Whether the editor is at a clean resting point in Normal mode (no pending
@@ -5437,6 +5458,35 @@ mod tests {
         };
         ed.substitute(&spec);
         assert_eq!(ed.buffer.line(0), Some("x x x"));
+    }
+
+    #[test]
+    fn showcmd_tracks_pending_operator() {
+        let mut ed = ed_with("hello world foo");
+        ed.handle_key(key('2'));
+        assert_eq!(ed.pending_command(), "2");
+        ed.handle_key(key('d'));
+        assert_eq!(ed.pending_command(), "2d");
+        ed.handle_key(key('w'));
+        assert_eq!(ed.pending_command(), ""); // command completed -> cleared
+    }
+
+    #[test]
+    fn showcmd_tracks_operator_and_textobject() {
+        let mut ed = ed_with("foo bar");
+        ed.handle_key(key('d'));
+        assert_eq!(ed.pending_command(), "d");
+        ed.handle_key(key('i'));
+        assert_eq!(ed.pending_command(), "di"); // awaiting the object char
+        ed.handle_key(key('w'));
+        assert_eq!(ed.pending_command(), "");
+    }
+
+    #[test]
+    fn showcmd_cleared_when_leaving_normal_mode() {
+        let mut ed = ed_with("hi");
+        ed.handle_key(key('i'));
+        assert_eq!(ed.pending_command(), ""); // insert mode shows nothing pending
     }
 
     #[test]

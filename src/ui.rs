@@ -473,7 +473,29 @@ fn draw_command_line(
         editor.message.clone()
     };
     let content: String = content.chars().take(layout.cols as usize).collect();
-    queue!(out, Print(content), ResetColor)
+    queue!(out, Print(&content), ResetColor)?;
+
+    // showcmd: the partially-typed command, right-aligned (vim shows it bottom-right).
+    // Only in Normal mode, and never let it overlap the left-hand content.
+    if editor.mode != Mode::Command {
+        let cmd = editor.pending_command();
+        if !cmd.is_empty() {
+            let cols = layout.cols as usize;
+            let shown: String = cmd.chars().rev().take(10).collect::<Vec<_>>()
+                .into_iter().rev().collect();
+            let width = shown.chars().count();
+            if cols >= width && cols - width > content.chars().count() {
+                queue!(
+                    out,
+                    MoveTo((cols - width) as u16, y),
+                    SetForegroundColor(theme.message_fg),
+                    Print(shown),
+                    ResetColor
+                )?;
+            }
+        }
+    }
+    Ok(())
 }
 
 // ---- menu bar --------------------------------------------------------------
