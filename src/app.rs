@@ -582,6 +582,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t/pat  ?pat         search fwd / back (regex)  n / N  next / prev\n\
          \t* / #  g* / g#     search word under cursor (whole / substring)\n\
          \tm<x> `<x> '<x>     set mark / jump exact / jump line   `` prev pos\n\
+         \tCtrl-o / Ctrl-i    jump list: older / newer position\n\
          \tq<x> q  @<x>  @@   record macro / stop / replay / repeat\n\
          \n\
          COMMANDS\n\
