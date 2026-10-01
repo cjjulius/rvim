@@ -186,7 +186,7 @@ pub fn render(
             in_block = next_block;
             draw_text_line(
                 out, line, &tokens, theme, &layout, editor.left, row, line_bg, sel, linewise,
-                search,
+                search, editor.tabstop.max(1),
             )?;
         } else {
             // Past end of buffer: tilde like vim.
@@ -311,6 +311,7 @@ fn draw_text_line(
     sel: Option<(Position, Position)>,
     linewise: bool,
     search: Option<&regex::Regex>,
+    tab_width: usize,
 ) -> io::Result<()> {
     let chars: Vec<(usize, char)> = line.char_indices().collect();
     let matches = search.map(|re| crate::pattern::match_ranges(re, line)).unwrap_or_default();
@@ -363,8 +364,8 @@ fn draw_text_line(
         }
         // Render tabs as spaces for alignment.
         if ch == '\t' {
-            run.push_str("    ");
-            printed += 4;
+            run.push_str(&" ".repeat(tab_width));
+            printed += tab_width;
         } else {
             run.push(ch);
             printed += 1;

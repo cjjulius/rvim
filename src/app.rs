@@ -388,6 +388,17 @@ impl App {
             ExCommand::ToggleAutoIndent(on) => {
                 self.editor.autoindent = on;
             }
+            ExCommand::ToggleExpandTab(on) => {
+                self.editor.expandtab = on;
+            }
+            ExCommand::SetShiftWidth(n) => {
+                self.editor.shiftwidth = n;
+                self.editor.message = format!("shiftwidth={n}");
+            }
+            ExCommand::SetTabStop(n) => {
+                self.editor.tabstop = n;
+                self.editor.message = format!("tabstop={n}");
+            }
             ExCommand::SetFiletype(name) => match Language::from_name(&name) {
                 Some(lang) => {
                     self.editor.set_language(lang);
@@ -563,7 +574,8 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t>> / <<            indent / dedent (also in visual mode)\n\
          \tyy / p / P         yank line / paste after / before\n\
          \t\"a yy / \"a p       use named register a (any a-z)\n\
-         \tJ                  join lines         u / Ctrl-r  undo / redo\n\
+         \tJ / gJ             join lines (with / without space)\n\
+         \tu / Ctrl-r          undo / redo\n\
          \t.                  repeat last change\n\
          \n\
          SEARCH\n\
@@ -578,7 +590,8 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:ls :bn :bp :b<n>  list / next / prev / goto buffer   :bd close\n\
          \t:theme <name>      themes: {themes}\n\
          \t:set number|nonumber   :set relativenumber|nornu\n\
-         \t:set autoindent|noai\n\
+         \t:set autoindent|noai   :set expandtab|noet\n\
+         \t:set shiftwidth=N  :set tabstop=N\n\
          \t:set ft=<lang>     rust tsql pgsql trino snowflake z80 sql\n\
          \t:set mouse|nomouse toggle mouse support\n\
          \t:sort[!] [u]       sort lines (! reverse, u unique)\n\
