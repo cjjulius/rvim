@@ -13,6 +13,8 @@ All notable changes to rvim are recorded here. Versions follow
 - Bracket text objects (`i(`/`a(`, `i{`/`a{`, `i[`/`a[`, `i<`/`a<`) now span
   multiple lines, so `ci{` / `da(` / `yi[` work across a block or argument list
   that covers several rows (via a new charwise `OpTarget::Span`).
+- `%` is now an operator motion: `d%` / `y%` / `c%` act from the cursor to the
+  matching bracket, inclusive and across lines.
 
 ### Marks
 - The `` `[ `` / `` `] `` (and linewise `'[` / `']`) marks are now set to the

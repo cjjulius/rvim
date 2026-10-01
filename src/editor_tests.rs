@@ -590,6 +590,47 @@
     }
 
     #[test]
+    fn percent_operator_deletes_to_match() {
+        let mut ed = ed_with("foo(bar)baz");
+        ed.cursor = Position::new(0, 3); // on '('
+        ed.handle_key(key('d'));
+        ed.handle_key(key('%')); // delete "(bar)"
+        assert_eq!(ed.buffer.line(0), Some("foobaz"));
+    }
+
+    #[test]
+    fn percent_operator_crosses_lines() {
+        let mut ed = ed_with("x = foo(\n  a\n)");
+        ed.cursor = Position::new(0, 7); // on '('
+        ed.handle_key(key('d'));
+        ed.handle_key(key('%')); // delete across lines to ')'
+        assert_eq!(ed.buffer.line(0), Some("x = foo"));
+        assert_eq!(ed.buffer.line_count(), 1);
+    }
+
+    #[test]
+    fn percent_change_enters_insert() {
+        let mut ed = ed_with("a(b)c");
+        ed.cursor = Position::new(0, 1); // on '('
+        ed.handle_key(key('c'));
+        ed.handle_key(key('%'));
+        assert_eq!(ed.mode, Mode::Insert);
+        assert_eq!(ed.buffer.line(0), Some("ac"));
+    }
+
+    #[test]
+    fn percent_yank_then_paste() {
+        let mut ed = ed_with("(ab)");
+        ed.cursor = Position::new(0, 0); // on '('
+        ed.handle_key(key('y'));
+        ed.handle_key(key('%')); // yank "(ab)"
+        assert_eq!(ed.buffer.line(0), Some("(ab)"));
+        ed.handle_key(key('$'));
+        ed.handle_key(key('p')); // paste after -> "(ab)(ab)"
+        assert_eq!(ed.buffer.line(0), Some("(ab)(ab)"));
+    }
+
+    #[test]
     fn case_op_upper_inner_brace_multiline() {
         let mut ed = ed_with("{\nabc\n}");
         ed.cursor = Position::new(1, 1);

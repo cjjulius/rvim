@@ -72,7 +72,8 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   `[[`/`]]`/`[]`/`][` (section — brace in
   column 0), `[(`/`[{`/`])`/`]}` (unmatched enclosing bracket, counted),
   `gg`/`G`/`<n>gg`/`<n>G`,
-  `f`/`F`/`t`/`T`+`;`/`,` (find char on line), `%` (matching bracket),
+  `f`/`F`/`t`/`T`+`;`/`,` (find char on line), `%` (matching bracket; also an
+  operator motion — `d%`/`y%`/`c%` act from the cursor to the match, across lines),
   `<n>%` (jump to n% of the file),
   `H`/`M`/`L` (top/middle/bottom of screen; `<n>H`/`<n>L` count in from the
   edge), `Ctrl-d`/`Ctrl-u` (half-page).
@@ -424,7 +425,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **442 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **446 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
