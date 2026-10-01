@@ -481,13 +481,15 @@ fn draw_command_line(
     let content: String = content.chars().take(layout.cols as usize).collect();
     queue!(out, Print(&content), ResetColor)?;
 
-    // showcmd: the partially-typed command, right-aligned (vim shows it bottom-right).
-    // Only in Normal mode, and never let it overlap the left-hand content.
+    // showcmd: the pending command, or the selection size while in visual mode,
+    // right-aligned (vim shows it bottom-right). Never overlaps the left content.
     if editor.mode != Mode::Command {
-        let cmd = editor.pending_command();
-        if !cmd.is_empty() {
+        let indicator = editor
+            .visual_size()
+            .unwrap_or_else(|| editor.pending_command().to_string());
+        if !indicator.is_empty() {
             let cols = layout.cols as usize;
-            let shown: String = cmd.chars().rev().take(10).collect::<Vec<_>>()
+            let shown: String = indicator.chars().rev().take(10).collect::<Vec<_>>()
                 .into_iter().rev().collect();
             let width = shown.chars().count();
             if cols >= width && cols - width > content.chars().count() {

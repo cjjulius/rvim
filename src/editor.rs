@@ -1079,6 +1079,32 @@ impl Editor {
         &self.pending_keys
     }
 
+    /// The size of the current visual selection, for the showcmd indicator
+    /// (vim-style): charwise shows the column count on a single line or the line
+    /// count across lines, linewise the line count, and block `rows x cols`.
+    /// `None` when not in visual mode.
+    pub fn visual_size(&self) -> Option<String> {
+        match self.mode {
+            Mode::VisualBlock => {
+                let (rmin, rmax, cmin, cmax) = self.block_rect()?;
+                Some(format!("{}x{}", rmax - rmin + 1, cmax - cmin + 1))
+            }
+            Mode::VisualLine => {
+                let (s, e) = self.selection()?;
+                Some(format!("{}", e.row - s.row + 1))
+            }
+            Mode::Visual => {
+                let (s, e) = self.selection()?;
+                if s.row == e.row {
+                    Some(format!("{}", e.col - s.col + 1))
+                } else {
+                    Some(format!("{}", e.row - s.row + 1))
+                }
+            }
+            _ => None,
+        }
+    }
+
     /// Whether the editor is at a clean resting point in Normal mode (no pending
     /// operator/count/prefix), used to bound `.`-repeat capture.
     fn at_rest(&self) -> bool {
