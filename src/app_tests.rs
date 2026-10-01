@@ -102,6 +102,15 @@
     }
 
     #[test]
+    fn colorcolumn_sets_value() {
+        let mut app = App::new();
+        app.run_ex("set colorcolumn=80");
+        assert_eq!(app.editor.colorcolumn, 80);
+        app.run_ex("set cc=0");
+        assert_eq!(app.editor.colorcolumn, 0);
+    }
+
+    #[test]
     fn cursorline_toggles() {
         let mut app = App::new();
         assert!(app.editor.cursorline); // on by default

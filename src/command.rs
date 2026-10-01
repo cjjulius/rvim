@@ -118,6 +118,8 @@ pub enum ExCommand {
     ToggleWrapScan(bool),
     /// `:set cursorline` / `:set nocursorline` — highlight the cursor's line.
     ToggleCursorLine(bool),
+    /// `:set colorcolumn=N` — highlight column N as a guide (0 disables).
+    SetColorColumn(usize),
     /// `:sort` / `:sort!` / `:sort u` — sort buffer lines.
     Sort {
         range: SubRange,
@@ -643,6 +645,14 @@ fn parse_set(rest: &str) -> ExCommand {
             {
                 match v.trim().parse::<usize>() {
                     Ok(n) => ExCommand::SetScrollOff(n),
+                    _ => unknown_set(opt),
+                }
+            } else if let Some(v) = opt
+                .strip_prefix("colorcolumn=")
+                .or_else(|| opt.strip_prefix("cc="))
+            {
+                match v.trim().parse::<usize>() {
+                    Ok(n) => ExCommand::SetColorColumn(n),
                     _ => unknown_set(opt),
                 }
             } else if let Some(v) = opt

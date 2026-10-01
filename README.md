@@ -201,6 +201,7 @@ quits without saving (like `:q!`).
 `:set textwidth=N` (wrap column for `gq`) · `:set sidescrolloff=N` (horizontal context) ·
 `:set ignorecase|noignorecase` · `:set smartcase|nosmartcase` · `:set incsearch|noincsearch` ·
 `:set list|nolist` (show whitespace) · `:set wrapscan|nowrapscan` · `:set cursorline|nocursorline` ·
+`:set colorcolumn=N` (column guide) ·
 `:noh` / `:set hlsearch|nohlsearch` · `:[range]sort[!] [u][n][i]` (reverse / unique / numeric / ignore-case; range-aware) ·
 `:[range]m[ove] {addr}` / `:[range]t`|`:[range]co[py] {addr}` (move / copy lines) ·
 `:[range]d[elete]` / `:[range]y[ank]` / `:[range]>`|`:[range]<` (delete / yank / shift lines) ·
@@ -319,6 +320,9 @@ correctly colored even when scrolled.
 - **Whitespace view (`:set list`)** — show tabs (`▸···`) and trailing spaces (`·`)
   with an end-of-line `$` marker, so hidden whitespace is visible; `:set nolist`
   hides them again. Markers are width-preserving, so columns stay exact.
+- **Color column (`:set colorcolumn=N`)** — highlight column N as a visual
+  line-length guide (works past the end of short lines too); `:set cc=0` turns
+  it off. Pair it with `:set textwidth` to see your wrap boundary.
 - **Command preview (showcmd)** — the partially-typed command (count, operator,
   text-object prefix) appears at the bottom-right as you type, so you can see
   exactly what rvim is waiting for — e.g. `2d` while `2dw` is mid-entry. It clears
@@ -398,7 +402,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **392 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **394 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
