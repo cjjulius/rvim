@@ -125,9 +125,10 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
 - **Numbers:** `Ctrl-a` / `Ctrl-x` increment / decrement the number under (or
   next on) the line, with a count (`10Ctrl-a`); handles negatives.
 - **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history).
-- **Visual mode:** `v`/`V` then `d`/`x`, `y`, `c`/`s`, `>`/`<` (indent), and
-  `u`/`U`/`~` (lower/upper/toggle case of the selection). `o` swaps the active
-  end of the selection; `gv` (from normal mode) reselects the last selection.
+- **Visual mode:** `v`/`V` then `d`/`x`, `y`, `c`/`s`, `>`/`<` (indent),
+  `r<c>` (replace every selected char with `c`), and `u`/`U`/`~`
+  (lower/upper/toggle case of the selection). `o` swaps the active end of the
+  selection; `gv` (from normal mode) reselects the last selection.
   Pressing `:` from visual mode prefills the command line with the selection
   range (`:'<,'>`), so any ex-command — `:'<,'>s/…`, `:'<,'>d`, `:'<,'>m0` — runs
   on the selected lines. `p`/`P` over a selection replaces it with the register
@@ -375,7 +376,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **357 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **360 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

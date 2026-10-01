@@ -788,6 +788,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t  (insert) C-n/C-p keyword completion (cycle matches in buffer)\n\
          \tv / V / Ctrl-v     visual / visual-line / visual-block\n\
          \t  (v-block) d I A c  delete / insert / append / change rectangle\n\
+         \t  (visual) r<c>    replace every selected char with c\n\
          \t  (visual) u/U/~   lower / upper / toggle case of selection\n\
          \t  (visual) o       swap selection end     gv  reselect last\n\
          \t  (visual) p/P     replace selection with register\n\
