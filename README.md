@@ -284,6 +284,7 @@ src/
 ├── lib.rs         crate root / module wiring
 ├── app.rs         event loop + ex-command execution
 ├── editor.rs      cursor, viewport, motions, edit operations, search
+├── editor_tests.rs  editor unit tests (kept out of editor.rs to keep it lean)
 ├── buffer.rs      text storage + edit primitives + undo/redo
 ├── mode.rs        the modal state enum
 ├── command.rs     ex-command parser (`:...`)

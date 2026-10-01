@@ -1,0 +1,2062 @@
+    use super::*;
+    use crossterm::event::KeyEvent;
+
+    fn key(c: char) -> KeyEvent {
+        KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)
+    }
+    fn special(code: KeyCode) -> KeyEvent {
+        KeyEvent::new(code, KeyModifiers::NONE)
+    }
+
+    fn ed_with(text: &str) -> Editor {
+        let mut ed = Editor::new();
+        ed.buffer = Buffer::from_text(text);
+        ed
+    }
+
+    #[test]
+    fn basic_motion_hjkl() {
+        let mut ed = ed_with("abc\ndef\nghi");
+        ed.handle_key(key('l'));
+        ed.handle_key(key('j'));
+        assert_eq!(ed.cursor, Position::new(1, 1));
+        ed.handle_key(key('h'));
+        ed.handle_key(key('k'));
+        assert_eq!(ed.cursor, Position::new(0, 0));
+    }
+
+    #[test]
+    fn insert_text_and_escape() {
+        let mut ed = ed_with("");
+        ed.handle_key(key('i'));
+        assert_eq!(ed.mode, Mode::Insert);
+        for c in "hello".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.mode, Mode::Normal);
+        assert_eq!(ed.buffer.line(0), Some("hello"));
+    }
+
+    #[test]
+    fn append_puts_cursor_after() {
+        let mut ed = ed_with("ab");
+        ed.handle_key(key('a'));
+        ed.handle_key(key('X'));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("aXb"));
+    }
+
+    #[test]
+    fn dd_deletes_line_and_p_pastes() {
+        let mut ed = ed_with("one\ntwo\nthree");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('d'));
+        assert_eq!(ed.buffer.line(0), Some("two"));
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(1), Some("one"));
+    }
+
+    #[test]
+    fn x_deletes_char() {
+        let mut ed = ed_with("abc");
+        ed.handle_key(key('x'));
+        assert_eq!(ed.buffer.line(0), Some("bc"));
+    }
+
+    #[test]
+    fn o_opens_line_below_in_insert() {
+        let mut ed = ed_with("top");
+        ed.handle_key(key('o'));
+        assert_eq!(ed.mode, Mode::Insert);
+        for c in "new".chars() {
+            ed.handle_key(key(c));
+        }
+        assert_eq!(ed.buffer.line(1), Some("new"));
+    }
+
+    #[test]
+    fn undo_after_insert() {
+        let mut ed = ed_with("abc");
+        ed.handle_key(key('x')); // delete 'a'
+        assert_eq!(ed.buffer.line(0), Some("bc"));
+        ed.handle_key(key('u'));
+        assert_eq!(ed.buffer.line(0), Some("abc"));
+    }
+
+    #[test]
+    fn word_motion_forward() {
+        let mut ed = ed_with("foo bar baz");
+        ed.handle_key(key('w'));
+        assert_eq!(ed.cursor.col, 4);
+        ed.handle_key(key('w'));
+        assert_eq!(ed.cursor.col, 8);
+    }
+
+    #[test]
+    fn count_prefix_moves_multiple() {
+        let mut ed = ed_with("abcdef");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('l'));
+        assert_eq!(ed.cursor.col, 3);
+    }
+
+    #[test]
+    fn goto_gg_and_bottom() {
+        let mut ed = ed_with("l0\nl1\nl2\nl3");
+        ed.handle_key(key('G'));
+        assert_eq!(ed.cursor.row, 3);
+        ed.handle_key(key('g'));
+        ed.handle_key(key('g'));
+        assert_eq!(ed.cursor.row, 0);
+    }
+
+    #[test]
+    fn visual_line_delete() {
+        let mut ed = ed_with("a\nb\nc");
+        ed.handle_key(key('V'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('d'));
+        assert_eq!(ed.buffer.line(0), Some("c"));
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn search_forward_finds_next() {
+        let mut ed = ed_with("alpha\nbeta\ngamma beta");
+        ed.last_search = "beta".into();
+        ed.search_repeat(true);
+        assert_eq!(ed.cursor.row, 1);
+        ed.search_repeat(true);
+        assert_eq!(ed.cursor.row, 2);
+    }
+
+    #[test]
+    fn colon_enters_command_mode_and_returns_action() {
+        let mut ed = ed_with("");
+        ed.handle_key(key(':'));
+        assert_eq!(ed.mode, Mode::Command);
+        for c in "wq".chars() {
+            ed.handle_key(key(c));
+        }
+        let action = ed.handle_key(special(KeyCode::Enter));
+        assert_eq!(action, Action::RunEx("wq".into()));
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn zz_writes_and_quits() {
+        let mut ed = ed_with("hi");
+        assert_eq!(ed.handle_key(key('Z')), Action::None); // first Z: pending
+        assert_eq!(ed.handle_key(key('Z')), Action::RunEx("x".into()));
+    }
+
+    #[test]
+    fn zq_quits_without_saving() {
+        let mut ed = ed_with("hi");
+        assert_eq!(ed.handle_key(key('Z')), Action::None);
+        assert_eq!(ed.handle_key(key('Q')), Action::RunEx("q!".into()));
+    }
+
+    #[test]
+    fn z_then_other_key_cancels() {
+        let mut ed = ed_with("hi");
+        ed.handle_key(key('Z'));
+        assert_eq!(ed.handle_key(key('x')), Action::None); // not a quit; Z aborted
+        assert!(!ed.pending_z_quit);
+    }
+
+    #[test]
+    fn replace_char() {
+        let mut ed = ed_with("cat");
+        ed.handle_key(key('r'));
+        ed.handle_key(key('b'));
+        assert_eq!(ed.buffer.line(0), Some("bat"));
+    }
+
+    fn big_buffer(lines: usize) -> Editor {
+        let text: Vec<String> = (0..lines).map(|i| format!("line{i}")).collect();
+        let mut ed = ed_with(&text.join("\n"));
+        ed.view_rows = 10;
+        ed
+    }
+
+    #[test]
+    fn zz_zt_zb_position_viewport() {
+        let mut ed = big_buffer(100);
+        ed.cursor.row = 50;
+        ed.handle_key(key('z'));
+        ed.handle_key(key('z'));
+        assert_eq!(ed.top, 45); // centered (50 - 10/2)
+
+        ed.handle_key(key('z'));
+        ed.handle_key(key('t'));
+        assert_eq!(ed.top, 50); // line to top
+
+        ed.handle_key(key('z'));
+        ed.handle_key(key('b'));
+        assert_eq!(ed.top, 41); // 50 + 1 - 10
+    }
+
+    #[test]
+    fn scrolloff_keeps_context_below_cursor() {
+        let mut ed = big_buffer(100); // view_rows = 10
+        ed.scrolloff = 3;
+        ed.cursor.row = 8;
+        ed.scroll_into_view();
+        // Three lines must stay below the cursor (row 11 visible) -> top scrolls to 2.
+        assert_eq!(ed.top, 2);
+    }
+
+    #[test]
+    fn scrolloff_keeps_context_above_cursor() {
+        let mut ed = big_buffer(100);
+        ed.scrolloff = 3;
+        ed.top = 20;
+        ed.cursor.row = 21; // only one line of context above within the view
+        ed.scroll_into_view();
+        assert_eq!(ed.top, 18); // pulled up so three lines show above
+    }
+
+    #[test]
+    fn scrolloff_shrinks_near_file_end() {
+        let mut ed = big_buffer(10); // all 10 lines fit; cursor on the last line
+        ed.scrolloff = 3;
+        ed.cursor.row = 9;
+        ed.scroll_into_view();
+        assert_eq!(ed.top, 0); // never scrolls past the end to honor the margin
+    }
+
+    #[test]
+    fn ctrl_f_and_b_page_scroll() {
+        let mut ed = big_buffer(100); // view_rows = 10 -> step = 8 (2-line overlap)
+        ed.handle_key(ctrl('f'));
+        assert_eq!(ed.top, 8);
+        assert_eq!(ed.cursor.row, 8); // cursor on top line of new page
+        ed.handle_key(ctrl('f'));
+        assert_eq!(ed.top, 16);
+        ed.handle_key(ctrl('b'));
+        assert_eq!(ed.top, 8);
+        assert_eq!(ed.cursor.row, 17); // cursor on bottom line of restored page
+    }
+
+    #[test]
+    fn ctrl_f_honors_count() {
+        let mut ed = big_buffer(100);
+        ed.handle_key(key('2'));
+        ed.handle_key(ctrl('f')); // two pages at once: 8 * 2
+        assert_eq!(ed.top, 16);
+    }
+
+    #[test]
+    fn hml_jump_within_viewport() {
+        let mut ed = big_buffer(100);
+        ed.top = 20;
+        ed.cursor.row = 25;
+        ed.handle_key(key('H'));
+        assert_eq!(ed.cursor.row, 20);
+        ed.handle_key(key('M'));
+        assert_eq!(ed.cursor.row, 25); // 20 + 10/2
+        ed.handle_key(key('L'));
+        assert_eq!(ed.cursor.row, 29); // 20 + 10 - 1
+    }
+
+    #[test]
+    fn ctrl_e_and_y_scroll_one_line() {
+        let mut ed = big_buffer(100);
+        ed.top = 10;
+        ed.cursor.row = 15;
+        ed.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::CONTROL));
+        assert_eq!(ed.top, 11);
+        ed.handle_key(KeyEvent::new(KeyCode::Char('y'), KeyModifiers::CONTROL));
+        assert_eq!(ed.top, 10);
+    }
+
+    #[test]
+    fn ctrl_e_pulls_cursor_into_view() {
+        let mut ed = big_buffer(100);
+        ed.top = 0;
+        ed.cursor.row = 0;
+        // Scroll down 5 lines; cursor (row 0) would be above the view, so it
+        // should be pulled down to the new top.
+        for _ in 0..5 {
+            ed.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::CONTROL));
+        }
+        assert_eq!(ed.top, 5);
+        assert_eq!(ed.cursor.row, 5);
+    }
+
+    fn rust_ed(text: &str) -> Editor {
+        let mut ed = ed_with(text);
+        ed.language = Language::Rust;
+        ed
+    }
+
+    #[test]
+    fn comment_toggle_gcc() {
+        let mut ed = rust_ed("let x = 1;");
+        ed.handle_key(key('g'));
+        ed.handle_key(key('c'));
+        ed.handle_key(key('c')); // comment current line
+        assert_eq!(ed.buffer.line(0), Some("// let x = 1;"));
+        // Toggle back.
+        ed.handle_key(key('g'));
+        ed.handle_key(key('c'));
+        ed.handle_key(key('c'));
+        assert_eq!(ed.buffer.line(0), Some("let x = 1;"));
+    }
+
+    #[test]
+    fn comment_toggle_preserves_indent() {
+        let mut ed = rust_ed("    indented();");
+        ed.handle_key(key('g'));
+        ed.handle_key(key('c'));
+        ed.handle_key(key('c'));
+        assert_eq!(ed.buffer.line(0), Some("    // indented();"));
+    }
+
+    #[test]
+    fn comment_toggle_range_with_motion() {
+        let mut ed = rust_ed("a();\nb();\nc();");
+        ed.handle_key(key('g'));
+        ed.handle_key(key('c'));
+        ed.handle_key(key('j')); // comment current + next line
+        assert_eq!(ed.buffer.line(0), Some("// a();"));
+        assert_eq!(ed.buffer.line(1), Some("// b();"));
+        assert_eq!(ed.buffer.line(2), Some("c();"));
+    }
+
+    #[test]
+    fn comment_toggle_visual_and_sql_marker() {
+        let mut ed = ed_with("SELECT 1;\nFROM t;");
+        ed.language = Language::PgSql;
+        ed.handle_key(key('V'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('g'));
+        ed.handle_key(key('c'));
+        assert_eq!(ed.buffer.line(0), Some("-- SELECT 1;"));
+        assert_eq!(ed.buffer.line(1), Some("-- FROM t;"));
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn case_op_gu_with_motion() {
+        let mut ed = ed_with("HELLO WORLD");
+        ed.handle_key(key('g'));
+        ed.handle_key(key('u'));
+        ed.handle_key(key('w')); // lowercase "HELLO " -> "hello "
+        assert_eq!(ed.buffer.line(0), Some("hello WORLD"));
+    }
+
+    #[test]
+    fn case_op_g_upper_with_text_object() {
+        let mut ed = ed_with("foo bar baz");
+        ed.handle_key(key('w')); // on "bar"
+        ed.handle_key(key('g'));
+        ed.handle_key(key('U'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('w')); // uppercase inner word
+        assert_eq!(ed.buffer.line(0), Some("foo BAR baz"));
+    }
+
+    #[test]
+    fn case_op_doubled_line() {
+        let mut ed = ed_with("MixedCase Line");
+        ed.handle_key(key('g'));
+        ed.handle_key(key('u'));
+        ed.handle_key(key('u')); // guu -> lowercase whole line
+        assert_eq!(ed.buffer.line(0), Some("mixedcase line"));
+    }
+
+    #[test]
+    fn case_op_toggle_with_dollar() {
+        let mut ed = ed_with("aBcD");
+        ed.handle_key(key('g'));
+        ed.handle_key(key('~'));
+        ed.handle_key(key('$')); // toggle to end of line
+        assert_eq!(ed.buffer.line(0), Some("AbCd"));
+    }
+
+    #[test]
+    fn text_object_diw() {
+        let mut ed = ed_with("foo bar baz");
+        ed.handle_key(key('w')); // cursor on "bar" (col 4)
+        ed.handle_key(key('d'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('w')); // delete inner word "bar"
+        assert_eq!(ed.buffer.line(0), Some("foo  baz"));
+    }
+
+    #[test]
+    fn text_object_daw_removes_trailing_space() {
+        let mut ed = ed_with("foo bar baz");
+        ed.handle_key(key('w')); // on "bar"
+        ed.handle_key(key('d'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('w')); // delete "bar " (a word)
+        assert_eq!(ed.buffer.line(0), Some("foo baz"));
+    }
+
+    #[test]
+    fn text_object_ci_parens() {
+        let mut ed = ed_with("call(arg1, arg2)");
+        ed.cursor = Position::new(0, 6); // inside parens (on 'r' of arg1)
+        ed.handle_key(key('c'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('(')); // change inner parens
+        assert_eq!(ed.mode, Mode::Insert);
+        ed.handle_key(key('X'));
+        assert_eq!(ed.buffer.line(0), Some("call(X)"));
+    }
+
+    #[test]
+    fn text_object_di_quotes() {
+        let mut ed = ed_with("say \"hello world\" now");
+        // move cursor inside the quotes
+        ed.cursor = Position::new(0, 8);
+        ed.handle_key(key('d'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('"'));
+        assert_eq!(ed.buffer.line(0), Some("say \"\" now"));
+    }
+
+    #[test]
+    fn text_object_da_parens_includes_delims() {
+        let mut ed = ed_with("x(inner)y");
+        ed.cursor = Position::new(0, 3);
+        ed.handle_key(key('d'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('(')); // delete "(inner)"
+        assert_eq!(ed.buffer.line(0), Some("xy"));
+    }
+
+    #[test]
+    fn dot_repeats_x() {
+        let mut ed = ed_with("abcdef");
+        ed.handle_key(key('x')); // delete 'a' -> "bcdef"
+        assert_eq!(ed.buffer.line(0), Some("bcdef"));
+        ed.handle_key(key('.')); // repeat -> "cdef"
+        assert_eq!(ed.buffer.line(0), Some("cdef"));
+        ed.handle_key(key('.')); // -> "def"
+        assert_eq!(ed.buffer.line(0), Some("def"));
+    }
+
+    #[test]
+    fn dot_repeats_dd() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('d')); // delete "a"
+        assert_eq!(ed.buffer.line(0), Some("b"));
+        ed.handle_key(key('.')); // delete "b"
+        assert_eq!(ed.buffer.line(0), Some("c"));
+    }
+
+    #[test]
+    fn dot_repeats_insert_change() {
+        let mut ed = ed_with("one\ntwo");
+        // Insert "# " at the start of the line.
+        ed.handle_key(key('I'));
+        ed.handle_key(key('#'));
+        ed.handle_key(key(' '));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("# one"));
+        // Move to next line and repeat.
+        ed.handle_key(key('j'));
+        ed.handle_key(key('.'));
+        assert_eq!(ed.buffer.line(1), Some("# two"));
+    }
+
+    #[test]
+    fn dot_unchanged_by_navigation() {
+        let mut ed = ed_with("abc\ndef");
+        ed.handle_key(key('x')); // change: delete 'a'
+        ed.handle_key(key('j')); // navigation (no change)
+        ed.handle_key(key('0'));
+        ed.handle_key(key('.')); // should repeat the delete, not the navigation
+        assert_eq!(ed.buffer.line(1), Some("ef"));
+    }
+
+    #[test]
+    fn macro_record_and_replay() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        // Record into register q: delete a line (dd).
+        ed.handle_key(key('q'));
+        ed.handle_key(key('q')); // start recording into q
+        assert_eq!(ed.recording_register(), Some('q'));
+        ed.handle_key(key('d'));
+        ed.handle_key(key('d')); // dd (recorded)
+        ed.handle_key(key('q')); // stop recording
+        assert_eq!(ed.recording_register(), None);
+        assert_eq!(ed.buffer.line(0), Some("b"));
+        // Replay: delete another line.
+        ed.handle_key(key('@'));
+        ed.handle_key(key('q'));
+        assert_eq!(ed.buffer.line(0), Some("c"));
+        // @@ repeats the last macro.
+        ed.handle_key(key('@'));
+        ed.handle_key(key('@'));
+        assert_eq!(ed.buffer.line(0), Some("d"));
+    }
+
+    #[test]
+    fn macro_records_insert_sequence() {
+        let mut ed = ed_with("x\ny");
+        ed.handle_key(key('q'));
+        ed.handle_key(key('a')); // record into a
+        ed.handle_key(key('I')); // insert at line start
+        ed.handle_key(key('>'));
+        ed.handle_key(key(' '));
+        ed.handle_key(special(KeyCode::Esc));
+        ed.handle_key(key('q')); // stop
+        assert_eq!(ed.buffer.line(0), Some("> x"));
+        // Replay on the next line.
+        ed.handle_key(key('j'));
+        ed.handle_key(key('0'));
+        ed.handle_key(key('@'));
+        ed.handle_key(key('a'));
+        assert_eq!(ed.buffer.line(1), Some("> y"));
+    }
+
+    #[test]
+    fn mark_set_and_jump_exact() {
+        let mut ed = ed_with("l0\nl1\nl2\nl3");
+        ed.cursor = Position::new(2, 1);
+        ed.handle_key(key('m'));
+        ed.handle_key(key('a')); // set mark a at (2,1)
+        ed.handle_key(key('g'));
+        ed.handle_key(key('g')); // to top
+        assert_eq!(ed.cursor.row, 0);
+        ed.handle_key(key('`'));
+        ed.handle_key(key('a')); // jump back to mark a
+        assert_eq!(ed.cursor, Position::new(2, 1));
+    }
+
+    #[test]
+    fn mark_jump_line_lands_on_first_nonblank() {
+        let mut ed = ed_with("l0\n  indented\nl2");
+        ed.cursor = Position::new(1, 5);
+        ed.handle_key(key('m'));
+        ed.handle_key(key('x'));
+        ed.handle_key(key('g'));
+        ed.handle_key(key('g'));
+        ed.handle_key(key('\'')); // 'x -> line of mark, first non-blank
+        ed.handle_key(key('x'));
+        assert_eq!(ed.cursor.row, 1);
+        assert_eq!(ed.cursor.col, 2); // first non-blank
+    }
+
+    #[test]
+    fn backtick_backtick_returns_to_previous() {
+        let mut ed = ed_with("a\nb\nc\nd\ne");
+        ed.cursor = Position::new(1, 0);
+        ed.handle_key(key('G')); // jump to last line, records previous (1,0)
+        assert_eq!(ed.cursor.row, 4);
+        ed.handle_key(key('`'));
+        ed.handle_key(key('`')); // back to previous
+        assert_eq!(ed.cursor.row, 1);
+    }
+
+    #[test]
+    fn count_before_operator_3dd() {
+        let mut ed = ed_with("a\nb\nc\nd\ne");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('d'));
+        ed.handle_key(key('d')); // delete 3 lines
+        assert_eq!(ed.buffer.line(0), Some("d"));
+        assert_eq!(ed.buffer.line_count(), 2);
+    }
+
+    #[test]
+    fn count_between_operator_and_motion_d3w() {
+        let mut ed = ed_with("one two three four");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('3'));
+        ed.handle_key(key('w')); // delete 3 words
+        assert_eq!(ed.buffer.line(0), Some("four"));
+    }
+
+    #[test]
+    fn multiplied_counts_2d3w() {
+        let mut ed = ed_with("a b c d e f g");
+        ed.handle_key(key('2'));
+        ed.handle_key(key('d'));
+        ed.handle_key(key('3'));
+        ed.handle_key(key('w')); // 2*3 = 6 words deleted
+        assert_eq!(ed.buffer.line(0), Some("g"));
+    }
+
+    #[test]
+    fn count_paste_3p() {
+        let mut ed = ed_with("x");
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y')); // yank "x" linewise
+        ed.handle_key(key('3'));
+        ed.handle_key(key('p')); // paste 3 times
+        assert_eq!(ed.buffer.line_count(), 4);
+    }
+
+    #[test]
+    fn yank_word_and_paste() {
+        let mut ed = ed_with("foo bar");
+        ed.handle_key(key('y'));
+        ed.handle_key(key('w')); // yank "foo "
+        ed.handle_key(key('$'));
+        ed.handle_key(key('p')); // paste after last char
+        assert_eq!(ed.buffer.line(0), Some("foo barfoo "));
+    }
+
+    #[test]
+    fn yank_to_eol() {
+        let mut ed = ed_with("hello world");
+        ed.handle_key(key('w')); // cursor at col 6 (start of "world")
+        ed.handle_key(key('y'));
+        ed.handle_key(key('$')); // yank "world"
+        ed.handle_key(key('0'));
+        ed.handle_key(key('P')); // paste before line start
+        assert_eq!(ed.buffer.line(0), Some("worldhello world"));
+    }
+
+    #[test]
+    fn delete_to_line_start() {
+        let mut ed = ed_with("hello");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('l')); // col 3
+        ed.handle_key(key('d'));
+        ed.handle_key(key('0')); // delete cols [0,3)
+        assert_eq!(ed.buffer.line(0), Some("lo"));
+    }
+
+    #[test]
+    fn delete_down_two_lines() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('j')); // delete current + next (a, b)
+        assert_eq!(ed.buffer.line(0), Some("c"));
+        assert_eq!(ed.buffer.line_count(), 2);
+    }
+
+    #[test]
+    fn delete_to_end_with_d_g() {
+        let mut ed = ed_with("l0\nl1\nl2\nl3");
+        ed.handle_key(key('j')); // row 1
+        ed.handle_key(key('d'));
+        ed.handle_key(key('G')); // delete rows 1..=3
+        assert_eq!(ed.buffer.line_count(), 1);
+        assert_eq!(ed.buffer.line(0), Some("l0"));
+    }
+
+    fn ctrl(c: char) -> KeyEvent {
+        KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL)
+    }
+
+    #[test]
+    fn command_history_recall() {
+        let mut ed = ed_with("x");
+        // Run two ex commands to build history.
+        ed.handle_key(key(':'));
+        for c in "set number".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Enter));
+        ed.handle_key(key(':'));
+        for c in "noh".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Enter));
+        // Open command line, Up recalls most recent, Up again older.
+        ed.handle_key(key(':'));
+        ed.handle_key(special(KeyCode::Up));
+        assert_eq!(ed.cmdline, "noh");
+        ed.handle_key(special(KeyCode::Up));
+        assert_eq!(ed.cmdline, "set number");
+        ed.handle_key(special(KeyCode::Down));
+        assert_eq!(ed.cmdline, "noh");
+    }
+
+    #[test]
+    fn search_history_is_separate() {
+        let mut ed = ed_with("foo bar");
+        ed.handle_key(key(':'));
+        for c in "wq".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Esc)); // not recorded (esc), use a real run instead
+        ed.handle_key(key('/'));
+        for c in "bar".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Enter)); // search history gets "bar"
+        ed.handle_key(key('/'));
+        ed.handle_key(special(KeyCode::Up));
+        assert_eq!(ed.cmdline, "bar");
+    }
+
+    #[test]
+    fn gi_resumes_at_last_insert() {
+        let mut ed = ed_with("");
+        ed.handle_key(key('i'));
+        for c in "abc".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Esc)); // insert ended at col 3
+        ed.handle_key(key('0')); // move to col 0
+        ed.handle_key(key('g'));
+        ed.handle_key(key('i')); // resume at col 3
+        assert_eq!(ed.mode, Mode::Insert);
+        ed.handle_key(key('d'));
+        assert_eq!(ed.buffer.line(0), Some("abcd"));
+    }
+
+    #[test]
+    fn mark_dot_tracks_last_change() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.cursor = Position::new(2, 0); // on "c"
+        ed.handle_key(key('x')); // change on line 2
+        ed.handle_key(key('g'));
+        ed.handle_key(key('g')); // jump to top
+        assert_eq!(ed.cursor.row, 0);
+        ed.handle_key(key('`'));
+        ed.handle_key(key('.')); // jump to last change
+        assert_eq!(ed.cursor.row, 2);
+    }
+
+    #[test]
+    fn ge_moves_to_previous_word_end() {
+        let mut ed = ed_with("foo bar baz");
+        ed.cursor = Position::new(0, 9); // on 'a' of "baz"
+        ed.handle_key(key('g'));
+        ed.handle_key(key('e')); // end of "bar" -> col 6
+        assert_eq!(ed.cursor.col, 6);
+        ed.handle_key(key('g'));
+        ed.handle_key(key('e')); // end of "foo" -> col 2
+        assert_eq!(ed.cursor.col, 2);
+    }
+
+    #[test]
+    fn ge_stops_at_punctuation_but_big_e_spans() {
+        let mut ed = ed_with("foo.bar baz");
+        ed.cursor = Position::new(0, 8); // on 'b' of "baz"
+        ed.handle_key(key('g'));
+        ed.handle_key(key('e')); // small ge -> end of "bar" (col 6)
+        assert_eq!(ed.cursor.col, 6);
+        let mut ed2 = ed_with("foo.bar baz");
+        ed2.cursor = Position::new(0, 8);
+        ed2.handle_key(key('g'));
+        ed2.handle_key(key('E')); // big gE -> end of WORD "foo.bar" (col 6 too here)
+        assert_eq!(ed2.cursor.col, 6);
+    }
+
+    #[test]
+    fn block_delete_removes_rectangle() {
+        let mut ed = ed_with("abcd\nefgh\nijkl");
+        // cursor at (0,1); block select to (2,2) -> columns 1..=2 over 3 rows
+        ed.handle_key(key('l')); // col 1
+        ed.handle_key(ctrl('v'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('j')); // row 2
+        ed.handle_key(key('l')); // col 2
+        ed.handle_key(key('d'));
+        assert_eq!(ed.buffer.line(0), Some("ad"));
+        assert_eq!(ed.buffer.line(1), Some("eh"));
+        assert_eq!(ed.buffer.line(2), Some("il"));
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn block_insert_prepends_each_row() {
+        let mut ed = ed_with("one\ntwo\nthree");
+        ed.handle_key(ctrl('v'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('j')); // block over column 0, rows 0..2
+        ed.handle_key(key('I'));
+        ed.handle_key(key('#'));
+        ed.handle_key(key(' '));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("# one"));
+        assert_eq!(ed.buffer.line(1), Some("# two"));
+        assert_eq!(ed.buffer.line(2), Some("# three"));
+    }
+
+    #[test]
+    fn block_append_pads_short_rows() {
+        let mut ed = ed_with("aa\nb\nccc");
+        ed.handle_key(key('$')); // col 1 on "aa"
+        ed.handle_key(ctrl('v'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('j')); // rows 0..2, col ~1
+        ed.handle_key(key('A'));
+        ed.handle_key(key('X'));
+        ed.handle_key(special(KeyCode::Esc));
+        // Append at column 2 (cmax+1); short rows get padded, longer rows get
+        // the text inserted at that column.
+        assert_eq!(ed.buffer.line(0), Some("aaX"));
+        assert_eq!(ed.buffer.line(1), Some("b X"));
+        assert_eq!(ed.buffer.line(2), Some("ccXc"));
+    }
+
+    #[test]
+    fn ctrl_a_increments_number() {
+        let mut ed = ed_with("value = 41");
+        ed.handle_key(ctrl('a')); // cursor at 0; finds 41 -> 42
+        assert_eq!(ed.buffer.line(0), Some("value = 42"));
+        assert_eq!(ed.cursor.col, 9); // on last digit
+    }
+
+    #[test]
+    fn ctrl_x_decrements_with_count() {
+        let mut ed = ed_with("x10y");
+        ed.handle_key(key('5'));
+        ed.handle_key(ctrl('x')); // 10 - 5 = 5
+        assert_eq!(ed.buffer.line(0), Some("x5y"));
+    }
+
+    #[test]
+    fn ctrl_a_handles_negative() {
+        let mut ed = ed_with("n = -1");
+        ed.handle_key(key('$')); // on '1'
+        ed.handle_key(ctrl('a')); // -1 + 1 = 0
+        assert_eq!(ed.buffer.line(0), Some("n = 0"));
+    }
+
+    #[test]
+    fn ctrl_a_crosses_into_negative() {
+        let mut ed = ed_with("3");
+        ed.handle_key(key('5'));
+        ed.handle_key(ctrl('x')); // 3 - 5 = -2
+        assert_eq!(ed.buffer.line(0), Some("-2"));
+    }
+
+    #[test]
+    fn insert_ctrl_r_pastes_register() {
+        let mut ed = ed_with("word\ntarget");
+        ed.handle_key(key('y'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('w')); // yiw -> unnamed = "word"
+        ed.handle_key(key('j'));
+        ed.handle_key(key('A')); // append at end of "target"
+        ed.handle_key(ctrl('r'));
+        ed.handle_key(key('"')); // paste unnamed register
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(1), Some("targetword"));
+    }
+
+    #[test]
+    fn insert_ctrl_r_named_register() {
+        let mut ed = ed_with("hi");
+        ed.handle_key(key('"'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y')); // "ayy -> register a = "hi"
+        ed.handle_key(key('A'));
+        ed.handle_key(ctrl('r'));
+        ed.handle_key(key('a'));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("hihi"));
+    }
+
+    #[test]
+    fn insert_ctrl_t_and_ctrl_d_indent() {
+        let mut ed = ed_with("code");
+        ed.shiftwidth = 2;
+        ed.handle_key(key('A')); // insert at end, cursor col 4
+        ed.handle_key(ctrl('t')); // indent -> "  code", cursor col 6
+        assert_eq!(ed.buffer.line(0), Some("  code"));
+        assert_eq!(ed.cursor.col, 6);
+        ed.handle_key(ctrl('d')); // dedent -> "code", cursor col 4
+        assert_eq!(ed.buffer.line(0), Some("code"));
+        assert_eq!(ed.cursor.col, 4);
+    }
+
+    #[test]
+    fn count_insert_repeats_text() {
+        let mut ed = ed_with("");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('h'));
+        ed.handle_key(key('i'));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("hihihi"));
+    }
+
+    #[test]
+    fn count_append_repeats() {
+        let mut ed = ed_with("x");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('-'));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("x---"));
+    }
+
+    #[test]
+    fn count_open_creates_multiple_lines() {
+        let mut ed = ed_with("top");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('o'));
+        ed.handle_key(key('z'));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("top"));
+        assert_eq!(ed.buffer.line(1), Some("z"));
+        assert_eq!(ed.buffer.line(2), Some("z"));
+        assert_eq!(ed.buffer.line(3), Some("z"));
+        assert_eq!(ed.buffer.line_count(), 4);
+    }
+
+    #[test]
+    fn plain_insert_not_repeated() {
+        let mut ed = ed_with("");
+        ed.handle_key(key('i'));
+        ed.handle_key(key('a'));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("a"));
+    }
+
+    #[test]
+    fn replace_mode_overtypes() {
+        let mut ed = ed_with("hello");
+        ed.handle_key(key('R'));
+        assert_eq!(ed.mode, Mode::Replace);
+        ed.handle_key(key('J'));
+        ed.handle_key(key('A'));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("JAllo"));
+    }
+
+    #[test]
+    fn replace_mode_appends_past_eol() {
+        let mut ed = ed_with("ab");
+        ed.handle_key(key('$')); // on 'b' (col 1)
+        ed.handle_key(key('R'));
+        ed.handle_key(key('X')); // overwrite 'b' -> "aX"
+        ed.handle_key(key('Y')); // past EOL -> append
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("aXY"));
+    }
+
+    #[test]
+    fn replace_mode_backspace_restores_original() {
+        let mut ed = ed_with("cat");
+        ed.handle_key(key('R'));
+        ed.handle_key(key('X')); // c->X "Xat"
+        ed.handle_key(key('Y')); // a->Y "XYt"
+        ed.handle_key(special(KeyCode::Backspace)); // restore 'a' -> "Xat"
+        ed.handle_key(special(KeyCode::Backspace)); // restore 'c' -> "cat"
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("cat"));
+    }
+
+    #[test]
+    fn line_motions_plus_minus_underscore() {
+        let mut ed = ed_with("a\n  b\n   c\nd");
+        ed.handle_key(key('+')); // next line, first non-blank
+        assert_eq!(ed.cursor, Position::new(1, 2));
+        ed.handle_key(key('+'));
+        assert_eq!(ed.cursor, Position::new(2, 3));
+        ed.handle_key(key('-')); // prev line, first non-blank
+        assert_eq!(ed.cursor, Position::new(1, 2));
+        ed.handle_key(key('2'));
+        ed.handle_key(key('_')); // down count-1 = 1 line, first non-blank
+        assert_eq!(ed.cursor, Position::new(2, 3));
+    }
+
+    #[test]
+    fn goto_column_bar() {
+        let mut ed = ed_with("abcdef");
+        ed.handle_key(key('4'));
+        ed.handle_key(key('|')); // column 4 (0-based 3)
+        assert_eq!(ed.cursor.col, 3);
+        ed.handle_key(key('|')); // bare | -> column 1 (0-based 0)
+        assert_eq!(ed.cursor.col, 0);
+    }
+
+    #[test]
+    fn g_underscore_last_nonblank() {
+        let mut ed = ed_with("hello   ");
+        ed.handle_key(key('g'));
+        ed.handle_key(key('_'));
+        assert_eq!(ed.cursor.col, 4); // 'o', ignoring trailing spaces
+    }
+
+    #[test]
+    fn delete_to_next_line_with_plus() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('+')); // delete current + next line
+        assert_eq!(ed.buffer.line(0), Some("c"));
+        assert_eq!(ed.buffer.line_count(), 2);
+    }
+
+    #[test]
+    fn visual_o_swaps_ends() {
+        let mut ed = ed_with("hello world");
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // cursor col 2
+        ed.handle_key(key('v'));
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // anchor 2, cursor 4
+        ed.handle_key(key('o')); // swap -> cursor 2, anchor 4
+        assert_eq!(ed.cursor.col, 2);
+        // Extend left; selection start moves with cursor.
+        ed.handle_key(key('h'));
+        let (s, e) = ed.selection().unwrap();
+        assert_eq!(s.col, 1);
+        assert_eq!(e.col, 4);
+    }
+
+    #[test]
+    fn gv_reselects_last_visual() {
+        let mut ed = ed_with("abcdef");
+        ed.handle_key(key('v'));
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // select cols 0..=2
+        ed.handle_key(special(KeyCode::Esc)); // exit visual
+        assert_eq!(ed.mode, Mode::Normal);
+        ed.handle_key(key('g'));
+        ed.handle_key(key('v')); // reselect
+        assert_eq!(ed.mode, Mode::Visual);
+        let (s, e) = ed.selection().unwrap();
+        assert_eq!((s.col, e.col), (0, 2));
+    }
+
+    #[test]
+    fn gv_reselects_after_operation() {
+        let mut ed = ed_with("HELLO");
+        ed.handle_key(key('v'));
+        ed.handle_key(key('l')); // select "HE"
+        ed.handle_key(key('u')); // lowercase -> "heLLO", exits visual
+        assert_eq!(ed.buffer.line(0), Some("heLLO"));
+        ed.handle_key(key('g'));
+        ed.handle_key(key('v')); // reselect same extent
+        ed.handle_key(key('U')); // uppercase it back
+        assert_eq!(ed.buffer.line(0), Some("HELLO"));
+    }
+
+    #[test]
+    fn yank_register_zero() {
+        let mut ed = ed_with("yanked\ndeleted\ntarget");
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y')); // yank "yanked" -> "0 and unnamed
+        ed.handle_key(key('j'));
+        ed.handle_key(key('d'));
+        ed.handle_key(key('d')); // delete "deleted" -> "1 and unnamed
+        // Unnamed now holds the delete; "0 still holds the yank.
+        ed.handle_key(key('"'));
+        ed.handle_key(key('0'));
+        ed.handle_key(key('p')); // paste "0 (the yank)
+        assert_eq!(ed.buffer.line(2), Some("yanked"));
+    }
+
+    #[test]
+    fn numbered_delete_registers_shift() {
+        let mut ed = ed_with("one\ntwo\nthree\nfour");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('d')); // delete "one" -> "1
+        ed.handle_key(key('d'));
+        ed.handle_key(key('d')); // delete "two" -> "1, "one" shifts to "2
+        // "1 == most recent delete ("two"), "2 == older ("one").
+        ed.handle_key(key('"'));
+        ed.handle_key(key('1'));
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(1), Some("two"));
+        ed.handle_key(key('"'));
+        ed.handle_key(key('2'));
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(2), Some("one"));
+    }
+
+    #[test]
+    fn small_delete_register_dash() {
+        let mut ed = ed_with("abcdef");
+        ed.handle_key(key('x')); // delete 'a' (small) -> "-
+        ed.handle_key(key('$'));
+        ed.handle_key(key('"'));
+        ed.handle_key(key('-'));
+        ed.handle_key(key('p')); // paste small-delete register
+        assert_eq!(ed.buffer.line(0), Some("bcdefa"));
+    }
+
+    #[test]
+    fn jumplist_back_and_forward() {
+        let mut ed = ed_with("l0\nl1\nl2\nl3\nl4\nl5");
+        // Jump around with G/gg (both record jumps).
+        ed.handle_key(key('G')); // from (0,0) to last line (row 5); records 0
+        assert_eq!(ed.cursor.row, 5);
+        ed.handle_key(key('g'));
+        ed.handle_key(key('g')); // to row 0; records 5
+        assert_eq!(ed.cursor.row, 0);
+        // Ctrl-o goes back to the previous jump origin (row 5).
+        ed.handle_key(ctrl('o'));
+        assert_eq!(ed.cursor.row, 5);
+        // Ctrl-o again -> row 0 (the earlier origin).
+        ed.handle_key(ctrl('o'));
+        assert_eq!(ed.cursor.row, 0);
+        // Ctrl-i goes forward again.
+        ed.handle_key(ctrl('i'));
+        assert_eq!(ed.cursor.row, 5);
+    }
+
+    #[test]
+    fn jumplist_back_with_no_history_is_noop() {
+        let mut ed = ed_with("a\nb\nc");
+        ed.cursor = Position::new(1, 0);
+        ed.handle_key(ctrl('o')); // nothing recorded yet
+        assert_eq!(ed.cursor.row, 1);
+    }
+
+    #[test]
+    fn shiftwidth_controls_indent() {
+        let mut ed = ed_with("code");
+        ed.shiftwidth = 2;
+        ed.handle_key(key('>'));
+        ed.handle_key(key('>'));
+        assert_eq!(ed.buffer.line(0), Some("  code")); // 2 spaces
+        ed.handle_key(key('<'));
+        ed.handle_key(key('<'));
+        assert_eq!(ed.buffer.line(0), Some("code"));
+    }
+
+    #[test]
+    fn noexpandtab_indents_with_tab() {
+        let mut ed = ed_with("code");
+        ed.expandtab = false;
+        ed.handle_key(key('>'));
+        ed.handle_key(key('>'));
+        assert_eq!(ed.buffer.line(0), Some("\tcode"));
+    }
+
+    #[test]
+    fn insert_tab_respects_expandtab_and_tabstop() {
+        let mut ed = ed_with("");
+        ed.tabstop = 3;
+        ed.handle_key(key('i'));
+        ed.handle_key(special(KeyCode::Tab));
+        assert_eq!(ed.buffer.line(0), Some("   ")); // 3 spaces
+        let mut ed2 = ed_with("");
+        ed2.expandtab = false;
+        ed2.handle_key(key('i'));
+        ed2.handle_key(special(KeyCode::Tab));
+        assert_eq!(ed2.buffer.line(0), Some("\t"));
+    }
+
+    #[test]
+    fn gj_joins_without_space() {
+        let mut ed = ed_with("foo\nbar");
+        ed.handle_key(key('g'));
+        ed.handle_key(key('J'));
+        assert_eq!(ed.buffer.line(0), Some("foobar"));
+        // plain J inserts a space
+        let mut ed2 = ed_with("foo\nbar");
+        ed2.handle_key(key('J'));
+        assert_eq!(ed2.buffer.line(0), Some("foo bar"));
+    }
+
+    #[test]
+    fn paragraph_motions() {
+        let mut ed = ed_with("a\nb\n\nc\nd\n\ne");
+        ed.handle_key(key('}')); // to first blank (row 2)
+        assert_eq!(ed.cursor.row, 2);
+        ed.handle_key(key('}')); // to next blank (row 5)
+        assert_eq!(ed.cursor.row, 5);
+        ed.handle_key(key('{')); // back to blank (row 2)
+        assert_eq!(ed.cursor.row, 2);
+    }
+
+    #[test]
+    fn section_motion_open_and_close_braces() {
+        // Allman-style braces in column 0 are vim's default section boundaries.
+        // fn a()          row 0
+        // {               row 1  (open boundary)
+        //     body        row 2
+        // }               row 3  (close boundary)
+        // fn b()          row 4
+        // {               row 5  (open boundary)
+        //     body        row 6
+        // }               row 7  (close boundary)
+        let mut ed = ed_with("fn a()\n{\n    body\n}\nfn b()\n{\n    body\n}");
+        ed.handle_key(key(']'));
+        ed.handle_key(key(']')); // ]] -> next open-brace line (row 1)
+        assert_eq!(ed.cursor.row, 1);
+        assert_eq!(ed.cursor.col, 0);
+        ed.handle_key(key(']'));
+        ed.handle_key(key(']')); // ]] -> next open-brace line (row 5)
+        assert_eq!(ed.cursor.row, 5);
+        ed.handle_key(key('['));
+        ed.handle_key(key('[')); // [[ -> previous open-brace line (row 1)
+        assert_eq!(ed.cursor.row, 1);
+        ed.handle_key(key(']'));
+        ed.handle_key(key('[')); // ][ -> next close-brace line (row 3)
+        assert_eq!(ed.cursor.row, 3);
+        ed.handle_key(key('['));
+        ed.handle_key(key(']')); // [] -> previous close-brace line (none above -> row 0)
+        assert_eq!(ed.cursor.row, 0);
+    }
+
+    #[test]
+    fn section_motion_counts_and_records_jump() {
+        let mut ed = ed_with("{\na\n{\nb\n{\nc");
+        ed.handle_key(key('2'));
+        ed.handle_key(key(']'));
+        ed.handle_key(key(']')); // 2]] -> skip to the third open brace (row 4)
+        assert_eq!(ed.cursor.row, 4);
+        ed.handle_key(ctrl('o')); // jump back to the start
+        assert_eq!(ed.cursor.row, 0);
+    }
+
+    #[test]
+    fn paragraph_text_object_dip() {
+        let mut ed = ed_with("a\nb\n\nc");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('p')); // delete the paragraph "a","b"
+        assert_eq!(ed.buffer.line(0), Some(""));
+        assert_eq!(ed.buffer.line(1), Some("c"));
+    }
+
+    #[test]
+    fn paragraph_text_object_dap_eats_trailing_blank() {
+        let mut ed = ed_with("a\nb\n\nc");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('p')); // delete "a","b" + the blank line
+        assert_eq!(ed.buffer.line(0), Some("c"));
+        assert_eq!(ed.buffer.line_count(), 1);
+    }
+
+    #[test]
+    fn big_word_motions_w_b_e() {
+        let mut ed = ed_with("foo.bar baz.qux");
+        ed.handle_key(key('W')); // skip whole WORD "foo.bar" -> start of "baz.qux"
+        assert_eq!(ed.cursor.col, 8);
+        ed.handle_key(key('B')); // back to start of "foo.bar"
+        assert_eq!(ed.cursor.col, 0);
+        ed.handle_key(key('E')); // end of WORD "foo.bar"
+        assert_eq!(ed.cursor.col, 6);
+    }
+
+    #[test]
+    fn small_w_stops_at_punctuation() {
+        let mut ed = ed_with("foo.bar");
+        ed.handle_key(key('w')); // small word stops at '.'
+        assert_eq!(ed.cursor.col, 3);
+    }
+
+    #[test]
+    fn delete_big_word_d_w() {
+        let mut ed = ed_with("foo.bar baz");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('W')); // delete "foo.bar " (WORD + trailing space)
+        assert_eq!(ed.buffer.line(0), Some("baz"));
+    }
+
+    #[test]
+    fn change_big_word_like_ce() {
+        let mut ed = ed_with("foo.bar baz");
+        ed.handle_key(key('c'));
+        ed.handle_key(key('W')); // like cE: change "foo.bar", keep the space
+        ed.handle_key(key('X'));
+        assert_eq!(ed.buffer.line(0), Some("X baz"));
+    }
+
+    #[test]
+    fn capital_x_deletes_before_cursor() {
+        let mut ed = ed_with("abcd");
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // col 2
+        ed.handle_key(key('X')); // delete 'b'
+        assert_eq!(ed.buffer.line(0), Some("acd"));
+    }
+
+    #[test]
+    fn capital_y_yanks_lines() {
+        let mut ed = ed_with("one\ntwo\nthree");
+        ed.handle_key(key('2'));
+        ed.handle_key(key('Y')); // yank 2 lines
+        ed.handle_key(key('G'));
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(3), Some("one"));
+        assert_eq!(ed.buffer.line(4), Some("two"));
+    }
+
+    #[test]
+    fn count_gg_goes_to_line() {
+        let mut ed = ed_with("l0\nl1\nl2\nl3\nl4");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('g'));
+        ed.handle_key(key('g')); // 3gg -> line 3 (row 2)
+        assert_eq!(ed.cursor.row, 2);
+    }
+
+    #[test]
+    fn operator_dgg_deletes_to_top() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.handle_key(key('G')); // last line (row 3)
+        ed.handle_key(key('k')); // row 2
+        ed.handle_key(key('d'));
+        ed.handle_key(key('g'));
+        ed.handle_key(key('g')); // delete rows 0..=2
+        assert_eq!(ed.buffer.line_count(), 1);
+        assert_eq!(ed.buffer.line(0), Some("d"));
+    }
+
+    #[test]
+    fn count_replace_3r() {
+        let mut ed = ed_with("aaaa");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('r'));
+        ed.handle_key(key('x')); // replace 3 chars
+        assert_eq!(ed.buffer.line(0), Some("xxxa"));
+    }
+
+    #[test]
+    fn count_tilde_toggles_n_chars() {
+        let mut ed = ed_with("abcd");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('~')); // toggle 3 chars
+        assert_eq!(ed.buffer.line(0), Some("ABCd"));
+        assert_eq!(ed.cursor.col, 3);
+    }
+
+    #[test]
+    fn shift_operator_with_motion() {
+        let mut ed = ed_with("a\nb\nc");
+        ed.handle_key(key('>'));
+        ed.handle_key(key('j')); // indent 2 lines
+        assert_eq!(ed.buffer.line(0), Some("    a"));
+        assert_eq!(ed.buffer.line(1), Some("    b"));
+        assert_eq!(ed.buffer.line(2), Some("c"));
+    }
+
+    #[test]
+    fn count_shift_lines() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('>'));
+        ed.handle_key(key('>')); // 3>> indent 3 lines
+        assert_eq!(ed.buffer.line(0), Some("    a"));
+        assert_eq!(ed.buffer.line(2), Some("    c"));
+        assert_eq!(ed.buffer.line(3), Some("d"));
+    }
+
+    #[test]
+    fn visual_x_deletes_selection() {
+        let mut ed = ed_with("hello");
+        ed.handle_key(key('v'));
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // select "hel"
+        ed.handle_key(key('x'));
+        assert_eq!(ed.buffer.line(0), Some("lo"));
+    }
+
+    #[test]
+    fn text_object_a_big_w() {
+        let mut ed = ed_with("foo.bar baz");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('W')); // delete a WORD "foo.bar " incl trailing space
+        assert_eq!(ed.buffer.line(0), Some("baz"));
+    }
+
+    #[test]
+    fn change_word_behaves_like_ce() {
+        // vim: `cw` acts like `ce` — it does NOT eat the trailing space.
+        let mut ed = ed_with("foo bar");
+        ed.handle_key(key('c'));
+        ed.handle_key(key('w'));
+        assert_eq!(ed.mode, Mode::Insert);
+        ed.handle_key(key('X'));
+        assert_eq!(ed.buffer.line(0), Some("X bar"));
+    }
+
+    #[test]
+    fn dd_and_yy_still_work() {
+        let mut ed = ed_with("one\ntwo\nthree");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('d'));
+        assert_eq!(ed.buffer.line(0), Some("two"));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(1), Some("two"));
+    }
+
+    #[test]
+    fn autoindent_on_enter() {
+        let mut ed = ed_with("    code");
+        ed.handle_key(key('A')); // append at end of line
+        ed.handle_key(special(KeyCode::Enter));
+        ed.handle_key(key('x'));
+        assert_eq!(ed.buffer.line(1), Some("    x"));
+    }
+
+    #[test]
+    fn no_autoindent_when_disabled() {
+        let mut ed = ed_with("    code");
+        ed.autoindent = false;
+        ed.handle_key(key('A'));
+        ed.handle_key(special(KeyCode::Enter));
+        ed.handle_key(key('x'));
+        assert_eq!(ed.buffer.line(1), Some("x"));
+    }
+
+    #[test]
+    fn insert_ctrl_w_deletes_word_before() {
+        let mut ed = ed_with("foo bar");
+        ed.handle_key(key('A')); // insert at end
+        ed.handle_key(KeyEvent::new(KeyCode::Char('w'), KeyModifiers::CONTROL));
+        assert_eq!(ed.buffer.line(0), Some("foo "));
+    }
+
+    #[test]
+    fn insert_ctrl_u_deletes_to_line_start() {
+        let mut ed = ed_with("hello");
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // col 3
+        ed.handle_key(key('i')); // insert before col 3
+        ed.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
+        assert_eq!(ed.buffer.line(0), Some("lo"));
+        assert_eq!(ed.cursor.col, 0);
+    }
+
+    #[test]
+    fn named_register_yank_and_paste() {
+        let mut ed = ed_with("alpha\nbeta\ngamma");
+        // Yank line 0 into register a.
+        ed.handle_key(key('"'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y'));
+        // Move down and paste from register a.
+        ed.handle_key(key('j'));
+        ed.handle_key(key('"'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(2), Some("alpha"));
+    }
+
+    #[test]
+    fn named_register_independent_from_unnamed() {
+        let mut ed = ed_with("keep\nother");
+        // Yank "keep" into register a.
+        ed.handle_key(key('"'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y'));
+        // Now yank "other" into the unnamed register.
+        ed.handle_key(key('j'));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y'));
+        // Unnamed paste yields "other"; register a still holds "keep".
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(2), Some("other"));
+        ed.handle_key(key('"'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(3), Some("keep"));
+    }
+
+    #[test]
+    fn visual_uppercase_selection() {
+        let mut ed = ed_with("hello world");
+        ed.handle_key(key('v'));
+        for _ in 0..4 {
+            ed.handle_key(key('l')); // select "hello"
+        }
+        ed.handle_key(key('U'));
+        assert_eq!(ed.buffer.line(0), Some("HELLO world"));
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn visual_line_lowercase_and_toggle() {
+        let mut ed = ed_with("MixedCase");
+        ed.handle_key(key('V'));
+        ed.handle_key(key('u'));
+        assert_eq!(ed.buffer.line(0), Some("mixedcase"));
+        ed.handle_key(key('V'));
+        ed.handle_key(key('~'));
+        assert_eq!(ed.buffer.line(0), Some("MIXEDCASE"));
+    }
+
+    #[test]
+    fn sort_buffer_ascending_and_reverse() {
+        let mut ed = ed_with("banana\napple\ncherry");
+        ed.sort_buffer(false, false);
+        assert_eq!(ed.buffer.line(0), Some("apple"));
+        assert_eq!(ed.buffer.line(1), Some("banana"));
+        assert_eq!(ed.buffer.line(2), Some("cherry"));
+        ed.sort_buffer(true, false);
+        assert_eq!(ed.buffer.line(0), Some("cherry"));
+        assert_eq!(ed.buffer.line(2), Some("apple"));
+    }
+
+    #[test]
+    fn sort_buffer_unique_removes_duplicates() {
+        let mut ed = ed_with("b\na\nb\nc\na");
+        ed.sort_buffer(false, true);
+        assert_eq!(ed.buffer.line_count(), 3);
+        assert_eq!(ed.buffer.line(0), Some("a"));
+        assert_eq!(ed.buffer.line(1), Some("b"));
+        assert_eq!(ed.buffer.line(2), Some("c"));
+    }
+
+    #[test]
+    fn percent_matches_brackets() {
+        let mut ed = ed_with("(a+b)");
+        ed.handle_key(key('%'));
+        assert_eq!(ed.cursor.col, 4); // ( -> )
+        ed.handle_key(key('%'));
+        assert_eq!(ed.cursor.col, 0); // ) -> (
+    }
+
+    #[test]
+    fn percent_nested_brackets() {
+        let mut ed = ed_with("(a(b)c)");
+        ed.handle_key(key('%'));
+        assert_eq!(ed.cursor.col, 6); // outer ( -> outer )
+    }
+
+    #[test]
+    fn percent_scans_forward_to_bracket_on_line() {
+        let mut ed = ed_with("x = (1)");
+        ed.handle_key(key('%')); // cursor at 0, not a bracket -> finds ( then matches )
+        assert_eq!(ed.cursor.col, 6);
+    }
+
+    #[test]
+    fn percent_matches_across_lines() {
+        let mut ed = ed_with("foo(\n  bar\n)");
+        // move cursor onto the '(' at row 0 col 3
+        ed.cursor = Position::new(0, 3);
+        ed.handle_key(key('%'));
+        assert_eq!(ed.cursor, Position::new(2, 0));
+    }
+
+    #[test]
+    fn find_char_f_and_t() {
+        let mut ed = ed_with("hello world");
+        ed.handle_key(key('f'));
+        ed.handle_key(key('o'));
+        assert_eq!(ed.cursor.col, 4);
+        let mut ed2 = ed_with("hello world");
+        ed2.handle_key(key('t'));
+        ed2.handle_key(key('o'));
+        assert_eq!(ed2.cursor.col, 3);
+    }
+
+    #[test]
+    fn find_char_f_backward() {
+        let mut ed = ed_with("hello");
+        ed.handle_key(key('$')); // col 4 ('o')
+        ed.handle_key(key('F'));
+        ed.handle_key(key('l'));
+        assert_eq!(ed.cursor.col, 3);
+    }
+
+    #[test]
+    fn repeat_find_semicolon_and_comma() {
+        let mut ed = ed_with("o.o.o");
+        ed.handle_key(key('f'));
+        ed.handle_key(key('o')); // col 2
+        assert_eq!(ed.cursor.col, 2);
+        ed.handle_key(key(';')); // next o -> col 4
+        assert_eq!(ed.cursor.col, 4);
+        ed.handle_key(key(',')); // reverse -> col 2
+        assert_eq!(ed.cursor.col, 2);
+    }
+
+    #[test]
+    fn word_end_motion() {
+        let mut ed = ed_with("foo bar");
+        ed.handle_key(key('e'));
+        assert_eq!(ed.cursor.col, 2);
+        ed.handle_key(key('e'));
+        assert_eq!(ed.cursor.col, 6);
+    }
+
+    #[test]
+    fn delete_to_eol_with_d() {
+        let mut ed = ed_with("hello world");
+        ed.handle_key(key('5'));
+        ed.handle_key(key('l')); // col 5
+        ed.handle_key(key('D'));
+        assert_eq!(ed.buffer.line(0), Some("hello"));
+    }
+
+    #[test]
+    fn change_to_eol_with_c() {
+        let mut ed = ed_with("hello world");
+        ed.handle_key(key('5'));
+        ed.handle_key(key('l')); // col 5
+        ed.handle_key(key('C'));
+        assert_eq!(ed.mode, Mode::Insert);
+        ed.handle_key(key('!'));
+        assert_eq!(ed.buffer.line(0), Some("hello!"));
+    }
+
+    #[test]
+    fn toggle_case_tilde() {
+        let mut ed = ed_with("aBc");
+        ed.handle_key(key('~'));
+        assert_eq!(ed.buffer.line(0), Some("ABc"));
+        assert_eq!(ed.cursor.col, 1);
+    }
+
+    #[test]
+    fn indent_and_dedent_line() {
+        let mut ed = ed_with("code");
+        ed.handle_key(key('>'));
+        ed.handle_key(key('>'));
+        assert_eq!(ed.buffer.line(0), Some("    code"));
+        ed.handle_key(key('<'));
+        ed.handle_key(key('<'));
+        assert_eq!(ed.buffer.line(0), Some("code"));
+    }
+
+    #[test]
+    fn visual_line_indent() {
+        let mut ed = ed_with("a\nb\nc");
+        ed.handle_key(key('V'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('>'));
+        assert_eq!(ed.buffer.line(0), Some("    a"));
+        assert_eq!(ed.buffer.line(1), Some("    b"));
+        assert_eq!(ed.buffer.line(2), Some("c"));
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn substitute_char_s() {
+        let mut ed = ed_with("cat");
+        ed.handle_key(key('s'));
+        assert_eq!(ed.mode, Mode::Insert);
+        ed.handle_key(key('b'));
+        assert_eq!(ed.buffer.line(0), Some("bat"));
+    }
+
+    #[test]
+    fn substitute_line_s_keeps_indent() {
+        let mut ed = ed_with("    keep");
+        ed.handle_key(key('S'));
+        assert_eq!(ed.mode, Mode::Insert);
+        ed.handle_key(key('x'));
+        assert_eq!(ed.buffer.line(0), Some("    x"));
+    }
+
+    #[test]
+    fn substitute_regex_digits() {
+        let mut ed = ed_with("item12 and item345");
+        let spec = SubstituteSpec {
+            range: SubRange::CurrentLine,
+            pattern: r"\d+".into(),
+            replacement: "#".into(),
+            global: true,
+            ignorecase: false,
+        };
+        let (subs, _) = ed.substitute(&spec);
+        assert_eq!(subs, 2);
+        assert_eq!(ed.buffer.line(0), Some("item# and item#"));
+    }
+
+    #[test]
+    fn global_delete_matching_lines() {
+        let mut ed = ed_with("keep\nDROP me\nkeep\nDROP again");
+        let affected = ed.global("DROP", false, "d");
+        assert_eq!(affected, 2);
+        assert_eq!(ed.buffer.line(0), Some("keep"));
+        assert_eq!(ed.buffer.line(1), Some("keep"));
+        assert_eq!(ed.buffer.line_count(), 2);
+    }
+
+    #[test]
+    fn global_invert_delete() {
+        let mut ed = ed_with("a\nkeep1\nb\nkeep2");
+        ed.global("keep", true, "d"); // delete non-matching
+        assert_eq!(ed.buffer.line(0), Some("keep1"));
+        assert_eq!(ed.buffer.line(1), Some("keep2"));
+        assert_eq!(ed.buffer.line_count(), 2);
+    }
+
+    #[test]
+    fn global_substitute_on_matching_lines() {
+        let mut ed = ed_with("foo 1\nbar 1\nfoo 1");
+        let n = ed.global("foo", false, "s/1/9/");
+        assert_eq!(n, 2);
+        assert_eq!(ed.buffer.line(0), Some("foo 9"));
+        assert_eq!(ed.buffer.line(1), Some("bar 1")); // not matched by g
+        assert_eq!(ed.buffer.line(2), Some("foo 9"));
+    }
+
+    #[test]
+    fn substitute_ignorecase_flag() {
+        let mut ed = ed_with("Foo FOO foo");
+        let spec = SubstituteSpec {
+            range: SubRange::CurrentLine,
+            pattern: "foo".into(),
+            replacement: "x".into(),
+            global: true,
+            ignorecase: true,
+        };
+        let (subs, _) = ed.substitute(&spec);
+        assert_eq!(subs, 3);
+        assert_eq!(ed.buffer.line(0), Some("x x x"));
+    }
+
+    #[test]
+    fn substitute_vim_capture_group() {
+        // vim-style backrefs: \1 \2 \3
+        let mut ed = ed_with("2026-09-30");
+        let spec = SubstituteSpec {
+            range: SubRange::CurrentLine,
+            pattern: r"(\d+)-(\d+)-(\d+)".into(),
+            replacement: r"\3/\2/\1".into(),
+            global: false,
+            ignorecase: false,
+        };
+        let (subs, _) = ed.substitute(&spec);
+        assert_eq!(subs, 1);
+        assert_eq!(ed.buffer.line(0), Some("30/09/2026"));
+    }
+
+    #[test]
+    fn repeat_substitute_with_ampersand() {
+        let mut ed = ed_with("foo foo\nfoo foo");
+        let spec = SubstituteSpec {
+            range: SubRange::CurrentLine,
+            pattern: "foo".into(),
+            replacement: "bar".into(),
+            global: true,
+            ignorecase: false,
+        };
+        ed.substitute(&spec); // line 0 -> "bar bar"
+        assert_eq!(ed.buffer.line(0), Some("bar bar"));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('&')); // repeat on line 1
+        assert_eq!(ed.buffer.line(1), Some("bar bar"));
+    }
+
+    #[test]
+    fn substitute_invalid_regex_matches_literally() {
+        let mut ed = ed_with("a (b) c");
+        let spec = SubstituteSpec {
+            range: SubRange::CurrentLine,
+            pattern: "(b".into(), // invalid regex -> literal
+            replacement: "X".into(),
+            global: false,
+            ignorecase: false,
+        };
+        let (subs, _) = ed.substitute(&spec);
+        assert_eq!(subs, 1);
+        assert_eq!(ed.buffer.line(0), Some("a X) c"));
+    }
+
+    fn menu_ed() -> Editor {
+        let mut ed = ed_with("hello");
+        ed.open_menu(crate::menu::build_menus(&["matrix"], &["wordcount"]));
+        ed
+    }
+
+    #[test]
+    fn menu_open_select_pastes_into_command_line() {
+        let mut ed = menu_ed();
+        assert!(ed.is_menu_open());
+        ed.handle_key(special(KeyCode::Down)); // open File dropdown
+        ed.handle_key(special(KeyCode::Enter)); // select "Write" (w)
+        assert!(!ed.is_menu_open());
+        assert_eq!(ed.mode, Mode::Command);
+        assert_eq!(ed.cmdline, "w");
+    }
+
+    #[test]
+    fn menu_esc_backs_out_then_closes() {
+        let mut ed = menu_ed();
+        ed.handle_key(special(KeyCode::Down)); // dropdown open (depth 1)
+        ed.handle_key(special(KeyCode::Esc)); // back to bar only
+        assert!(ed.is_menu_open());
+        ed.handle_key(special(KeyCode::Esc)); // close
+        assert!(!ed.is_menu_open());
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn menu_mouse_select_runs_command() {
+        let mut ed = menu_ed();
+        ed.handle_key(special(KeyCode::Down)); // open File dropdown (level 0)
+        ed.menu_mouse_select(0, 2); // click "Write & Quit" (wq)
+        assert!(!ed.is_menu_open());
+        assert_eq!(ed.mode, Mode::Command);
+        assert_eq!(ed.cmdline, "wq");
+    }
+
+    #[test]
+    fn menu_mouse_select_opens_submenu() {
+        let mut ed = menu_ed();
+        ed.menu_open_initial('v'); // View dropdown open at "Theme" (a submenu)
+        ed.menu_mouse_select(0, 0); // click "Theme"
+        assert!(ed.is_menu_open());
+        assert_eq!(ed.menu().unwrap().depth(), 2); // submenu opened
+    }
+
+    #[test]
+    fn menu_submenu_selection() {
+        let mut ed = menu_ed();
+        ed.menu_open_initial('v'); // View menu, dropdown open at "Theme"
+        ed.handle_key(special(KeyCode::Enter)); // open Theme submenu
+        ed.handle_key(special(KeyCode::Enter)); // first theme
+        assert_eq!(ed.mode, Mode::Command);
+        assert_eq!(ed.cmdline, "theme matrix");
+    }
+
+    #[test]
+    fn star_searches_word_under_cursor() {
+        let mut ed = ed_with("foo bar foo baz");
+        // cursor on first "foo" (col 0)
+        ed.handle_key(key('*'));
+        assert_eq!(ed.cursor.col, 8); // second "foo"
+    }
+
+    #[test]
+    fn hash_searches_backward() {
+        let mut ed = ed_with("foo bar foo baz");
+        ed.cursor = Position::new(0, 8); // on second "foo"
+        ed.handle_key(key('#'));
+        assert_eq!(ed.cursor.col, 0); // first "foo"
+    }
+
+    #[test]
+    fn star_uses_word_boundaries() {
+        let mut ed = ed_with("foo foobar foo");
+        // whole-word "foo" is only at 0 and 11; from col 0, next is 11
+        ed.handle_key(key('*'));
+        assert_eq!(ed.cursor.col, 11);
+    }
+
+    #[test]
+    fn g_star_ignores_word_boundaries() {
+        let mut ed = ed_with("foo foobar");
+        // g* matches the substring "foo" inside "foobar" (col 4)
+        ed.handle_key(key('g'));
+        ed.handle_key(key('*'));
+        assert_eq!(ed.cursor.col, 4);
+    }
+
+    #[test]
+    fn effective_ignorecase_logic() {
+        let mut ed = ed_with("x");
+        assert!(!ed.effective_ignorecase("foo")); // option off
+        ed.ignorecase = true;
+        assert!(ed.effective_ignorecase("foo")); // on, all lowercase
+        assert!(ed.effective_ignorecase("FOO")); // on, no smartcase -> still insensitive
+        ed.smartcase = true;
+        assert!(ed.effective_ignorecase("foo")); // smartcase + lowercase -> insensitive
+        assert!(!ed.effective_ignorecase("Foo")); // smartcase + uppercase -> sensitive
+    }
+
+    #[test]
+    fn ignorecase_search_finds_other_case() {
+        let mut ed = ed_with("aaa\nBETA\nccc");
+        ed.ignorecase = true;
+        ed.set_search("beta".into());
+        ed.search_repeat(true);
+        assert_eq!(ed.cursor.row, 1); // matched BETA from a lowercase pattern
+    }
+
+    #[test]
+    fn smartcase_uppercase_pattern_is_sensitive() {
+        let mut ed = ed_with("aaa\nbeta\nBETA");
+        ed.ignorecase = true;
+        ed.smartcase = true;
+        ed.set_search("BETA".into());
+        ed.search_repeat(true);
+        assert_eq!(ed.cursor.row, 2); // skips lowercase "beta", lands on exact "BETA"
+    }
+
+    #[test]
+    fn ignorecase_applies_to_substitute() {
+        let mut ed = ed_with("Foo foo FOO");
+        ed.ignorecase = true;
+        let spec = crate::command::SubstituteSpec {
+            range: crate::command::SubRange::CurrentLine,
+            pattern: "foo".into(),
+            replacement: "x".into(),
+            global: true,
+            ignorecase: false, // no /i flag; the option should still apply
+        };
+        ed.substitute(&spec);
+        assert_eq!(ed.buffer.line(0), Some("x x x"));
+    }
+
+    #[test]
+    fn showcmd_tracks_pending_operator() {
+        let mut ed = ed_with("hello world foo");
+        ed.handle_key(key('2'));
+        assert_eq!(ed.pending_command(), "2");
+        ed.handle_key(key('d'));
+        assert_eq!(ed.pending_command(), "2d");
+        ed.handle_key(key('w'));
+        assert_eq!(ed.pending_command(), ""); // command completed -> cleared
+    }
+
+    #[test]
+    fn showcmd_tracks_operator_and_textobject() {
+        let mut ed = ed_with("foo bar");
+        ed.handle_key(key('d'));
+        assert_eq!(ed.pending_command(), "d");
+        ed.handle_key(key('i'));
+        assert_eq!(ed.pending_command(), "di"); // awaiting the object char
+        ed.handle_key(key('w'));
+        assert_eq!(ed.pending_command(), "");
+    }
+
+    #[test]
+    fn showcmd_cleared_when_leaving_normal_mode() {
+        let mut ed = ed_with("hi");
+        ed.handle_key(key('i'));
+        assert_eq!(ed.pending_command(), ""); // insert mode shows nothing pending
+    }
+
+    #[test]
+    fn search_count_reports_index_and_total() {
+        let mut ed = ed_with("foo\nfoo\nfoo");
+        ed.handle_key(key('/'));
+        for c in "foo".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Enter)); // from (0,0) the next match is row 1
+        assert!(ed.message.contains("[2/3]"), "{}", ed.message);
+        ed.handle_key(key('n'));
+        assert!(ed.message.contains("[3/3]"), "{}", ed.message);
+        ed.handle_key(key('n')); // wraps back to the first
+        assert!(ed.message.contains("[1/3]"), "{}", ed.message);
+    }
+
+    #[test]
+    fn incsearch_previews_match_and_commits() {
+        let mut ed = ed_with("alpha\nbravo\ncharlie");
+        ed.handle_key(key('/'));
+        for c in "charlie".chars() {
+            ed.handle_key(key(c));
+        }
+        assert_eq!(ed.cursor.row, 2); // previewed live while typing
+        ed.handle_key(special(KeyCode::Enter));
+        assert_eq!(ed.cursor.row, 2); // committed to the same match
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn incsearch_esc_restores_cursor() {
+        let mut ed = ed_with("alpha\nbravo\ncharlie");
+        ed.handle_key(key('/'));
+        for c in "charlie".chars() {
+            ed.handle_key(key(c));
+        }
+        assert_eq!(ed.cursor.row, 2);
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.cursor, Position::new(0, 0)); // back to where search began
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn noincsearch_skips_preview_but_commits() {
+        let mut ed = ed_with("alpha\nbravo\ncharlie");
+        ed.incsearch = false;
+        ed.handle_key(key('/'));
+        for c in "charlie".chars() {
+            ed.handle_key(key(c));
+        }
+        assert_eq!(ed.cursor.row, 0); // no live preview
+        ed.handle_key(special(KeyCode::Enter));
+        assert_eq!(ed.cursor.row, 2); // Enter still jumps
+    }
+
+    #[test]
+    fn search_regex_finds_pattern() {
+        let mut ed = ed_with("alpha1\nbeta22\ngamma333");
+        ed.set_search(r"\d\d+".into()); // 2+ digits
+        ed.search_repeat(true);
+        assert_eq!(ed.cursor.row, 1); // beta22
+        ed.search_repeat(true);
+        assert_eq!(ed.cursor.row, 2); // gamma333
+    }
+
+    #[test]
+    fn substitute_current_line_first_only() {
+        let mut ed = ed_with("foo foo foo");
+        let spec = SubstituteSpec {
+            range: SubRange::CurrentLine,
+            pattern: "foo".into(),
+            replacement: "bar".into(),
+            global: false,
+            ignorecase: false,
+        };
+        let (subs, lines) = ed.substitute(&spec);
+        assert_eq!((subs, lines), (1, 1));
+        assert_eq!(ed.buffer.line(0), Some("bar foo foo"));
+    }
+
+    #[test]
+    fn substitute_global_whole_file() {
+        let mut ed = ed_with("a x a\nx a x\nno match");
+        let spec = SubstituteSpec {
+            range: SubRange::WholeFile,
+            pattern: "x".into(),
+            replacement: "Q".into(),
+            global: true,
+            ignorecase: false,
+        };
+        let (subs, lines) = ed.substitute(&spec);
+        assert_eq!((subs, lines), (3, 2));
+        assert_eq!(ed.buffer.line(0), Some("a Q a"));
+        assert_eq!(ed.buffer.line(1), Some("Q a Q"));
+        assert_eq!(ed.buffer.line(2), Some("no match"));
+    }
+
+    #[test]
+    fn substitute_numeric_range() {
+        let mut ed = ed_with("z\nz\nz\nz");
+        let spec = SubstituteSpec {
+            range: SubRange::Range(LineAddr::Num(2), LineAddr::Num(3)),
+            pattern: "z".into(),
+            replacement: "Y".into(),
+            global: false,
+            ignorecase: false,
+        };
+        let (subs, lines) = ed.substitute(&spec);
+        assert_eq!((subs, lines), (2, 2));
+        assert_eq!(ed.buffer.line(0), Some("z"));
+        assert_eq!(ed.buffer.line(1), Some("Y"));
+        assert_eq!(ed.buffer.line(2), Some("Y"));
+        assert_eq!(ed.buffer.line(3), Some("z"));
+    }
+
+    #[test]
+    fn substitute_not_found_makes_no_change_and_no_undo() {
+        let mut ed = ed_with("hello");
+        let spec = SubstituteSpec {
+            range: SubRange::CurrentLine,
+            pattern: "zzz".into(),
+            replacement: "!".into(),
+            global: true,
+            ignorecase: false,
+        };
+        let (subs, _) = ed.substitute(&spec);
+        assert_eq!(subs, 0);
+        assert_eq!(ed.buffer.line(0), Some("hello"));
+        // Nothing changed, so there should be nothing to undo.
+        assert!(ed.buffer.undo(ed.cursor).is_none());
+    }
+
+    #[test]
+    fn substitute_empty_replacement_deletes_text() {
+        let mut ed = ed_with("re-mo-ve");
+        let spec = SubstituteSpec {
+            range: SubRange::CurrentLine,
+            pattern: "-".into(),
+            replacement: "".into(),
+            global: true,
+            ignorecase: false,
+        };
+        let (subs, _) = ed.substitute(&spec);
+        assert_eq!(subs, 2);
+        assert_eq!(ed.buffer.line(0), Some("remove"));
+    }
