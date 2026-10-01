@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Operators
+- `g?` ROT13 operator — over a motion (`g?w`), a text object (`g?ip`), doubled
+  for the whole line (`g??`), or applied to a visual selection. Reuses the case-
+  operator plumbing, so it is its own inverse and leaves non-letters untouched.
+
 ### Insert mode
 - Digraph input: `Ctrl-k` plus two characters composes a special character
   (accented Latin letters, ligatures, currency, and common math/arrow symbols),
