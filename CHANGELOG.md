@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Search
+- Visual-mode `*` / `#` search for the selected text (regex-escaped, so it
+  matches literally) forward / backward.
+
 ### Registers
 - Uppercase register names append: `"Ayy` / `"Ad$` adds to register `a` instead
   of replacing it (linewise appends on a new line, charwise concatenates), and

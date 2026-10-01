@@ -162,7 +162,8 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   `J`/`gJ` (join the selected lines), `r<c>` (replace every selected char with
   `c`), and `u`/`U`/`~`
   (lower/upper/toggle case of the selection). `o` swaps the active end of the
-  selection; `gv` (from normal mode) reselects the last selection.
+  selection; `gv` (from normal mode) reselects the last selection. `*`/`#` search
+  for the selected text (literally) forward/back.
   Pressing `:` from visual mode prefills the command line with the selection
   range (`:'<,'>`), so any ex-command — `:'<,'>s/…`, `:'<,'>d`, `:'<,'>m0` — runs
   on the selected lines. `p`/`P` over a selection replaces it with the register
@@ -429,7 +430,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **457 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **460 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

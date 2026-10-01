@@ -881,6 +881,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t  (visual) gC-a/gC-x  build an incrementing sequence (1,2,3,…)\n\
          \t  (visual) u/U/~   lower / upper / toggle case of selection\n\
          \t  (visual) g?      ROT13 the selection\n\
+         \t  (visual) * / #   search for the selected text fwd / back\n\
          \t  (visual) o       swap selection end     gv  reselect last\n\
          \t  (visual) p/P     replace selection with register\n\
          \tEsc                back to normal mode\n\
