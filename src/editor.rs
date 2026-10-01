@@ -2631,8 +2631,20 @@ impl Editor {
             KeyCode::Char('n') => self.search_repeat(self.search_forward),
             KeyCode::Char('N') => self.search_repeat(!self.search_forward),
             KeyCode::Char('&') => self.repeat_substitute(),
-            KeyCode::Char('*') => self.search_word(true, true),
-            KeyCode::Char('#') => self.search_word(false, true),
+            KeyCode::Char('*') => {
+                if self.mode.is_visual() {
+                    self.search_selection(true);
+                } else {
+                    self.search_word(true, true);
+                }
+            }
+            KeyCode::Char('#') => {
+                if self.mode.is_visual() {
+                    self.search_selection(false);
+                } else {
+                    self.search_word(false, true);
+                }
+            }
             KeyCode::Char(':') => {
                 // From visual mode, set the `'<`/`'>` marks to the selection and
                 // prefill the range so the ex-command acts on it (`:'<,'>...`).
@@ -5039,6 +5051,25 @@ impl Editor {
         if self.last_search.is_empty() {
             return;
         }
+        self.search_repeat(forward);
+    }
+
+    /// Visual-mode `*` / `#`: search for the selected text literally (regex
+    /// escaped), then return to Normal mode and jump to the next/previous match.
+    fn search_selection(&mut self, forward: bool) {
+        let Some((start, end)) = self.selection() else {
+            self.mode = Mode::Normal;
+            return;
+        };
+        let text = self.extract_range(start, end, false);
+        self.mode = Mode::Normal;
+        if text.is_empty() {
+            return;
+        }
+        // Search from the selection start so the current occurrence is skipped.
+        self.cursor = start;
+        self.set_search(regex::escape(&text));
+        self.search_forward = forward;
         self.search_repeat(forward);
     }
 

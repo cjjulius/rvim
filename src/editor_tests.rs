@@ -2548,6 +2548,40 @@
     }
 
     #[test]
+    fn visual_star_searches_selection() {
+        let mut ed = ed_with("foo bar foo bar");
+        ed.cursor = Position::new(0, 4); // start of first "bar"
+        ed.handle_key(key('v'));
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // select "bar"
+        ed.handle_key(key('*'));
+        assert_eq!(ed.mode, Mode::Normal);
+        assert_eq!(ed.cursor.col, 12); // second "bar"
+    }
+
+    #[test]
+    fn visual_star_escapes_regex_metachars() {
+        let mut ed = ed_with("a.b a.b axb");
+        ed.handle_key(key('v'));
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // select "a.b"
+        ed.handle_key(key('*'));
+        // Must match the literal "a.b" at col 4, not "axb" at col 8.
+        assert_eq!(ed.cursor.col, 4);
+    }
+
+    #[test]
+    fn visual_hash_searches_selection_backward() {
+        let mut ed = ed_with("bar foo bar");
+        ed.cursor = Position::new(0, 8); // start of last "bar"
+        ed.handle_key(key('v'));
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // select "bar"
+        ed.handle_key(key('#'));
+        assert_eq!(ed.cursor.col, 0); // first "bar"
+    }
+
+    #[test]
     fn star_uses_word_boundaries() {
         let mut ed = ed_with("foo foobar foo");
         // whole-word "foo" is only at 0 and 11; from col 0, next is 11
