@@ -96,6 +96,13 @@ pub struct Editor {
     /// Replace-mode overtype history: `Some(orig)` for an overwritten char,
     /// `None` for one appended past EOL — used to restore on Backspace.
     replace_stack: Vec<Option<char>>,
+    /// Count-insert state: repeat the current insert N times on Esc
+    /// (`3ihi<Esc>` -> "hihihi"), what command opened it, the captured keys,
+    /// and a guard so replay doesn't re-capture.
+    insert_repeat: usize,
+    insert_entry: char,
+    insert_keys: Vec<KeyEvent>,
+    insert_replaying: bool,
     pending_find: Option<char>,
     last_find: Option<(char, char)>,
     marks: HashMap<char, Position>,
@@ -178,6 +185,10 @@ impl Editor {
             pending_replace: false,
             pending_replace_count: 1,
             replace_stack: Vec::new(),
+            insert_repeat: 1,
+            insert_entry: 'i',
+            insert_keys: Vec::new(),
+            insert_replaying: false,
             pending_find: None,
             last_find: None,
             marks: HashMap::new(),
@@ -782,6 +793,10 @@ impl Editor {
     }
 
     fn handle_insert(&mut self, key: KeyEvent) {
+        // Capture typed keys so a counted insert (`3ihi`) can repeat on Esc.
+        if !self.insert_replaying && key.code != KeyCode::Esc {
+            self.insert_keys.push(key);
+        }
         // Insert-mode control shortcuts.
         if key.modifiers.contains(KeyModifiers::CONTROL) {
             match key.code {
@@ -794,6 +809,25 @@ impl Editor {
         }
         match key.code {
             KeyCode::Esc => {
+                // Repeat the inserted text for a counted insert (3i, 3o, …).
+                let repeat = self.insert_repeat;
+                if repeat > 1 && !self.insert_replaying {
+                    let entry = self.insert_entry;
+                    let keys = self.insert_keys.clone();
+                    self.insert_replaying = true;
+                    for _ in 1..repeat {
+                        match entry {
+                            'o' => self.open_below(),
+                            'O' => self.open_above(),
+                            _ => {}
+                        }
+                        for k in &keys {
+                            self.handle_insert(*k);
+                        }
+                    }
+                    self.insert_replaying = false;
+                }
+                self.insert_repeat = 1;
                 self.mode = Mode::Normal;
                 // vim moves left when leaving insert mode
                 if self.cursor.col > 0 {
@@ -1305,18 +1339,28 @@ impl Editor {
                     self.pending_op_count = Some(count);
                 }
             }
-            KeyCode::Char('i') => self.enter_insert_here(),
+            KeyCode::Char('i') => {
+                self.enter_insert_here();
+                self.insert_repeat = count;
+                self.insert_entry = 'i';
+            }
             KeyCode::Char('a') => {
                 self.move_right(1, true);
                 self.enter_insert_here();
+                self.insert_repeat = count;
+                self.insert_entry = 'a';
             }
             KeyCode::Char('I') => {
                 self.move_first_nonblank();
                 self.enter_insert_here();
+                self.insert_repeat = count;
+                self.insert_entry = 'I';
             }
             KeyCode::Char('A') => {
                 self.move_line_end_exclusive();
                 self.enter_insert_here();
+                self.insert_repeat = count;
+                self.insert_entry = 'A';
             }
             KeyCode::Char('R') => {
                 self.checkpoint();
@@ -1329,9 +1373,15 @@ impl Editor {
                     std::mem::swap(&mut self.cursor, &mut self.visual_anchor);
                 } else {
                     self.open_below();
+                    self.insert_repeat = count;
+                    self.insert_entry = 'o';
                 }
             }
-            KeyCode::Char('O') => self.open_above(),
+            KeyCode::Char('O') => {
+                self.open_above();
+                self.insert_repeat = count;
+                self.insert_entry = 'O';
+            }
             KeyCode::Char('u') => {
                 if self.mode.is_visual() {
                     self.transform_selection(CaseOp::Lower);
@@ -2299,12 +2349,23 @@ impl Editor {
 
     // ---- inserts / opens -------------------------------------------------
 
+    /// Reset count-insert capture (unless we're mid-replay). Called by every
+    /// insert entry so a change without a count never repeats.
+    fn begin_insert_session(&mut self) {
+        if !self.insert_replaying {
+            self.insert_repeat = 1;
+            self.insert_keys.clear();
+        }
+    }
+
     fn enter_insert_here(&mut self) {
+        self.begin_insert_session();
         self.checkpoint();
         self.mode = Mode::Insert;
     }
 
     fn open_below(&mut self) {
+        self.begin_insert_session();
         self.checkpoint();
         let indent = self.leading_indent(self.cursor.row);
         self.buffer.insert_line(self.cursor.row + 1, indent.clone());
@@ -2314,6 +2375,7 @@ impl Editor {
     }
 
     fn open_above(&mut self) {
+        self.begin_insert_session();
         self.checkpoint();
         let indent = self.leading_indent(self.cursor.row);
         self.buffer.insert_line(self.cursor.row, indent.clone());
@@ -3408,6 +3470,50 @@ mod tests {
 
     fn ctrl(c: char) -> KeyEvent {
         KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL)
+    }
+
+    #[test]
+    fn count_insert_repeats_text() {
+        let mut ed = ed_with("");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('h'));
+        ed.handle_key(key('i'));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("hihihi"));
+    }
+
+    #[test]
+    fn count_append_repeats() {
+        let mut ed = ed_with("x");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('-'));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("x---"));
+    }
+
+    #[test]
+    fn count_open_creates_multiple_lines() {
+        let mut ed = ed_with("top");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('o'));
+        ed.handle_key(key('z'));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("top"));
+        assert_eq!(ed.buffer.line(1), Some("z"));
+        assert_eq!(ed.buffer.line(2), Some("z"));
+        assert_eq!(ed.buffer.line(3), Some("z"));
+        assert_eq!(ed.buffer.line_count(), 4);
+    }
+
+    #[test]
+    fn plain_insert_not_repeated() {
+        let mut ed = ed_with("");
+        ed.handle_key(key('i'));
+        ed.handle_key(key('a'));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("a"));
     }
 
     #[test]

@@ -77,8 +77,9 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
   `d$`/`y$`, `d0`, `de`/`dE`, `dj`/`dk`, `dG`/`dgg` (to EOF/BOF), `d}` and the
   doubled `dd`/`yy`/`cc`. `cw`/`cW` act like `ce`/`cE` (vim's special case).
   `>`/`<` also take a motion (`>j`, `>G`).
-- **Counts:** prefix motions, operators and paste with a number — `5j`, `3dd`,
-  `d3w`, `2d3w` (multiplied), `3p`, `3rx`, `<n>gg`.
+- **Counts:** prefix motions, operators, paste and inserts with a number —
+  `5j`, `3dd`, `d3w`, `2d3w` (multiplied), `3p`, `3rx`, `<n>gg`, and counted
+  inserts (`3ihi<Esc>` → `hihihi`, `3o`, `3a`).
 - **Text objects:** `d`/`y`/`c` + `i`/`a` + object — `iw`/`aw` (word),
   `iW`/`aW` (WORD), `ip`/`ap` (paragraph), `i(` `i{` `i[` `i<` and `i"` `i'`
   `` i` `` (inner), `a(` … (around). E.g. `diw`, `ci(`, `yi"`, `dap`.
@@ -298,7 +299,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **240 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **244 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
