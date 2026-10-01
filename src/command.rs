@@ -39,6 +39,8 @@ pub struct SubstituteSpec {
     pub global: bool,
     /// The `i` flag — case-insensitive matching.
     pub ignorecase: bool,
+    /// The `n` flag — report the match count without substituting.
+    pub count_only: bool,
 }
 
 /// A parsed ex-command.
@@ -354,6 +356,7 @@ fn parse_substitute(trimmed: &str) -> Option<ExCommand> {
         replacement: replacement.to_string(),
         global: flags.contains('g'),
         ignorecase: flags.contains('i'),
+        count_only: flags.contains('n'),
     }))
 }
 

@@ -659,11 +659,31 @@ impl Editor {
         let Some(re) = pattern::build_opts(&spec.pattern, ic) else {
             return (0, 0);
         };
+        let (start, end) = self.resolve_range(spec.range);
+
+        // The `n` flag just counts matches (no substitution, no undo step), and
+        // highlights them like a search.
+        if spec.count_only {
+            let mut subs = 0;
+            let mut lines = 0;
+            for row in start..=end {
+                let Some(line) = self.buffer.line(row) else { break };
+                let m = re.find_iter(line).count();
+                if m > 0 {
+                    lines += 1;
+                    subs += if spec.global { m } else { 1 };
+                }
+            }
+            self.search_re = Some(re);
+            self.last_search = spec.pattern.clone();
+            self.hlsearch = true;
+            return (subs, lines);
+        }
+
         // Remember for `&` (repeat last substitution).
         self.last_subst = Some(spec.clone());
         // vim-style replacement (`\1`, `&`) -> regex crate syntax.
         let replacement = pattern::vim_replacement(&spec.replacement);
-        let (start, end) = self.resolve_range(spec.range);
 
         // First pass: compute new lines without mutating, so we only push an
         // undo checkpoint when something actually changes.

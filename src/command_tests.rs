@@ -331,9 +331,20 @@
                 pattern: "foo".into(),
                 replacement: "bar".into(),
                 global: false,
-                ignorecase: false,
+                ignorecase: false, count_only: false,
             })
         );
+    }
+
+    #[test]
+    fn substitute_count_flag() {
+        match parse("%s/foo//n") {
+            ExCommand::Substitute(spec) => {
+                assert!(spec.count_only);
+                assert_eq!(spec.pattern, "foo");
+            }
+            other => panic!("expected substitute, got {other:?}"),
+        }
     }
 
     #[test]
@@ -371,7 +382,7 @@
                 pattern: "foo".into(),
                 replacement: "bar".into(),
                 global: true,
-                ignorecase: true,
+                ignorecase: true, count_only: false,
             })
         );
     }
@@ -385,7 +396,7 @@
                 pattern: "foo".into(),
                 replacement: "bar".into(),
                 global: true,
-                ignorecase: false,
+                ignorecase: false, count_only: false,
             })
         );
     }
@@ -399,7 +410,7 @@
                 pattern: "x".into(),
                 replacement: "y".into(),
                 global: false,
-                ignorecase: false,
+                ignorecase: false, count_only: false,
             })
         );
     }
@@ -413,7 +424,7 @@
                 pattern: "a".into(),
                 replacement: "b".into(),
                 global: true,
-                ignorecase: false,
+                ignorecase: false, count_only: false,
             })
         );
     }
@@ -427,7 +438,7 @@
                 pattern: "drop".into(),
                 replacement: "".into(),
                 global: false,
-                ignorecase: false,
+                ignorecase: false, count_only: false,
             })
         );
     }
