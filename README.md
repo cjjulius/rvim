@@ -104,6 +104,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
   (paste a register), `Ctrl-t`/`Ctrl-d` (indent/dedent line), `Tab`.
 - **Repeat:** `.` repeats the last change (a delete, paste, replace, indent, or a
   whole insert/change session).
+- **Numbers:** `Ctrl-a` / `Ctrl-x` increment / decrement the number under (or
+  next on) the line, with a count (`10Ctrl-a`); handles negatives.
 - **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history).
 - **Visual mode:** `v`/`V` then `d`/`x`, `y`, `c`/`s`, `>`/`<` (indent), and
   `u`/`U`/`~` (lower/upper/toggle case of the selection). `o` swaps the active
@@ -300,7 +302,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **247 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **251 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

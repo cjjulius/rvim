@@ -1198,6 +1198,16 @@ impl Editor {
                     self.jump_forward();
                     return Action::None;
                 }
+                KeyCode::Char('a') => {
+                    let c = self.pending_count.take().unwrap_or(1);
+                    self.modify_number(1, c);
+                    return Action::None;
+                }
+                KeyCode::Char('x') => {
+                    let c = self.pending_count.take().unwrap_or(1);
+                    self.modify_number(-1, c);
+                    return Action::None;
+                }
                 _ => {}
             }
         }
@@ -2468,6 +2478,52 @@ impl Editor {
         self.clamp_cursor(false);
     }
 
+    /// `Ctrl-a` / `Ctrl-x` — add `delta * count` to the decimal number under or
+    /// after the cursor on the current line (a leading `-` is kept).
+    fn modify_number(&mut self, delta: isize, count: usize) {
+        let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+        let n = chars.len();
+        let mut i = self.cursor.col;
+        // If not on a digit, scan forward to the next one on this line.
+        if i >= n || !chars[i].is_ascii_digit() {
+            while i < n && !chars[i].is_ascii_digit() {
+                i += 1;
+            }
+        }
+        if i >= n {
+            self.message = "No number under cursor".into();
+            return;
+        }
+        // Expand to the full digit run.
+        let mut start = i;
+        while start > 0 && chars[start - 1].is_ascii_digit() {
+            start -= 1;
+        }
+        let mut end = i;
+        while end < n && chars[end].is_ascii_digit() {
+            end += 1;
+        }
+        // Include an immediately-preceding minus sign.
+        let span_start = if start > 0 && chars[start - 1] == '-' {
+            start - 1
+        } else {
+            start
+        };
+        let numstr: String = chars[span_start..end].iter().collect();
+        let Ok(val) = numstr.parse::<i64>() else {
+            return;
+        };
+        let newval = val + delta as i64 * count as i64;
+        let newstr = newval.to_string();
+        let before: String = chars[..span_start].iter().collect();
+        let after: String = chars[end..].iter().collect();
+        self.checkpoint();
+        self.buffer
+            .set_line(self.cursor.row, format!("{before}{newstr}{after}"));
+        self.cursor.col = span_start + newstr.chars().count().saturating_sub(1);
+        self.clamp_cursor(false);
+    }
+
     /// `X` — delete up to `count` characters before the cursor.
     fn delete_char_before(&mut self, count: usize) {
         if self.cursor.col == 0 {
@@ -3530,6 +3586,38 @@ mod tests {
 
     fn ctrl(c: char) -> KeyEvent {
         KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL)
+    }
+
+    #[test]
+    fn ctrl_a_increments_number() {
+        let mut ed = ed_with("value = 41");
+        ed.handle_key(ctrl('a')); // cursor at 0; finds 41 -> 42
+        assert_eq!(ed.buffer.line(0), Some("value = 42"));
+        assert_eq!(ed.cursor.col, 9); // on last digit
+    }
+
+    #[test]
+    fn ctrl_x_decrements_with_count() {
+        let mut ed = ed_with("x10y");
+        ed.handle_key(key('5'));
+        ed.handle_key(ctrl('x')); // 10 - 5 = 5
+        assert_eq!(ed.buffer.line(0), Some("x5y"));
+    }
+
+    #[test]
+    fn ctrl_a_handles_negative() {
+        let mut ed = ed_with("n = -1");
+        ed.handle_key(key('$')); // on '1'
+        ed.handle_key(ctrl('a')); // -1 + 1 = 0
+        assert_eq!(ed.buffer.line(0), Some("n = 0"));
+    }
+
+    #[test]
+    fn ctrl_a_crosses_into_negative() {
+        let mut ed = ed_with("3");
+        ed.handle_key(key('5'));
+        ed.handle_key(ctrl('x')); // 3 - 5 = -2
+        assert_eq!(ed.buffer.line(0), Some("-2"));
     }
 
     #[test]
