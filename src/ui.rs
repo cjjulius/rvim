@@ -12,7 +12,9 @@ use crossterm::cursor::{Hide, MoveTo, Show};
 use crossterm::style::{
     Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor,
 };
-use crossterm::terminal::{Clear, ClearType};
+use crossterm::terminal::{
+    BeginSynchronizedUpdate, Clear, ClearType, EndSynchronizedUpdate,
+};
 use crossterm::queue;
 use std::io::{self, Write};
 
@@ -154,7 +156,12 @@ pub fn render(
         show_tabline,
     );
 
-    queue!(out, Hide, MoveTo(0, 0))?;
+    // Bracket the whole frame in a synchronized update (DEC mode 2026). On
+    // supporting terminals (Windows Terminal, modern xterms) every cell we draw
+    // this frame — the text area *and* the menu overlay on top of it — is
+    // presented atomically, so the menu never flashes over a half-drawn buffer.
+    // Terminals that don't understand the sequence simply ignore it.
+    queue!(out, BeginSynchronizedUpdate, Hide, MoveTo(0, 0))?;
 
     if show_tabline {
         draw_tabline(out, theme, &layout, tabs)?;
@@ -226,6 +233,7 @@ pub fn render(
         )?;
     }
 
+    queue!(out, EndSynchronizedUpdate)?;
     out.flush()
 }
 
@@ -745,6 +753,19 @@ mod tests {
         let titles = vec!["File".to_string(), "Edit".to_string()];
         // "File" is 4 chars -> segment 6 + 1 gap = 7; next at 1+7 = 8.
         assert_eq!(menu_bar_positions(&titles), vec![1, 8]);
+    }
+
+    #[test]
+    fn synchronized_update_emits_mode_2026() {
+        // The anti-flicker fix relies on DEC private mode 2026: the frame is
+        // bracketed so the terminal presents the text area and the menu overlay
+        // as one atomic update. Guard the exact sequences we depend on.
+        let mut begin: Vec<u8> = Vec::new();
+        queue!(begin, BeginSynchronizedUpdate).unwrap();
+        assert_eq!(begin, b"\x1b[?2026h");
+        let mut end: Vec<u8> = Vec::new();
+        queue!(end, EndSynchronizedUpdate).unwrap();
+        assert_eq!(end, b"\x1b[?2026l");
     }
 
     #[test]
