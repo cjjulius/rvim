@@ -710,6 +710,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tm<x> `<x> '<x>     set mark / jump exact / jump line   `` prev pos\n\
          \tCtrl-o / Ctrl-i    jump list: older / newer position\n\
          \tg; / g,            change list: older / newer edit position\n\
+         \tCtrl-g / ga        file info / character code under cursor\n\
          \tgq{{motion}} / gqq   reflow lines to textwidth (gw too)\n\
          \tgi  `.  `^         resume insert / last change / last insert\n\
          \tq<x> q  @<x>  @@   record macro / stop / replay / repeat\n\

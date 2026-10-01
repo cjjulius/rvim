@@ -116,6 +116,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
   Works on a visual selection too.
 - **Repeat:** `.` repeats the last change (a delete, paste, replace, indent, or a
   whole insert/change session).
+- **Info:** `Ctrl-g` shows the file name, modified flag, line count and position;
+  `ga` shows the character under the cursor as decimal / hex / octal.
 - **Numbers:** `Ctrl-a` / `Ctrl-x` increment / decrement the number under (or
   next on) the line, with a count (`10Ctrl-a`); handles negatives.
 - **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history).
@@ -365,7 +367,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **336 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **338 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

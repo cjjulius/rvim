@@ -1840,6 +1840,10 @@ impl Editor {
                     self.toggle_visual(Mode::VisualBlock);
                     return Action::None;
                 }
+                KeyCode::Char('g') => {
+                    self.show_file_info();
+                    return Action::None;
+                }
                 _ => {}
             }
         }
@@ -2209,6 +2213,7 @@ impl Editor {
                 }
                 KeyCode::Char(';') => self.change_jump(true),
                 KeyCode::Char(',') => self.change_jump(false),
+                KeyCode::Char('a') => self.show_char_info(),
                 KeyCode::Char('q') | KeyCode::Char('w') => {
                     // gq / gw — reflow. On a selection, format it now; otherwise
                     // wait for a motion.
@@ -3967,6 +3972,36 @@ impl Editor {
             *last = pos; // keep the newest column on the same line
         }
         self.change_idx = self.changelist.len();
+    }
+
+    /// `Ctrl-g` — report the file name, modified flag, line count and cursor
+    /// position (vim's file-info line).
+    fn show_file_info(&mut self) {
+        let name = self
+            .buffer
+            .path()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "[No Name]".to_string());
+        let lines = self.buffer.line_count();
+        let modified = if self.buffer.is_dirty() { " [Modified]" } else { "" };
+        let pct = ((self.cursor.row + 1) * 100 / lines.max(1)).min(100);
+        self.message = format!(
+            "\"{name}\"{modified} {lines} lines --{pct}%--  line {} of {lines}",
+            self.cursor.row + 1
+        );
+    }
+
+    /// `ga` — report the character under the cursor as decimal, hex and octal
+    /// (vim's `:ascii`).
+    fn show_char_info(&mut self) {
+        let line = self.buffer.line(self.cursor.row).unwrap_or("");
+        match line.chars().nth(self.cursor.col) {
+            Some(c) => {
+                let n = c as u32;
+                self.message = format!("<{c}> {n}, Hex {n:x}, Octal {n:o}");
+            }
+            None => self.message = "NUL".into(),
+        }
     }
 
     /// `g;` — jump to an older change position; `g,` (older = false) — to a newer

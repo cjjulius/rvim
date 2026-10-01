@@ -2125,6 +2125,26 @@
     }
 
     #[test]
+    fn ga_shows_char_code() {
+        let mut ed = ed_with("Abc");
+        ed.cursor = Position::new(0, 0); // 'A'
+        ed.handle_key(key('g'));
+        ed.handle_key(key('a'));
+        assert!(ed.message.contains("<A> 65"), "{}", ed.message);
+        assert!(ed.message.contains("Hex 41"));
+        assert!(ed.message.contains("Octal 101"));
+    }
+
+    #[test]
+    fn ctrl_g_shows_file_info() {
+        let mut ed = ed_with("one\ntwo\nthree");
+        ed.cursor = Position::new(1, 0);
+        ed.handle_key(ctrl('g'));
+        assert!(ed.message.contains("3 lines"), "{}", ed.message);
+        assert!(ed.message.contains("line 2 of 3"));
+    }
+
+    #[test]
     fn changelist_navigates_edit_positions() {
         let mut ed = ed_with("one\ntwo\nthree\nfour");
         ed.cursor = Position::new(0, 0);
