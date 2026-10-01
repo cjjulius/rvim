@@ -649,6 +649,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \to / O              open line below / above\n\
          \t  (insert) C-w/C-u delete word-before / to line-start\n\
          \t  (insert) C-r<r>  paste register   C-t / C-d  indent / dedent\n\
+         \t  (insert) C-n/C-p keyword completion (cycle matches in buffer)\n\
          \tv / V / Ctrl-v     visual / visual-line / visual-block\n\
          \t  (v-block) d I A c  delete / insert / append / change rectangle\n\
          \t  (visual) u/U/~   lower / upper / toggle case of selection\n\
