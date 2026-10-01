@@ -1020,6 +1020,13 @@ impl Editor {
             if let KeyCode::Char(c) = key.code {
                 match mm {
                     MacroMode::Record => self.start_recording(c),
+                    // `@:` repeats the last command-line (ex) command.
+                    MacroMode::Play if c == ':' => {
+                        match self.cmd_history.last().cloned() {
+                            Some(cmd) => return Action::RunEx(cmd),
+                            None => self.message = "No previous command-line command".into(),
+                        }
+                    }
                     MacroMode::Play => self.play_macro(c),
                 }
             }

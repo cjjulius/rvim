@@ -2253,6 +2253,28 @@
     }
 
     #[test]
+    fn at_colon_repeats_last_ex_command() {
+        let mut ed = ed_with("");
+        ed.handle_key(key(':'));
+        for c in "wq".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Enter)); // records "wq" in command history
+        ed.handle_key(key('@'));
+        let action = ed.handle_key(key(':'));
+        assert_eq!(action, Action::RunEx("wq".into()));
+    }
+
+    #[test]
+    fn at_colon_without_history_reports() {
+        let mut ed = ed_with("");
+        ed.handle_key(key('@'));
+        let action = ed.handle_key(key(':'));
+        assert_eq!(action, Action::None);
+        assert!(ed.message.contains("No previous"));
+    }
+
+    #[test]
     fn visual_ctrl_a_increments_each_line() {
         let mut ed = ed_with("x 1\ny 5\nz 9");
         ed.handle_key(key('V'));
