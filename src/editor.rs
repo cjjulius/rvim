@@ -75,6 +75,8 @@ pub struct Editor {
     visual_anchor: Position,
     /// The last visual selection (start, end, mode) for `gv`.
     last_visual: Option<(Position, Position, Mode)>,
+    /// Where insert mode last ended, for `gi` and the `` `^ `` mark.
+    last_insert: Position,
     last_search: String,
     search_re: Option<Regex>,
     last_subst: Option<SubstituteSpec>,
@@ -176,6 +178,7 @@ impl Editor {
             expect_register: false,
             visual_anchor: Position::default(),
             last_visual: None,
+            last_insert: Position::default(),
             last_search: String::new(),
             search_re: None,
             last_subst: None,
@@ -891,6 +894,7 @@ impl Editor {
                     self.insert_replaying = false;
                 }
                 self.insert_repeat = 1;
+                self.record_insert_end();
                 self.mode = Mode::Normal;
                 // vim moves left when leaving insert mode
                 if self.cursor.col > 0 {
@@ -939,6 +943,7 @@ impl Editor {
     fn handle_replace(&mut self, key: KeyEvent) {
         match key.code {
             KeyCode::Esc => {
+                self.record_insert_end();
                 self.mode = Mode::Normal;
                 if self.cursor.col > 0 {
                     self.cursor.col -= 1;
@@ -1597,6 +1602,13 @@ impl Editor {
                 KeyCode::Char('#') => self.search_word(false, false),
                 KeyCode::Char('e') => self.move_word_end_back(count, false),
                 KeyCode::Char('E') => self.move_word_end_back(count, true),
+                KeyCode::Char('i') => {
+                    // gi — resume insert at the last insert position.
+                    let last = self.buffer.line_count().saturating_sub(1);
+                    self.cursor.row = self.last_insert.row.min(last);
+                    self.cursor.col = self.last_insert.col.min(self.cur_len());
+                    self.enter_insert_here();
+                }
                 KeyCode::Char('J') => {
                     self.checkpoint();
                     self.buffer.join_line_raw(self.cursor.row);
@@ -3133,6 +3145,14 @@ impl Editor {
 
     fn checkpoint(&mut self) {
         self.buffer.checkpoint(self.cursor);
+        // The `` `. `` mark tracks the position of the last change.
+        self.marks.insert('.', self.cursor);
+    }
+
+    /// Record where insert/replace mode ended (for `gi` and the `` `^ `` mark).
+    fn record_insert_end(&mut self) {
+        self.last_insert = self.cursor;
+        self.marks.insert('^', self.cursor);
     }
 
     fn clamp_cursor(&mut self, allow_eol: bool) {
@@ -3790,6 +3810,35 @@ mod tests {
 
     fn ctrl(c: char) -> KeyEvent {
         KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL)
+    }
+
+    #[test]
+    fn gi_resumes_at_last_insert() {
+        let mut ed = ed_with("");
+        ed.handle_key(key('i'));
+        for c in "abc".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Esc)); // insert ended at col 3
+        ed.handle_key(key('0')); // move to col 0
+        ed.handle_key(key('g'));
+        ed.handle_key(key('i')); // resume at col 3
+        assert_eq!(ed.mode, Mode::Insert);
+        ed.handle_key(key('d'));
+        assert_eq!(ed.buffer.line(0), Some("abcd"));
+    }
+
+    #[test]
+    fn mark_dot_tracks_last_change() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.cursor = Position::new(2, 0); // on "c"
+        ed.handle_key(key('x')); // change on line 2
+        ed.handle_key(key('g'));
+        ed.handle_key(key('g')); // jump to top
+        assert_eq!(ed.cursor.row, 0);
+        ed.handle_key(key('`'));
+        ed.handle_key(key('.')); // jump to last change
+        assert_eq!(ed.cursor.row, 2);
     }
 
     #[test]

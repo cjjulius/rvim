@@ -602,6 +602,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t&                  repeat last :s on the current line\n\
          \tm<x> `<x> '<x>     set mark / jump exact / jump line   `` prev pos\n\
          \tCtrl-o / Ctrl-i    jump list: older / newer position\n\
+         \tgi  `.  `^         resume insert / last change / last insert\n\
          \tq<x> q  @<x>  @@   record macro / stop / replay / repeat\n\
          \n\
          COMMANDS\n\
