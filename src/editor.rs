@@ -159,6 +159,10 @@ pub struct Editor {
     /// Insert-mode `Ctrl-o` one-shot: 0 = off, 1 = armed (set on Ctrl-o),
     /// 2 = active (running the single Normal command; return to insert at rest).
     insert_oneshot: u8,
+    /// Text typed during the current insert session, and the previous session's
+    /// text (the read-only `".` register, and insert-mode `Ctrl-a`).
+    cur_insert: String,
+    last_insert_text: String,
     /// Active `Ctrl-n`/`Ctrl-p` keyword completion session, if any.
     completion: Option<Completion>,
     /// Active block insert (`Ctrl-v` then `I`/`A`): (rmin, rmax, col, append).
@@ -286,6 +290,8 @@ impl Editor {
             insert_replaying: false,
             insert_pending_reg: false,
             insert_oneshot: 0,
+            cur_insert: String::new(),
+            last_insert_text: String::new(),
             completion: None,
             block_insert: None,
             pending_find: None,
@@ -1166,6 +1172,7 @@ impl Editor {
             None
         };
 
+        let was_insert = self.mode == Mode::Insert;
         // Command-line editing takes priority when active.
         let action = if self.mode == Mode::Command {
             self.handle_cmdline(key)
@@ -1187,6 +1194,15 @@ impl Editor {
             if !self.mode.is_visual() {
                 self.last_visual = Some(v);
             }
+        }
+
+        // Track the text of the current insert session for the `".` register and
+        // insert-mode `Ctrl-a`: reset on entering insert, snapshot on leaving.
+        let now_insert = self.mode == Mode::Insert;
+        if !was_insert && now_insert {
+            self.cur_insert.clear();
+        } else if was_insert && !now_insert && !self.cur_insert.is_empty() {
+            self.last_insert_text = std::mem::take(&mut self.cur_insert);
         }
 
         // At a resting point, finalize (or discard) the captured change.
@@ -1473,6 +1489,12 @@ impl Editor {
                 KeyCode::Char('d') => self.insert_indent(false),
                 KeyCode::Char('n') => self.insert_completion(true),
                 KeyCode::Char('p') => self.insert_completion(false),
+                KeyCode::Char('a') => {
+                    // Insert the text from the last insert session.
+                    let reg = self.register_text('.');
+                    self.insert_register_text(&reg);
+                    self.cur_insert.push_str(&reg.text);
+                }
                 KeyCode::Char('o') => {
                     // Run one Normal-mode command, then come back to insert.
                     self.mode = Mode::Normal;
@@ -1517,8 +1539,10 @@ impl Editor {
             KeyCode::Char(c) => {
                 self.buffer.insert_char(self.cursor, c);
                 self.cursor.col += 1;
+                self.cur_insert.push(c);
             }
             KeyCode::Enter => {
+                self.cur_insert.push('\n');
                 let indent = if self.autoindent {
                     self.leading_indent(self.cursor.row)
                 } else {
@@ -1532,15 +1556,20 @@ impl Editor {
                     self.cursor.col = indent.chars().count();
                 }
             }
-            KeyCode::Backspace => self.backspace(),
+            KeyCode::Backspace => {
+                self.cur_insert.pop();
+                self.backspace();
+            }
             KeyCode::Tab => {
                 if self.expandtab {
                     let n = self.tabstop.max(1);
                     self.buffer.insert_str(self.cursor, &" ".repeat(n));
                     self.cursor.col += n;
+                    self.cur_insert.push_str(&" ".repeat(n));
                 } else {
                     self.buffer.insert_char(self.cursor, '\t');
                     self.cursor.col += 1;
+                    self.cur_insert.push('\t');
                 }
             }
             KeyCode::Left => self.move_left(1),
@@ -1749,6 +1778,11 @@ impl Editor {
                     .path()
                     .map(|p| p.display().to_string())
                     .unwrap_or_default(),
+                linewise: false,
+            },
+            // `.` is the read-only last-inserted-text register.
+            '.' => Register {
+                text: self.last_insert_text.clone(),
                 linewise: false,
             },
             other => self.registers.get(&other).cloned().unwrap_or_default(),

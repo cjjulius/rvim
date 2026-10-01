@@ -2579,6 +2579,34 @@
     }
 
     #[test]
+    fn dot_register_holds_last_inserted_text() {
+        let mut ed = ed_with("");
+        ed.handle_key(key('i'));
+        for c in "foo".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Esc)); // line "foo", last insert "foo"
+        ed.handle_key(key('"'));
+        ed.handle_key(key('.'));
+        ed.handle_key(key('p')); // ".p pastes "foo"
+        assert_eq!(ed.buffer.line(0), Some("foofoo"));
+    }
+
+    #[test]
+    fn insert_ctrl_a_inserts_last_insert() {
+        let mut ed = ed_with("");
+        ed.handle_key(key('i'));
+        for c in "ab".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Esc));
+        ed.handle_key(key('o')); // open a line below, in insert
+        ed.handle_key(ctrl('a')); // insert the previous insert "ab"
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(1), Some("ab"));
+    }
+
+    #[test]
     fn insert_ctrl_o_runs_one_normal_command() {
         let mut ed = ed_with("hello");
         ed.handle_key(key('A')); // append at end of line
