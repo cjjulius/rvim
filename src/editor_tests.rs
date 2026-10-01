@@ -2235,6 +2235,59 @@
     }
 
     #[test]
+    fn gn_selects_match_under_cursor() {
+        let mut ed = ed_with("foo bar foo");
+        ed.set_search("foo".into());
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('g'));
+        ed.handle_key(key('n'));
+        assert_eq!(ed.mode, Mode::Visual);
+        assert_eq!(ed.visual_anchor, Position::new(0, 0));
+        assert_eq!(ed.cursor, Position::new(0, 2));
+    }
+
+    #[test]
+    fn g_shift_n_selects_previous_match() {
+        let mut ed = ed_with("foo bar foo");
+        ed.set_search("foo".into());
+        ed.cursor = Position::new(0, 7); // in the gap, before the last foo
+        ed.handle_key(key('g'));
+        ed.handle_key(key('N'));
+        assert_eq!(ed.mode, Mode::Visual);
+        assert_eq!(ed.visual_anchor, Position::new(0, 0));
+        assert_eq!(ed.cursor, Position::new(0, 2));
+    }
+
+    #[test]
+    fn dgn_deletes_next_match() {
+        let mut ed = ed_with("a foo b");
+        ed.set_search("foo".into());
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('d'));
+        ed.handle_key(key('g'));
+        ed.handle_key(key('n'));
+        assert_eq!(ed.buffer.line(0), Some("a  b"));
+    }
+
+    #[test]
+    fn cgn_change_repeats_with_dot() {
+        let mut ed = ed_with("foo x foo x foo");
+        ed.set_search("foo".into());
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('c'));
+        ed.handle_key(key('g'));
+        ed.handle_key(key('n')); // change the match under the cursor
+        assert_eq!(ed.mode, Mode::Insert);
+        for c in "bar".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("bar x foo x foo"));
+        ed.handle_key(key('.')); // dot repeats on the next match
+        assert_eq!(ed.buffer.line(0), Some("bar x bar x foo"));
+    }
+
+    #[test]
     fn ignorecase_search_finds_other_case() {
         let mut ed = ed_with("aaa\nBETA\nccc");
         ed.ignorecase = true;

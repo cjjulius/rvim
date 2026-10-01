@@ -925,6 +925,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          SEARCH\n\
          \t/pat  ?pat         search fwd / back (regex)  n / N  next / prev\n\
          \t* / #  g* / g#     search word under cursor (whole / substring)\n\
+         \tgn / gN            select next / prev match (cgn + . to repeat)\n\
          \t&  / g&            repeat last :s on current line / whole file\n\
          \tm<x> `<x> '<x>     set mark / jump exact / jump line   `` prev pos\n\
          \tCtrl-o / Ctrl-i    jump list: older / newer position\n\

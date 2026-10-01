@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Search
+- `gn` / `gN` select the search match under or after/before the cursor, and work
+  as operator targets (`cgn`, `dgn`, `ygn`). Combined with dot-repeat, `cgn`
+  then `.` steps through and edits each match — the by-hand substitute workflow.
+
 ### Numbers
 - `Ctrl-a` / `Ctrl-x` now recognize hexadecimal (`0x…`) and binary (`0b…`)
   literals in addition to decimal, preserving the prefix, digit width, and hex
