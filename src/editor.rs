@@ -156,6 +156,9 @@ pub struct Editor {
     insert_replaying: bool,
     /// After insert-mode `Ctrl-r`: the next key names the register to paste.
     insert_pending_reg: bool,
+    /// Insert-mode `Ctrl-o` one-shot: 0 = off, 1 = armed (set on Ctrl-o),
+    /// 2 = active (running the single Normal command; return to insert at rest).
+    insert_oneshot: u8,
     /// Active `Ctrl-n`/`Ctrl-p` keyword completion session, if any.
     completion: Option<Completion>,
     /// Active block insert (`Ctrl-v` then `I`/`A`): (rmin, rmax, col, append).
@@ -282,6 +285,7 @@ impl Editor {
             insert_keys: Vec::new(),
             insert_replaying: false,
             insert_pending_reg: false,
+            insert_oneshot: 0,
             completion: None,
             block_insert: None,
             pending_find: None,
@@ -1195,6 +1199,22 @@ impl Editor {
             self.dot_rev_at_rest = self.buffer.revision();
         }
 
+        // Insert-mode `Ctrl-o`: the Ctrl-o key arms (1); the next keys run one
+        // Normal command (2); when it completes at rest we return to insert. If the
+        // command switched to another mode itself (e.g. `cc`, `:`), just stay there.
+        match self.insert_oneshot {
+            1 => self.insert_oneshot = 2,
+            2 => {
+                if self.mode != Mode::Normal {
+                    self.insert_oneshot = 0;
+                } else if self.at_rest() {
+                    self.insert_oneshot = 0;
+                    self.enter_insert_here();
+                }
+            }
+            _ => {}
+        }
+
         // Track the partially-typed command for the showcmd indicator: grow it
         // while a Normal-mode command is pending, clear it once we're at rest or
         // leave Normal mode.
@@ -1453,6 +1473,11 @@ impl Editor {
                 KeyCode::Char('d') => self.insert_indent(false),
                 KeyCode::Char('n') => self.insert_completion(true),
                 KeyCode::Char('p') => self.insert_completion(false),
+                KeyCode::Char('o') => {
+                    // Run one Normal-mode command, then come back to insert.
+                    self.mode = Mode::Normal;
+                    self.insert_oneshot = 1;
+                }
                 _ => {}
             }
             self.scroll_into_view();
