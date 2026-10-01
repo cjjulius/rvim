@@ -1853,6 +1853,27 @@
     }
 
     #[test]
+    fn nowrapscan_stops_at_buffer_end() {
+        let mut ed = ed_with("foo\nbar\nfoo");
+        ed.wrapscan = false;
+        ed.set_search("foo".into());
+        ed.search_repeat(true); // forward to the second "foo"
+        assert_eq!(ed.cursor.row, 2);
+        ed.search_repeat(true); // would wrap -> rejected
+        assert_eq!(ed.cursor.row, 2);
+        assert!(ed.message.contains("BOTTOM"));
+    }
+
+    #[test]
+    fn wrapscan_on_wraps_around() {
+        let mut ed = ed_with("foo\nbar\nfoo");
+        ed.set_search("foo".into()); // wrapscan defaults on
+        ed.cursor = Position::new(2, 0);
+        ed.search_repeat(true); // wraps to the first "foo"
+        assert_eq!(ed.cursor.row, 0);
+    }
+
+    #[test]
     fn ignorecase_search_finds_other_case() {
         let mut ed = ed_with("aaa\nBETA\nccc");
         ed.ignorecase = true;

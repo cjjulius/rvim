@@ -135,7 +135,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
   the pattern forces a case-sensitive search), with per-pattern `\c`/`\C` overrides.
   With `:set incsearch` (on by default) the first match is previewed as you type;
   `Enter` jumps to it, `Esc` returns to where you started. After a search (and on
-  `n`/`N`) a `[index/total]` count shows where you are among the matches.
+  `n`/`N`) a `[index/total]` count shows where you are among the matches. Searches
+  wrap around the file by default; `:set nowrapscan` stops at the last/first match.
 
 ### Global command (`:g` / `:v`)
 Run a command on every line matching a pattern:
@@ -175,7 +176,7 @@ quits without saving (like `:q!`).
 `:set tabstop=N` · `:set scrolloff=N` (keep N lines of context around the cursor) ·
 `:set textwidth=N` (wrap column for `gq`) ·
 `:set ignorecase|noignorecase` · `:set smartcase|nosmartcase` · `:set incsearch|noincsearch` ·
-`:set list|nolist` (show whitespace) ·
+`:set list|nolist` (show whitespace) · `:set wrapscan|nowrapscan` ·
 `:noh` / `:set hlsearch|nohlsearch` · `:sort[!] [u]` ·
 `:[range]m[ove] {addr}` / `:[range]t`|`:[range]co[py] {addr}` (move / copy lines) ·
 `:[range]d[elete]` / `:[range]y[ank]` / `:[range]>`|`:[range]<` (delete / yank / shift lines) ·
@@ -364,7 +365,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **333 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **336 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

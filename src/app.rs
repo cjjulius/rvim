@@ -475,6 +475,10 @@ impl App {
                 self.editor.list = on;
                 self.editor.message = format!("list {}", if on { "on" } else { "off" });
             }
+            ExCommand::ToggleWrapScan(on) => {
+                self.editor.wrapscan = on;
+                self.editor.message = format!("wrapscan {}", if on { "on" } else { "off" });
+            }
             ExCommand::MoveLines { range, dest } => {
                 self.editor.move_lines(range, dest);
             }
@@ -725,6 +729,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set ignorecase|noic   :set smartcase|noscs   (search case)\n\
          \t:set incsearch|nois    preview match while typing /?\n\
          \t:set list|nolist       show tabs / trailing whitespace\n\
+         \t:set wrapscan|nows     search wraps around the file (default on)\n\
          \t:set ft=<lang>     rust tsql pgsql trino snowflake z80 sql\n\
          \t:set mouse|nomouse toggle mouse support\n\
          \t:sort[!] [u]       sort lines (! reverse, u unique)\n\
