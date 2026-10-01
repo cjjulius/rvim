@@ -518,6 +518,8 @@ impl App {
                 let text = self.editor.jumps_listing();
                 self.open_scratch(&text, "jumps —", "jumps — :bd to close");
             }
+            ExCommand::Earlier(n) => self.editor.undo_times(n),
+            ExCommand::Later(n) => self.editor.redo_times(n),
             ExCommand::SetTheme(arg) => match arg {
                 Some(name) => {
                     if self.themes.set_current(&name) {
@@ -924,7 +926,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t\"_dd               black-hole register (delete, keep registers)\n\
          \t\"%p                paste the current file name (% register)\n\
          \tJ / gJ             join lines (with / without space)\n\
-         \tu / Ctrl-r          undo / redo\n\
+         \tu / Ctrl-r          undo / redo (counted; also :earlier N / :later N)\n\
          \t.  <n>.            repeat last change (n times)\n\
          \tCtrl-a / Ctrl-x    increment / decrement number (dec / 0x hex / 0b bin)\n\
          \n\

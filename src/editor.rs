@@ -2253,12 +2253,8 @@ impl Editor {
         if ctrl {
             match key.code {
                 KeyCode::Char('r') => {
-                    if let Some(pos) = self.buffer.redo(self.cursor) {
-                        self.cursor = pos;
-                        self.clamp_cursor(false);
-                    } else {
-                        self.message = "Already at newest change".into();
-                    }
+                    let n = self.pending_count.take().unwrap_or(1);
+                    self.redo_times(n);
                     return Action::None;
                 }
                 KeyCode::Char('d') => {
@@ -2596,11 +2592,8 @@ impl Editor {
             KeyCode::Char('u') => {
                 if self.mode.is_visual() {
                     self.transform_selection(CaseOp::Lower);
-                } else if let Some(pos) = self.buffer.undo(self.cursor) {
-                    self.cursor = pos;
-                    self.clamp_cursor(false);
                 } else {
-                    self.message = "Already at oldest change".into();
+                    self.undo_times(count);
                 }
             }
             KeyCode::Char('p') | KeyCode::Char('P') => {
@@ -5052,6 +5045,44 @@ impl Editor {
             return;
         }
         self.search_repeat(forward);
+    }
+
+    /// Undo up to `n` changes (count-aware `u`, and `:earlier N`).
+    pub fn undo_times(&mut self, n: usize) {
+        let mut done = 0;
+        for _ in 0..n.max(1) {
+            match self.buffer.undo(self.cursor) {
+                Some(pos) => {
+                    self.cursor = pos;
+                    done += 1;
+                }
+                None => break,
+            }
+        }
+        if done == 0 {
+            self.message = "Already at oldest change".into();
+        }
+        self.clamp_cursor(false);
+        self.scroll_into_view();
+    }
+
+    /// Redo up to `n` changes (count-aware `Ctrl-r`, and `:later N`).
+    pub fn redo_times(&mut self, n: usize) {
+        let mut done = 0;
+        for _ in 0..n.max(1) {
+            match self.buffer.redo(self.cursor) {
+                Some(pos) => {
+                    self.cursor = pos;
+                    done += 1;
+                }
+                None => break,
+            }
+        }
+        if done == 0 {
+            self.message = "Already at newest change".into();
+        }
+        self.clamp_cursor(false);
+        self.scroll_into_view();
     }
 
     /// Visual-mode `*` / `#`: search for the selected text literally (regex

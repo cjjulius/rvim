@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Undo
+- `u` and `Ctrl-r` take a count (`3u`, `2Ctrl-r`), and `:earlier [N]` / `:later
+  [N]` step back / forward through N changes.
+
 ### Search
 - Visual-mode `*` / `#` search for the selected text (regex-escaped, so it
   matches literally) forward / backward.

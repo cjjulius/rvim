@@ -210,6 +210,15 @@
     }
 
     #[test]
+    fn earlier_later_parse() {
+        assert_eq!(parse("earlier 3"), ExCommand::Earlier(3));
+        assert_eq!(parse("earlier"), ExCommand::Earlier(1));
+        assert_eq!(parse("ea 5"), ExCommand::Earlier(5));
+        assert_eq!(parse("later 2"), ExCommand::Later(2));
+        assert_eq!(parse("later"), ExCommand::Later(1));
+    }
+
+    #[test]
     fn set_cursorcolumn() {
         assert_eq!(parse("set cursorcolumn"), ExCommand::ToggleCursorColumn(true));
         assert_eq!(parse("set cuc"), ExCommand::ToggleCursorColumn(true));

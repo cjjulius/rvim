@@ -157,7 +157,8 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   the prefix, digit width, and hex letter case. In visual mode they bump the
   first number on every selected line at once; `g Ctrl-a` / `g Ctrl-x` instead
   build an incrementing sequence (1, 2, 3, … — with `{count}` as the step).
-- **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history).
+- **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history), counted
+  (`3u`, `2Ctrl-r`); `:earlier [N]` / `:later [N]` step back/forward N changes.
 - **Visual mode:** `v`/`V` then `d`/`x`, `y`, `c`/`s`, `>`/`<` (indent),
   `J`/`gJ` (join the selected lines), `r<c>` (replace every selected char with
   `c`), and `u`/`U`/`~`
@@ -232,7 +233,7 @@ quits without saving (like `:q!`).
 `:[range]j[oin][!]` (join lines; `!` keeps whitespace) ·
 `:[addr]pu[t] [reg]` (put a register as lines) · `:[range]norm[al] {keys}` (run Normal-mode keys, per line over a range) ·
 `:r[ead] <file>` (insert a file below the cursor) · `:e`/`:e!` (reload current file) ·
-`:marks` · `:registers`/`:reg` · `:jumps` (introspection listings) ·
+`:marks` · `:registers`/`:reg` · `:jumps` (introspection listings) · `:earlier [N]`/`:later [N]` (undo/redo N) ·
 `:source <file>` · `:help` · `:version`
 
 Several `:set` options can be combined in one command, e.g.
@@ -430,7 +431,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **460 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **464 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

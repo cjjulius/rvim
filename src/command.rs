@@ -166,6 +166,10 @@ pub enum ExCommand {
     Registers,
     /// `:jumps` — list the jump list.
     Jumps,
+    /// `:earlier [N]` — undo N times (default 1).
+    Earlier(usize),
+    /// `:later [N]` — redo N times (default 1).
+    Later(usize),
     /// Anything unrecognized — offered to plugins as (name, args).
     Passthrough { name: String, args: String },
     /// Empty input.
@@ -281,6 +285,8 @@ pub fn parse(input: &str) -> ExCommand {
         "marks" => ExCommand::Marks,
         "reg" | "registers" | "display" | "di" => ExCommand::Registers,
         "ju" | "jumps" => ExCommand::Jumps,
+        "earlier" | "ea" => ExCommand::Earlier(parse_count_arg(&arg)),
+        "later" | "lat" => ExCommand::Later(parse_count_arg(&arg)),
         "help" | "h" => ExCommand::Help,
         "version" | "ver" => ExCommand::Version,
         "set" | "se" => parse_set(rest),
@@ -289,6 +295,15 @@ pub fn parse(input: &str) -> ExCommand {
             args: rest.to_string(),
         },
     }
+}
+
+/// Parse an optional leading count from a command argument, defaulting to 1
+/// (for `:earlier` / `:later`).
+fn parse_count_arg(arg: &Option<String>) -> usize {
+    arg.as_deref()
+        .and_then(|a| a.trim().parse::<usize>().ok())
+        .filter(|&n| n > 0)
+        .unwrap_or(1)
 }
 
 /// Try to parse a `:g`/`:v` global command.

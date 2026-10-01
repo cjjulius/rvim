@@ -111,6 +111,18 @@
     }
 
     #[test]
+    fn earlier_later_undo_redo() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("abcdef");
+        app.feed_normal_keys("xx"); // delete two chars -> "cdef"
+        assert_eq!(app.editor.buffer.line(0), Some("cdef"));
+        app.run_ex("earlier 2"); // undo both
+        assert_eq!(app.editor.buffer.line(0), Some("abcdef"));
+        app.run_ex("later 1"); // redo one
+        assert_eq!(app.editor.buffer.line(0), Some("bcdef"));
+    }
+
+    #[test]
     fn cursorcolumn_toggles() {
         let mut app = App::new();
         assert!(!app.editor.cursorcolumn);
