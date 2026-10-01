@@ -6,9 +6,11 @@ identically in **bash** and **PowerShell** (and any ANSI terminal) via
 theming, and syntax highlighting that autodetects and color-codes several
 languages.
 
-> Status: **v0.1** — a solid, tested foundation. Modal editing, motions,
-> editing operators, search, undo/redo, three themes, seven language
-> highlighters, a plugin system, and basic mouse support are all working.
+> Status: **v0.2** — a mature, deeply vim-compatible editor. Modal editing, the
+> full operator/motion/text-object grammar, incremental search, line-range ex
+> commands, `:normal`, visual-mode operators, four themes, seven language
+> highlighters, a plugin system, and mouse support are all working. See
+> [CHANGELOG.md](CHANGELOG.md) for what landed in 0.2.
 
 ---
 
