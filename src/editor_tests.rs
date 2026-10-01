@@ -2668,6 +2668,47 @@
     }
 
     #[test]
+    fn visual_g_ctrl_a_builds_sequence() {
+        let mut ed = ed_with("0\n0\n0");
+        ed.handle_key(key('V'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('g'));
+        ed.handle_key(ctrl('a')); // g Ctrl-a -> 1, 2, 3
+        assert_eq!(ed.buffer.line(0), Some("1"));
+        assert_eq!(ed.buffer.line(1), Some("2"));
+        assert_eq!(ed.buffer.line(2), Some("3"));
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn visual_g_ctrl_a_with_count_steps() {
+        let mut ed = ed_with("10\n10\n10");
+        ed.handle_key(key('V'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('2'));
+        ed.handle_key(key('g'));
+        ed.handle_key(ctrl('a')); // 2g Ctrl-a -> +2, +4, +6
+        assert_eq!(ed.buffer.line(0), Some("12"));
+        assert_eq!(ed.buffer.line(1), Some("14"));
+        assert_eq!(ed.buffer.line(2), Some("16"));
+    }
+
+    #[test]
+    fn visual_g_ctrl_a_skips_numberless_lines() {
+        let mut ed = ed_with("0\nfoo\n0");
+        ed.handle_key(key('V'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('g'));
+        ed.handle_key(ctrl('a')); // rank advances only on changed lines
+        assert_eq!(ed.buffer.line(0), Some("1"));
+        assert_eq!(ed.buffer.line(1), Some("foo"));
+        assert_eq!(ed.buffer.line(2), Some("2"));
+    }
+
+    #[test]
     fn visual_j_joins_selected_lines() {
         let mut ed = ed_with("one\ntwo\nthree\nfour");
         ed.handle_key(key('V'));

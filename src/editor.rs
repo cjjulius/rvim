@@ -2235,21 +2235,11 @@ impl Editor {
                     return Action::None;
                 }
                 KeyCode::Char('a') => {
-                    let c = self.pending_count.take().unwrap_or(1);
-                    if self.mode.is_visual() {
-                        self.modify_number_visual(1, c);
-                    } else {
-                        self.modify_number(1, c);
-                    }
+                    self.modify_number_ctrl(1);
                     return Action::None;
                 }
                 KeyCode::Char('x') => {
-                    let c = self.pending_count.take().unwrap_or(1);
-                    if self.mode.is_visual() {
-                        self.modify_number_visual(-1, c);
-                    } else {
-                        self.modify_number(-1, c);
-                    }
+                    self.modify_number_ctrl(-1);
                     return Action::None;
                 }
                 KeyCode::Char('v') => {
@@ -4027,17 +4017,42 @@ impl Editor {
         }
     }
 
+    /// Dispatch `Ctrl-a`/`Ctrl-x` (and the `g`-prefixed `g Ctrl-a`/`g Ctrl-x`).
+    /// A pending `g` selects the stacked/sequence form in visual mode. The count
+    /// typed before `g` multiplies the per-line step.
+    fn modify_number_ctrl(&mut self, delta: isize) {
+        let staged = self.pending_op == Some('g');
+        let op_count = if staged {
+            self.pending_op = None;
+            self.pending_op_count.take().unwrap_or(1)
+        } else {
+            1
+        };
+        let count = self.pending_count.take().unwrap_or(1).saturating_mul(op_count);
+        if self.mode.is_visual() {
+            self.modify_number_visual(delta, count, staged);
+        } else {
+            self.modify_number(delta, count);
+        }
+    }
+
     /// Visual `Ctrl-a`/`Ctrl-x`: bump the first number on every selected line by
-    /// `delta * count`, under one undo step, then return to Normal.
-    fn modify_number_visual(&mut self, delta: isize, count: usize) {
+    /// `delta * count`, under one undo step, then return to Normal. When
+    /// `stacked` (vim's `g Ctrl-a`), the step grows per changed line — the 1st
+    /// line gets `delta*count`, the 2nd `delta*count*2`, … — turning equal
+    /// numbers into an incrementing sequence.
+    fn modify_number_visual(&mut self, delta: isize, count: usize, stacked: bool) {
         let Some((start, end)) = self.selection() else {
             self.mode = Mode::Normal;
             return;
         };
         let mut edits: Vec<(usize, String)> = Vec::new();
+        let mut rank = 0usize;
         for row in start.row..=end.row {
-            if let Some((new, _)) = self.compute_number_bump(row, delta, count, 0) {
+            let step = if stacked { count * (rank + 1) } else { count };
+            if let Some((new, _)) = self.compute_number_bump(row, delta, step, 0) {
                 edits.push((row, new));
+                rank += 1;
             }
         }
         if !edits.is_empty() {

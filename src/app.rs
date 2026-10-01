@@ -874,6 +874,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t  (visual) J / gJ  join the selected lines (with / without space)\n\
          \t  (visual) r<c>    replace every selected char with c\n\
          \t  (visual) C-a/C-x increment / decrement number on each line\n\
+         \t  (visual) gC-a/gC-x  build an incrementing sequence (1,2,3,…)\n\
          \t  (visual) u/U/~   lower / upper / toggle case of selection\n\
          \t  (visual) g?      ROT13 the selection\n\
          \t  (visual) o       swap selection end     gv  reselect last\n\
