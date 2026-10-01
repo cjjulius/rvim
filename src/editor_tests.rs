@@ -2125,6 +2125,31 @@
     }
 
     #[test]
+    fn visual_paste_replaces_charwise_selection() {
+        let mut ed = ed_with("foo bar");
+        ed.register = Register { text: "XYZ".into(), linewise: false };
+        ed.cursor = Position::new(0, 4); // on "bar"
+        ed.handle_key(key('v'));
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // select b, a, r
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(0), Some("foo XYZ"));
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn visual_paste_replaces_linewise_selection() {
+        let mut ed = ed_with("a\nb\nc");
+        ed.register = Register { text: "X".into(), linewise: true };
+        ed.cursor = Position::new(1, 0); // on "b"
+        ed.handle_key(key('V'));
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(0), Some("a"));
+        assert_eq!(ed.buffer.line(1), Some("X"));
+        assert_eq!(ed.buffer.line(2), Some("c"));
+    }
+
+    #[test]
     fn ga_shows_char_code() {
         let mut ed = ed_with("Abc");
         ed.cursor = Position::new(0, 0); // 'A'
