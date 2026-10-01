@@ -184,6 +184,12 @@
     }
 
     #[test]
+    fn set_list() {
+        assert_eq!(parse("set list"), ExCommand::ToggleList(true));
+        assert_eq!(parse("set nolist"), ExCommand::ToggleList(false));
+    }
+
+    #[test]
     fn set_case_options() {
         assert_eq!(parse("set ignorecase"), ExCommand::ToggleIgnoreCase(true));
         assert_eq!(parse("set ic"), ExCommand::ToggleIgnoreCase(true));

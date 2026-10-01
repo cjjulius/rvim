@@ -175,6 +175,7 @@ quits without saving (like `:q!`).
 `:set tabstop=N` · `:set scrolloff=N` (keep N lines of context around the cursor) ·
 `:set textwidth=N` (wrap column for `gq`) ·
 `:set ignorecase|noignorecase` · `:set smartcase|nosmartcase` · `:set incsearch|noincsearch` ·
+`:set list|nolist` (show whitespace) ·
 `:noh` / `:set hlsearch|nohlsearch` · `:sort[!] [u]` ·
 `:[range]m[ove] {addr}` / `:[range]t`|`:[range]co[py] {addr}` (move / copy lines) ·
 `:[range]d[elete]` / `:[range]y[ank]` / `:[range]>`|`:[range]<` (delete / yank / shift lines) ·
@@ -282,6 +283,9 @@ correctly colored even when scrolled.
 - **Matching-bracket highlight** — when the cursor rests on a `()`, `[]`, or `{}`
   bracket, its partner is highlighted (in reverse video, so it reads on any
   theme) even across lines, making nesting easy to follow.
+- **Whitespace view (`:set list`)** — show tabs (`▸···`) and trailing spaces (`·`)
+  with an end-of-line `$` marker, so hidden whitespace is visible; `:set nolist`
+  hides them again. Markers are width-preserving, so columns stay exact.
 - **Command preview (showcmd)** — the partially-typed command (count, operator,
   text-object prefix) appears at the bottom-right as you type, so you can see
   exactly what rvim is waiting for — e.g. `2d` while `2dw` is mid-entry. It clears
@@ -360,7 +364,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **330 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **333 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
