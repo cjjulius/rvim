@@ -156,7 +156,7 @@ quits without saving (like `:q!`).
 > and browse every command with its shortcut — see *Menu bar* below.
 
 ### Command line (ex commands)
-`:w [file]` · `:q` · `:q!` · `:wq` · `:x` · `:e <file>` · `:ls` · `:bn`/`:bp`/`:b <n>`/`:bd` · `:<n>` (goto line) ·
+`:w [file]` · `:q` · `:q!` · `:wq` · `:x` · `:qa`/`:wa`/`:wqa` (all buffers) · `:e <file>` · `:ls` · `:bn`/`:bp`/`:b <n>`/`:bd` · `:<n>` (goto line) ·
 `:s/pat/rep/[g]` (search & replace) · `:theme <name>` · `:set number|nonumber` ·
 `:set relativenumber|norelativenumber` · `:set ft=<lang>` · `:set mouse|nomouse` ·
 `:set autoindent` · `:set expandtab|noexpandtab` · `:set shiftwidth=N` ·
@@ -336,7 +336,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **292 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **295 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

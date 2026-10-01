@@ -48,6 +48,12 @@ pub enum ExCommand {
     Quit { force: bool },
     /// `:wq [file]` / `:x`
     WriteQuit(Option<String>),
+    /// `:qa` / `:qall` / `:qa!` — quit all buffers.
+    QuitAll { force: bool },
+    /// `:wa` / `:wall` — write every modified buffer.
+    WriteAll,
+    /// `:wqa` / `:xa` / `:wqall` — write all buffers, then quit.
+    WriteQuitAll { force: bool },
     /// `:e file`
     Edit(String),
     /// `:theme [name]` / `:colorscheme [name]` — `None` lists/cycles.
@@ -149,6 +155,11 @@ pub fn parse(input: &str) -> ExCommand {
         "q" | "quit" => ExCommand::Quit { force: false },
         "q!" | "quit!" => ExCommand::Quit { force: true },
         "wq" | "x" | "wq!" | "x!" => ExCommand::WriteQuit(arg),
+        "qa" | "qall" | "quita" | "quitall" => ExCommand::QuitAll { force: false },
+        "qa!" | "qall!" | "quita!" | "quitall!" => ExCommand::QuitAll { force: true },
+        "wa" | "wall" => ExCommand::WriteAll,
+        "wqa" | "xa" | "wqall" | "xall" => ExCommand::WriteQuitAll { force: false },
+        "wqa!" | "xa!" | "wqall!" | "xall!" => ExCommand::WriteQuitAll { force: true },
         "e" | "edit" => match arg {
             Some(a) => ExCommand::Edit(a),
             None => ExCommand::Passthrough {
@@ -372,6 +383,18 @@ mod tests {
         assert_eq!(parse("w"), ExCommand::Write(None));
         assert_eq!(parse("w out.rs"), ExCommand::Write(Some("out.rs".into())));
         assert_eq!(parse("write foo"), ExCommand::Write(Some("foo".into())));
+    }
+
+    #[test]
+    fn write_quit_all_variants() {
+        assert_eq!(parse("qa"), ExCommand::QuitAll { force: false });
+        assert_eq!(parse("qall"), ExCommand::QuitAll { force: false });
+        assert_eq!(parse("qa!"), ExCommand::QuitAll { force: true });
+        assert_eq!(parse("wa"), ExCommand::WriteAll);
+        assert_eq!(parse("wall"), ExCommand::WriteAll);
+        assert_eq!(parse("wqa"), ExCommand::WriteQuitAll { force: false });
+        assert_eq!(parse("xa"), ExCommand::WriteQuitAll { force: false });
+        assert_eq!(parse("wqa!"), ExCommand::WriteQuitAll { force: true });
     }
 
     #[test]
