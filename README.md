@@ -158,8 +158,10 @@ override).
 Patterns are **regular expressions**, and the replacement uses **vim-style
 backreferences** — `\1`–`\9` for groups and `&` for the whole match — e.g.
 `:%s/(\w+)=(\w+)/\2=\1/g`. An invalid regex falls back to a literal match.
-`&` (normal mode) repeats the last substitution on the current line. A single
-undo (`u`) reverts an entire substitution.
+`&` (normal mode) repeats the last substitution on the current line. The `i`
+flag makes matching case-insensitive (`:%s/foo/bar/gi`), and `\c`/`\C` in a
+pattern force case-insensitive/sensitive matching for both `:s` and search. A
+single undo (`u`) reverts an entire substitution.
 
 ### Menu bar (press Alt, or F10)
 An auto-hiding menu bar lives at the top of the screen. It's a **teaching aid**
@@ -304,7 +306,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **254 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **257 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

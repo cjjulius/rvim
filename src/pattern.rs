@@ -6,15 +6,29 @@
 
 use regex::Regex;
 
-/// Compile a pattern into a [`Regex`], falling back to a literal match on
-/// invalid regex. Returns `None` for an empty pattern.
+/// Compile a pattern into a [`Regex`], honoring vim's `\c`/`\C` case markers,
+/// falling back to a literal match on invalid regex. `None` for empty input.
 pub fn build(pattern: &str) -> Option<Regex> {
+    build_opts(pattern, false)
+}
+
+/// Like [`build`], but `ignorecase` forces case-insensitive matching (the
+/// `:s///i` flag). An embedded `\C` still forces case-sensitive.
+pub fn build_opts(pattern: &str, ignorecase: bool) -> Option<Regex> {
     if pattern.is_empty() {
         return None;
     }
-    Regex::new(pattern)
+    let force_sensitive = pattern.contains("\\C");
+    let force_insensitive = pattern.contains("\\c");
+    let cleaned = pattern.replace("\\c", "").replace("\\C", "");
+    if cleaned.is_empty() {
+        return None;
+    }
+    let ci = !force_sensitive && (force_insensitive || ignorecase);
+    let prefix = if ci { "(?i)" } else { "" };
+    Regex::new(&format!("{prefix}{cleaned}"))
         .ok()
-        .or_else(|| Regex::new(&regex::escape(pattern)).ok())
+        .or_else(|| Regex::new(&format!("{prefix}{}", regex::escape(&cleaned))).ok())
 }
 
 /// Translate a vim-style `:s` replacement into the `regex` crate's syntax.
@@ -83,6 +97,15 @@ mod tests {
     #[test]
     fn empty_pattern_is_none() {
         assert!(build("").is_none());
+    }
+
+    #[test]
+    fn ignorecase_flag_and_markers() {
+        assert!(build_opts("foo", true).unwrap().is_match("FOO"));
+        assert!(!build_opts("foo", false).unwrap().is_match("FOO"));
+        // \c marker forces case-insensitive; \C forces sensitive.
+        assert!(build("fo\\co").unwrap().is_match("FOO"));
+        assert!(!build_opts("fo\\Co", true).unwrap().is_match("FOO"));
     }
 
     #[test]

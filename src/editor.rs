@@ -496,7 +496,7 @@ impl Editor {
     /// uses regex syntax for captures (`$1`, `${name}`). Returns
     /// `(substitutions, lines_changed)`.
     pub fn substitute(&mut self, spec: &SubstituteSpec) -> (usize, usize) {
-        let Some(re) = pattern::build(&spec.pattern) else {
+        let Some(re) = pattern::build_opts(&spec.pattern, spec.ignorecase) else {
             return (0, 0);
         };
         // Remember for `&` (repeat last substitution).
@@ -4582,10 +4582,26 @@ mod tests {
             pattern: r"\d+".into(),
             replacement: "#".into(),
             global: true,
+            ignorecase: false,
         };
         let (subs, _) = ed.substitute(&spec);
         assert_eq!(subs, 2);
         assert_eq!(ed.buffer.line(0), Some("item# and item#"));
+    }
+
+    #[test]
+    fn substitute_ignorecase_flag() {
+        let mut ed = ed_with("Foo FOO foo");
+        let spec = SubstituteSpec {
+            range: SubRange::CurrentLine,
+            pattern: "foo".into(),
+            replacement: "x".into(),
+            global: true,
+            ignorecase: true,
+        };
+        let (subs, _) = ed.substitute(&spec);
+        assert_eq!(subs, 3);
+        assert_eq!(ed.buffer.line(0), Some("x x x"));
     }
 
     #[test]
@@ -4597,6 +4613,7 @@ mod tests {
             pattern: r"(\d+)-(\d+)-(\d+)".into(),
             replacement: r"\3/\2/\1".into(),
             global: false,
+            ignorecase: false,
         };
         let (subs, _) = ed.substitute(&spec);
         assert_eq!(subs, 1);
@@ -4611,6 +4628,7 @@ mod tests {
             pattern: "foo".into(),
             replacement: "bar".into(),
             global: true,
+            ignorecase: false,
         };
         ed.substitute(&spec); // line 0 -> "bar bar"
         assert_eq!(ed.buffer.line(0), Some("bar bar"));
@@ -4627,6 +4645,7 @@ mod tests {
             pattern: "(b".into(), // invalid regex -> literal
             replacement: "X".into(),
             global: false,
+            ignorecase: false,
         };
         let (subs, _) = ed.substitute(&spec);
         assert_eq!(subs, 1);
@@ -4741,6 +4760,7 @@ mod tests {
             pattern: "foo".into(),
             replacement: "bar".into(),
             global: false,
+            ignorecase: false,
         };
         let (subs, lines) = ed.substitute(&spec);
         assert_eq!((subs, lines), (1, 1));
@@ -4755,6 +4775,7 @@ mod tests {
             pattern: "x".into(),
             replacement: "Q".into(),
             global: true,
+            ignorecase: false,
         };
         let (subs, lines) = ed.substitute(&spec);
         assert_eq!((subs, lines), (3, 2));
@@ -4771,6 +4792,7 @@ mod tests {
             pattern: "z".into(),
             replacement: "Y".into(),
             global: false,
+            ignorecase: false,
         };
         let (subs, lines) = ed.substitute(&spec);
         assert_eq!((subs, lines), (2, 2));
@@ -4788,6 +4810,7 @@ mod tests {
             pattern: "zzz".into(),
             replacement: "!".into(),
             global: true,
+            ignorecase: false,
         };
         let (subs, _) = ed.substitute(&spec);
         assert_eq!(subs, 0);
@@ -4804,6 +4827,7 @@ mod tests {
             pattern: "-".into(),
             replacement: "".into(),
             global: true,
+            ignorecase: false,
         };
         let (subs, _) = ed.substitute(&spec);
         assert_eq!(subs, 2);

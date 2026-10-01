@@ -35,6 +35,8 @@ pub struct SubstituteSpec {
     pub replacement: String,
     /// The `g` flag — replace all occurrences per line.
     pub global: bool,
+    /// The `i` flag — case-insensitive matching.
+    pub ignorecase: bool,
 }
 
 /// A parsed ex-command.
@@ -205,6 +207,7 @@ fn parse_substitute(trimmed: &str) -> Option<ExCommand> {
         pattern: pattern.to_string(),
         replacement: replacement.to_string(),
         global: flags.contains('g'),
+        ignorecase: flags.contains('i'),
     }))
 }
 
@@ -416,6 +419,21 @@ mod tests {
                 pattern: "foo".into(),
                 replacement: "bar".into(),
                 global: false,
+                ignorecase: false,
+            })
+        );
+    }
+
+    #[test]
+    fn substitute_ignorecase_flag() {
+        assert_eq!(
+            parse("s/foo/bar/gi"),
+            ExCommand::Substitute(SubstituteSpec {
+                range: SubRange::CurrentLine,
+                pattern: "foo".into(),
+                replacement: "bar".into(),
+                global: true,
+                ignorecase: true,
             })
         );
     }
@@ -429,6 +447,7 @@ mod tests {
                 pattern: "foo".into(),
                 replacement: "bar".into(),
                 global: true,
+                ignorecase: false,
             })
         );
     }
@@ -442,6 +461,7 @@ mod tests {
                 pattern: "x".into(),
                 replacement: "y".into(),
                 global: false,
+                ignorecase: false,
             })
         );
     }
@@ -455,6 +475,7 @@ mod tests {
                 pattern: "a".into(),
                 replacement: "b".into(),
                 global: true,
+                ignorecase: false,
             })
         );
     }
@@ -468,6 +489,7 @@ mod tests {
                 pattern: "drop".into(),
                 replacement: "".into(),
                 global: false,
+                ignorecase: false,
             })
         );
     }
