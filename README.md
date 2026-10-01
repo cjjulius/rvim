@@ -111,6 +111,9 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
   (paste a register), `Ctrl-t`/`Ctrl-d` (indent/dedent line), `Tab`.
 - **Keyword completion:** `Ctrl-n` / `Ctrl-p` complete the word before the cursor
   from other words in the buffer, cycling forward / backward through the matches.
+- **Reflow:** `gq{motion}` / `gqq` (and `gw`) rewrap lines to `:set textwidth=N`
+  (default 79), preserving the first line's indent — great for comments and prose.
+  Works on a visual selection too.
 - **Repeat:** `.` repeats the last change (a delete, paste, replace, indent, or a
   whole insert/change session).
 - **Numbers:** `Ctrl-a` / `Ctrl-x` increment / decrement the number under (or
@@ -170,6 +173,7 @@ quits without saving (like `:q!`).
 `:set relativenumber|norelativenumber` · `:set ft=<lang>` · `:set mouse|nomouse` ·
 `:set autoindent` · `:set expandtab|noexpandtab` · `:set shiftwidth=N` ·
 `:set tabstop=N` · `:set scrolloff=N` (keep N lines of context around the cursor) ·
+`:set textwidth=N` (wrap column for `gq`) ·
 `:set ignorecase|noignorecase` · `:set smartcase|nosmartcase` · `:set incsearch|noincsearch` ·
 `:noh` / `:set hlsearch|nohlsearch` · `:sort[!] [u]` ·
 `:[range]m[ove] {addr}` / `:[range]t`|`:[range]co[py] {addr}` (move / copy lines) ·
@@ -356,7 +360,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **326 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **330 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

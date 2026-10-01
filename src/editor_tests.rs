@@ -2062,6 +2062,48 @@
     }
 
     #[test]
+    fn reflow_wraps_current_line_at_textwidth() {
+        let mut ed = ed_with("the quick brown fox jumps over the lazy dog");
+        ed.textwidth = 20;
+        ed.handle_key(key('g'));
+        ed.handle_key(key('q'));
+        ed.handle_key(key('q')); // gqq
+        for row in 0..ed.buffer.line_count() {
+            assert!(ed.buffer.line(row).unwrap().chars().count() <= 20);
+        }
+        let joined: String = (0..ed.buffer.line_count())
+            .map(|r| ed.buffer.line(r).unwrap().to_string())
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert_eq!(joined, "the quick brown fox jumps over the lazy dog");
+    }
+
+    #[test]
+    fn reflow_joins_and_wraps_range() {
+        let mut ed = ed_with("alpha beta\ngamma delta\nepsilon");
+        ed.textwidth = 12;
+        ed.handle_key(key('g'));
+        ed.handle_key(key('q'));
+        ed.handle_key(key('G')); // gqG
+        assert_eq!(ed.buffer.line(0), Some("alpha beta"));
+        assert_eq!(ed.buffer.line(1), Some("gamma delta"));
+        assert_eq!(ed.buffer.line(2), Some("epsilon"));
+    }
+
+    #[test]
+    fn reflow_preserves_indent() {
+        let mut ed = ed_with("    one two three four five");
+        ed.textwidth = 14;
+        ed.handle_key(key('g'));
+        ed.handle_key(key('q'));
+        ed.handle_key(key('q'));
+        // Each wrapped line keeps the four-space indent.
+        for row in 0..ed.buffer.line_count() {
+            assert!(ed.buffer.line(row).unwrap().starts_with("    "));
+        }
+    }
+
+    #[test]
     fn changelist_navigates_edit_positions() {
         let mut ed = ed_with("one\ntwo\nthree\nfour");
         ed.cursor = Position::new(0, 0);
