@@ -118,6 +118,9 @@ pub enum ExCommand {
     ShiftLines { range: SubRange, dedent: bool, times: usize },
     /// `:[range]j[oin][!]` — join the range's lines (`!` keeps whitespace, like `gJ`).
     JoinLines { range: SubRange, raw: bool },
+    /// `:[addr]pu[t] [reg]` — put a register's text as lines after `dest`
+    /// (`register` is `None` for the unnamed register).
+    PutRegister { dest: LineAddr, register: Option<char> },
     /// `:ls` / `:buffers` — list open buffers.
     BufferList,
     /// `:bn` / `:bnext`
@@ -159,6 +162,11 @@ pub fn parse(input: &str) -> ExCommand {
     // Line delete/yank/shift, possibly with a leading range (`1,5d`, `%y`, `>>`).
     if let Some(op) = parse_line_op(trimmed) {
         return op;
+    }
+
+    // Put a register, with an optional leading address (`put`, `0put`, `3put x`).
+    if let Some(p) = parse_put(trimmed) {
+        return p;
     }
 
     // Pure line number → goto.
@@ -414,6 +422,26 @@ fn parse_line_op(trimmed: &str) -> Option<ExCommand> {
         "j" | "join" => Some(ExCommand::JoinLines { range, raw: bang }),
         _ => None,
     }
+}
+
+/// Parse `:[addr]pu[t] [reg]`. Returns `None` (so the caller falls through)
+/// unless the `put`/`pu` word is present.
+fn parse_put(trimmed: &str) -> Option<ExCommand> {
+    let i = range_prefix_len(trimmed);
+    let addr_str = &trimmed[..i];
+    let after = trimmed[i..].trim_start();
+    let word: String = after.chars().take_while(|c| c.is_ascii_alphabetic()).collect();
+    if word != "put" && word != "pu" {
+        return None;
+    }
+    let rest = after[word.len()..].trim();
+    let register = rest.chars().next();
+    let dest = if addr_str.is_empty() {
+        LineAddr::Current
+    } else {
+        parse_addr(addr_str)?
+    };
+    Some(ExCommand::PutRegister { dest, register })
 }
 
 fn parse_addr(s: &str) -> Option<LineAddr> {
@@ -713,6 +741,26 @@ mod tests {
     #[test]
     fn edit() {
         assert_eq!(parse("e main.rs"), ExCommand::Edit("main.rs".into()));
+    }
+
+    #[test]
+    fn put_variants() {
+        assert_eq!(
+            parse("put"),
+            ExCommand::PutRegister { dest: LineAddr::Current, register: None }
+        );
+        assert_eq!(
+            parse("pu a"),
+            ExCommand::PutRegister { dest: LineAddr::Current, register: Some('a') }
+        );
+        assert_eq!(
+            parse("0put"),
+            ExCommand::PutRegister { dest: LineAddr::Num(0), register: None }
+        );
+        assert_eq!(
+            parse("3put x"),
+            ExCommand::PutRegister { dest: LineAddr::Num(3), register: Some('x') }
+        );
     }
 
     #[test]

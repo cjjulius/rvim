@@ -485,6 +485,9 @@ impl App {
             ExCommand::JoinLines { range, raw } => {
                 self.editor.join_lines(range, raw);
             }
+            ExCommand::PutRegister { dest, register } => {
+                self.editor.put_register(dest, register);
+            }
             ExCommand::Sort { reverse, unique } => {
                 let before = self.editor.buffer.line_count();
                 self.editor.sort_buffer(reverse, unique);
@@ -716,6 +719,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:[range]m {{addr}}   move lines    :[range]t/co {{addr}}  copy lines\n\
          \t:[range]d / y       delete / yank lines   :[range]> / <  shift lines\n\
          \t:[range]j[!]        join lines (! keeps whitespace)\n\
+         \t:[addr]pu [reg]     put a register as lines after addr\n\
          \t:noh               clear search highlight\n\
          \t:{{n}}               jump to line n\n\
          \tplugin commands:   {plugins}\n",

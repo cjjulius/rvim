@@ -768,6 +768,28 @@ impl Editor {
         self.scroll_into_view();
     }
 
+    /// `:[addr]pu[t] [reg]` — put a register's text as whole lines after `dest`
+    /// (vim's `:put` is always linewise). The cursor lands on the last line put.
+    pub fn put_register(&mut self, dest: LineAddr, register: Option<char>) {
+        let reg = self.register_text(register.unwrap_or('"'));
+        if reg.text.is_empty() {
+            self.message = "Nothing to put".into();
+            return;
+        }
+        let dest_ins = self.resolve_dest(dest);
+        let lines: Vec<&str> = reg.text.split('\n').collect();
+        self.checkpoint();
+        for (k, line) in lines.iter().enumerate() {
+            self.buffer.insert_line(dest_ins + k, *line);
+        }
+        self.cursor.row = (dest_ins + lines.len()).saturating_sub(1);
+        self.cursor.col = 0;
+        self.move_first_nonblank();
+        self.clamp_cursor(false);
+        self.scroll_into_view();
+        self.message = format!("{} line(s) put", lines.len());
+    }
+
     /// `:[range]j[oin]` — join the range's lines into one. `raw` keeps surrounding
     /// whitespace (like `gJ`); otherwise whitespace is collapsed to a space (`J`).
     /// A single-line range joins the current line with the one below it.
