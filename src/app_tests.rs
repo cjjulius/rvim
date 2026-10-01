@@ -84,6 +84,28 @@
     }
 
     #[test]
+    fn help_preserves_current_buffer() {
+        let path = std::env::temp_dir().join(format!("rvim_help_{}.txt", std::process::id()));
+        std::fs::write(&path, "my work\n").unwrap();
+        let mut app = App::open(path.to_str().unwrap()).unwrap();
+        app.run_ex("help");
+        assert!(app.editor.buffer.line(0).unwrap().contains("quick help"));
+        assert_eq!(app.others.len(), 1); // original buffer preserved, not destroyed
+        app.run_ex("bd"); // close help -> back to the file
+        assert_eq!(app.editor.buffer.line(0), Some("my work"));
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn help_does_not_stack() {
+        let mut app = App::new();
+        app.run_ex("help");
+        let n = app.others.len();
+        app.run_ex("help"); // already in help -> no extra copy
+        assert_eq!(app.others.len(), n);
+    }
+
+    #[test]
     fn reload_discards_changes_with_force() {
         let path = std::env::temp_dir()
             .join(format!("rvim_reload_{}.txt", std::process::id()));

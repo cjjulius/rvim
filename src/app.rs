@@ -744,12 +744,28 @@ impl App {
     }
 
     fn open_help(&mut self) {
+        // If help is already the active buffer, don't stack another copy.
+        let already_help = self.editor.buffer.path().is_none()
+            && self
+                .editor
+                .buffer
+                .line(0)
+                .map(|l| l.contains("quick help"))
+                .unwrap_or(false);
+        if already_help {
+            return;
+        }
         let help = help_text(&self.themes.names(), &self.plugins.all_commands());
-        self.editor.buffer = crate::buffer::Buffer::from_text(&help);
-        self.editor.set_language(Language::PlainText);
-        self.editor.cursor = crate::buffer::Position::default();
-        self.editor.top = 0;
-        self.editor.message = "help — :q to close".into();
+        let mut hed = Editor::new();
+        hed.buffer = crate::buffer::Buffer::from_text(&help);
+        hed.set_language(Language::PlainText);
+        self.inherit_prefs(&mut hed);
+        // Preserve the current buffer (help used to overwrite it, losing the file).
+        // Put it at the front so `:bd` returns straight to it.
+        self.remember_alternate();
+        let old = std::mem::replace(&mut self.editor, hed);
+        self.others.insert(0, old);
+        self.editor.message = "help — :bd to close".into();
     }
 }
 
@@ -761,7 +777,7 @@ impl Default for App {
 
 fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
     format!(
-        "rvim {ver} — quick help  (press :q to close)\n\
+        "rvim {ver} — quick help  (press :bd to close)\n\
          \n\
          MODES\n\
          \ti / a / I / A      insert (before/after/line-start/line-end)\n\

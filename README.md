@@ -54,7 +54,8 @@ Convenience launchers (add the repo root to your PATH, or call them directly):
 .\scripts\rvim.ps1 --theme cobalt examples\sample.tsql
 ```
 
-Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
+Press `:help` inside the editor for a keybinding cheatsheet (it opens in its own
+buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
 
 ---
 
@@ -374,7 +375,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **355 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **357 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
