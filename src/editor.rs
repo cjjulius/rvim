@@ -95,6 +95,10 @@ pub struct Editor {
     marks: HashMap<char, Position>,
     pending_mark: Option<PendingMark>,
     previous_pos: Position,
+    /// Jump history for `Ctrl-o` / `Ctrl-i`; `jump_idx` points at the current
+    /// slot (== `jumps.len()` when at the live position).
+    jumps: Vec<Position>,
+    jump_idx: usize,
     recording: Option<char>,
     macros: HashMap<char, Vec<KeyEvent>>,
     last_macro: Option<char>,
@@ -170,6 +174,8 @@ impl Editor {
             marks: HashMap::new(),
             pending_mark: None,
             previous_pos: Position::default(),
+            jumps: Vec::new(),
+            jump_idx: 0,
             recording: None,
             macros: HashMap::new(),
             last_macro: None,
@@ -371,9 +377,45 @@ impl Editor {
     }
 
     /// Remember the current position as the "previous" location (the `` `` ``
-    /// mark) before a jump.
+    /// mark) and push it onto the jump list, before a jump.
     fn record_jump(&mut self) {
         self.previous_pos = self.cursor;
+        // Drop any forward history, then append this position.
+        self.jumps.truncate(self.jump_idx);
+        if self.jumps.last() != Some(&self.cursor) {
+            self.jumps.push(self.cursor);
+        }
+        self.jump_idx = self.jumps.len();
+    }
+
+    /// `Ctrl-o` — go to an older position in the jump list.
+    fn jump_back(&mut self) {
+        if self.jump_idx == 0 {
+            return;
+        }
+        // When leaving the live position, remember it so `Ctrl-i` can return.
+        if self.jump_idx == self.jumps.len() {
+            self.jumps.push(self.cursor);
+        }
+        self.jump_idx -= 1;
+        if let Some(&pos) = self.jumps.get(self.jump_idx) {
+            self.cursor = pos;
+            self.clamp_cursor(false);
+            self.scroll_into_view();
+        }
+    }
+
+    /// `Ctrl-i` — go to a newer position in the jump list.
+    fn jump_forward(&mut self) {
+        if self.jump_idx + 1 >= self.jumps.len() {
+            return;
+        }
+        self.jump_idx += 1;
+        if let Some(&pos) = self.jumps.get(self.jump_idx) {
+            self.cursor = pos;
+            self.clamp_cursor(false);
+            self.scroll_into_view();
+        }
     }
 
     /// Jump to mark `c` (or the previous position for `` ` ``/`'`). `line_wise`
@@ -958,8 +1000,22 @@ impl Editor {
                     self.scroll_view(-1);
                     return Action::None;
                 }
+                KeyCode::Char('o') => {
+                    self.jump_back();
+                    return Action::None;
+                }
+                KeyCode::Char('i') => {
+                    self.jump_forward();
+                    return Action::None;
+                }
                 _ => {}
             }
+        }
+
+        // Ctrl-i arrives as Tab in most terminals -> jump forward.
+        if key.code == KeyCode::Tab {
+            self.jump_forward();
+            return Action::None;
         }
 
         let code = key.code;
@@ -3172,6 +3228,38 @@ mod tests {
         ed.handle_key(key('G')); // delete rows 1..=3
         assert_eq!(ed.buffer.line_count(), 1);
         assert_eq!(ed.buffer.line(0), Some("l0"));
+    }
+
+    fn ctrl(c: char) -> KeyEvent {
+        KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL)
+    }
+
+    #[test]
+    fn jumplist_back_and_forward() {
+        let mut ed = ed_with("l0\nl1\nl2\nl3\nl4\nl5");
+        // Jump around with G/gg (both record jumps).
+        ed.handle_key(key('G')); // from (0,0) to last line (row 5); records 0
+        assert_eq!(ed.cursor.row, 5);
+        ed.handle_key(key('g'));
+        ed.handle_key(key('g')); // to row 0; records 5
+        assert_eq!(ed.cursor.row, 0);
+        // Ctrl-o goes back to the previous jump origin (row 5).
+        ed.handle_key(ctrl('o'));
+        assert_eq!(ed.cursor.row, 5);
+        // Ctrl-o again -> row 0 (the earlier origin).
+        ed.handle_key(ctrl('o'));
+        assert_eq!(ed.cursor.row, 0);
+        // Ctrl-i goes forward again.
+        ed.handle_key(ctrl('i'));
+        assert_eq!(ed.cursor.row, 5);
+    }
+
+    #[test]
+    fn jumplist_back_with_no_history_is_noop() {
+        let mut ed = ed_with("a\nb\nc");
+        ed.cursor = Position::new(1, 0);
+        ed.handle_key(ctrl('o')); // nothing recorded yet
+        assert_eq!(ed.cursor.row, 1);
     }
 
     #[test]
