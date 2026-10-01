@@ -276,6 +276,18 @@ impl Buffer {
         true
     }
 
+    /// Join `row + 1` onto `row` with no space inserted (vim `gJ`), returning
+    /// true if a join happened.
+    pub fn join_line_raw(&mut self, row: usize) -> bool {
+        if row + 1 >= self.lines.len() {
+            return false;
+        }
+        let next = self.lines.remove(row + 1);
+        self.lines[row].push_str(&next);
+        self.touch();
+        true
+    }
+
     /// Insert a whole line at `row`.
     pub fn insert_line(&mut self, row: usize, text: impl Into<String>) {
         let row = row.min(self.lines.len());

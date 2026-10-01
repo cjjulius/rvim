@@ -56,6 +56,12 @@ pub enum ExCommand {
     ToggleRelativeNumbers(bool),
     /// `:set autoindent` / `:set noautoindent`
     ToggleAutoIndent(bool),
+    /// `:set expandtab` / `:set noexpandtab`
+    ToggleExpandTab(bool),
+    /// `:set shiftwidth=N`
+    SetShiftWidth(usize),
+    /// `:set tabstop=N`
+    SetTabStop(usize),
     /// `:set ft=<lang>`
     SetFiletype(String),
     /// `:help`
@@ -236,6 +242,8 @@ fn parse_set(rest: &str) -> ExCommand {
         "nohlsearch" | "nohls" => ExCommand::ToggleHlSearch(false),
         "autoindent" | "ai" => ExCommand::ToggleAutoIndent(true),
         "noautoindent" | "noai" => ExCommand::ToggleAutoIndent(false),
+        "expandtab" | "et" => ExCommand::ToggleExpandTab(true),
+        "noexpandtab" | "noet" => ExCommand::ToggleExpandTab(false),
         _ => {
             if let Some(v) = opt
                 .strip_prefix("ft=")
@@ -243,13 +251,33 @@ fn parse_set(rest: &str) -> ExCommand {
                 .or_else(|| opt.strip_prefix("syntax="))
             {
                 ExCommand::SetFiletype(v.trim().to_string())
-            } else {
-                ExCommand::Passthrough {
-                    name: "set".into(),
-                    args: opt.to_string(),
+            } else if let Some(v) = opt
+                .strip_prefix("shiftwidth=")
+                .or_else(|| opt.strip_prefix("sw="))
+            {
+                match v.trim().parse::<usize>() {
+                    Ok(n) if n > 0 => ExCommand::SetShiftWidth(n),
+                    _ => unknown_set(opt),
                 }
+            } else if let Some(v) = opt
+                .strip_prefix("tabstop=")
+                .or_else(|| opt.strip_prefix("ts="))
+            {
+                match v.trim().parse::<usize>() {
+                    Ok(n) if n > 0 => ExCommand::SetTabStop(n),
+                    _ => unknown_set(opt),
+                }
+            } else {
+                unknown_set(opt)
             }
         }
+    }
+}
+
+fn unknown_set(opt: &str) -> ExCommand {
+    ExCommand::Passthrough {
+        name: "set".into(),
+        args: opt.to_string(),
     }
 }
 
@@ -312,6 +340,16 @@ mod tests {
         assert_eq!(parse("set autoindent"), ExCommand::ToggleAutoIndent(true));
         assert_eq!(parse("set ai"), ExCommand::ToggleAutoIndent(true));
         assert_eq!(parse("set noai"), ExCommand::ToggleAutoIndent(false));
+    }
+
+    #[test]
+    fn set_indentation_options() {
+        assert_eq!(parse("set expandtab"), ExCommand::ToggleExpandTab(true));
+        assert_eq!(parse("set noet"), ExCommand::ToggleExpandTab(false));
+        assert_eq!(parse("set shiftwidth=2"), ExCommand::SetShiftWidth(2));
+        assert_eq!(parse("set sw=8"), ExCommand::SetShiftWidth(8));
+        assert_eq!(parse("set tabstop=4"), ExCommand::SetTabStop(4));
+        assert_eq!(parse("set ts=2"), ExCommand::SetTabStop(2));
     }
 
     #[test]

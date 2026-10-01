@@ -58,6 +58,12 @@ pub struct Editor {
     pub hlsearch: bool,
     /// Whether Enter in insert mode copies the previous line's indentation.
     pub autoindent: bool,
+    /// Insert spaces instead of a tab character (`:set expandtab`).
+    pub expandtab: bool,
+    /// Columns inserted/removed by `>>`/`<<` and `=` (`:set shiftwidth`).
+    pub shiftwidth: usize,
+    /// Visual width of a tab, and spaces inserted by Tab (`:set tabstop`).
+    pub tabstop: usize,
     pub view_rows: usize,
     pub view_cols: usize,
 
@@ -119,8 +125,6 @@ enum PendingMark {
     JumpLine,
 }
 
-/// Spaces inserted/removed by the `>>` / `<<` shift operators.
-const SHIFT_WIDTH: usize = 4;
 
 impl Editor {
     /// A fresh editor over an empty scratch buffer.
@@ -138,6 +142,9 @@ impl Editor {
             relative_numbers: false,
             hlsearch: true,
             autoindent: true,
+            expandtab: true,
+            shiftwidth: 4,
+            tabstop: 4,
             view_rows: 24,
             view_cols: 80,
             line_kind: LineKind::Ex,
@@ -731,8 +738,14 @@ impl Editor {
             }
             KeyCode::Backspace => self.backspace(),
             KeyCode::Tab => {
-                self.buffer.insert_str(self.cursor, "    ");
-                self.cursor.col += 4;
+                if self.expandtab {
+                    let n = self.tabstop.max(1);
+                    self.buffer.insert_str(self.cursor, &" ".repeat(n));
+                    self.cursor.col += n;
+                } else {
+                    self.buffer.insert_char(self.cursor, '\t');
+                    self.cursor.col += 1;
+                }
             }
             KeyCode::Left => self.move_left(1),
             KeyCode::Right => self.move_right(1, true),
@@ -1216,6 +1229,10 @@ impl Editor {
                 KeyCode::Char('~') => self.pending_case = Some(CaseOp::Toggle),
                 KeyCode::Char('*') => self.search_word(true, false),
                 KeyCode::Char('#') => self.search_word(false, false),
+                KeyCode::Char('J') => {
+                    self.checkpoint();
+                    self.buffer.join_line_raw(self.cursor.row);
+                }
                 KeyCode::Char('c') => {
                     if let Some((s, e)) = self.selection() {
                         self.toggle_comment_lines(s.row, e.row);
@@ -1997,16 +2014,22 @@ impl Editor {
 
     fn indent_line(&mut self, row: usize) {
         let line = self.buffer.line(row).unwrap_or("").to_string();
-        self.buffer.set_line(row, format!("{}{line}", " ".repeat(SHIFT_WIDTH)));
+        let prefix = if self.expandtab {
+            " ".repeat(self.shiftwidth)
+        } else {
+            "\t".to_string()
+        };
+        self.buffer.set_line(row, format!("{prefix}{line}"));
     }
 
     fn dedent_line(&mut self, row: usize) {
+        let sw = self.shiftwidth.max(1);
         let line = self.buffer.line(row).unwrap_or("");
         let mut removed = 0;
         let new: String = {
             let mut chars = line.chars().peekable();
-            // Remove up to SHIFT_WIDTH leading spaces, or a single leading tab.
-            while removed < SHIFT_WIDTH {
+            // Remove up to `shiftwidth` leading spaces, or a single leading tab.
+            while removed < sw {
                 match chars.peek() {
                     Some(' ') => {
                         chars.next();
@@ -2014,7 +2037,7 @@ impl Editor {
                     }
                     Some('\t') if removed == 0 => {
                         chars.next();
-                        removed += SHIFT_WIDTH;
+                        removed += sw;
                     }
                     _ => break,
                 }
@@ -3149,6 +3172,53 @@ mod tests {
         ed.handle_key(key('G')); // delete rows 1..=3
         assert_eq!(ed.buffer.line_count(), 1);
         assert_eq!(ed.buffer.line(0), Some("l0"));
+    }
+
+    #[test]
+    fn shiftwidth_controls_indent() {
+        let mut ed = ed_with("code");
+        ed.shiftwidth = 2;
+        ed.handle_key(key('>'));
+        ed.handle_key(key('>'));
+        assert_eq!(ed.buffer.line(0), Some("  code")); // 2 spaces
+        ed.handle_key(key('<'));
+        ed.handle_key(key('<'));
+        assert_eq!(ed.buffer.line(0), Some("code"));
+    }
+
+    #[test]
+    fn noexpandtab_indents_with_tab() {
+        let mut ed = ed_with("code");
+        ed.expandtab = false;
+        ed.handle_key(key('>'));
+        ed.handle_key(key('>'));
+        assert_eq!(ed.buffer.line(0), Some("\tcode"));
+    }
+
+    #[test]
+    fn insert_tab_respects_expandtab_and_tabstop() {
+        let mut ed = ed_with("");
+        ed.tabstop = 3;
+        ed.handle_key(key('i'));
+        ed.handle_key(special(KeyCode::Tab));
+        assert_eq!(ed.buffer.line(0), Some("   ")); // 3 spaces
+        let mut ed2 = ed_with("");
+        ed2.expandtab = false;
+        ed2.handle_key(key('i'));
+        ed2.handle_key(special(KeyCode::Tab));
+        assert_eq!(ed2.buffer.line(0), Some("\t"));
+    }
+
+    #[test]
+    fn gj_joins_without_space() {
+        let mut ed = ed_with("foo\nbar");
+        ed.handle_key(key('g'));
+        ed.handle_key(key('J'));
+        assert_eq!(ed.buffer.line(0), Some("foobar"));
+        // plain J inserts a space
+        let mut ed2 = ed_with("foo\nbar");
+        ed2.handle_key(key('J'));
+        assert_eq!(ed2.buffer.line(0), Some("foo bar"));
     }
 
     #[test]

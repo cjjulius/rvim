@@ -69,8 +69,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 - **Scrolling:** `zz`/`zt`/`zb` (center/top/bottom the current line),
   `Ctrl-e`/`Ctrl-y` (scroll one line).
 - **Editing:** `i a I A o O`, `x`/`X`, `r<c>` (with count), `~` (toggle case),
-  `s`/`S`, `D`/`C`, `Y` (yank line), `p`/`P`, `J` (join), `>>`/`<<` (indent),
-  counts (e.g. `5j`).
+  `s`/`S`, `D`/`C`, `Y` (yank line), `p`/`P`, `J`/`gJ` (join with/without space),
+  `>>`/`<<` (indent, honoring `shiftwidth`), counts (e.g. `5j`).
 - **Operators + motions:** `d`, `y`, `c` compose with motions — `dw`/`dW`/`yw`,
   `d$`/`y$`, `d0`, `de`/`dE`, `dj`/`dk`, `dG`/`dgg` (to EOF/BOF), `d}` and the
   doubled `dd`/`yy`/`cc`. `cw`/`cW` act like `ce`/`cE` (vim's special case).
@@ -128,8 +128,9 @@ override).
 `:w [file]` · `:q` · `:q!` · `:wq` · `:x` · `:e <file>` · `:ls` · `:bn`/`:bp`/`:b <n>`/`:bd` · `:<n>` (goto line) ·
 `:s/pat/rep/[g]` (search & replace) · `:theme <name>` · `:set number|nonumber` ·
 `:set relativenumber|norelativenumber` · `:set ft=<lang>` · `:set mouse|nomouse` ·
-`:noh` / `:set hlsearch|nohlsearch` · `:sort[!] [u]` · `:source <file>` ·
-`:help` · `:version`
+`:set autoindent` · `:set expandtab|noexpandtab` · `:set shiftwidth=N` ·
+`:set tabstop=N` · `:noh` / `:set hlsearch|nohlsearch` · `:sort[!] [u]` ·
+`:source <file>` · `:help` · `:version`
 
 **Search & replace** (`:s`) supports ranges and the `g` (global) flag:
 
@@ -289,7 +290,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **218 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **223 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
