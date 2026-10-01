@@ -118,7 +118,9 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 - **Search:** `/pattern`, `?pattern`, `n`/`N` (wraps around); patterns are
   **regular expressions** (e.g. `/\bfn\s+\w+`). `*`/`#` search the word under the
   cursor (whole word) forward/back; `g*`/`g#` do so as a substring. All matches
-  are highlighted — clear with `:noh` (`:set hlsearch`/`nohlsearch`).
+  are highlighted — clear with `:noh` (`:set hlsearch`/`nohlsearch`). Case
+  handling follows `:set ignorecase` and `:set smartcase` (an uppercase letter in
+  the pattern forces a case-sensitive search), with per-pattern `\c`/`\C` overrides.
 
 ### Global command (`:g` / `:v`)
 Run a command on every line matching a pattern:
@@ -156,6 +158,7 @@ quits without saving (like `:q!`).
 `:set relativenumber|norelativenumber` · `:set ft=<lang>` · `:set mouse|nomouse` ·
 `:set autoindent` · `:set expandtab|noexpandtab` · `:set shiftwidth=N` ·
 `:set tabstop=N` · `:set scrolloff=N` (keep N lines of context around the cursor) ·
+`:set ignorecase|noignorecase` · `:set smartcase|nosmartcase` ·
 `:noh` / `:set hlsearch|nohlsearch` · `:sort[!] [u]` ·
 `:source <file>` · `:help` · `:version`
 
@@ -326,7 +329,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **280 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **285 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

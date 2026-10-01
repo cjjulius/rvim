@@ -56,6 +56,11 @@ pub struct Editor {
     /// Whether search matches are currently highlighted (`:noh` clears it until
     /// the next search).
     pub hlsearch: bool,
+    /// Case-insensitive search (`:set ignorecase`).
+    pub ignorecase: bool,
+    /// With `ignorecase`, searches stay insensitive only while the pattern is
+    /// all-lowercase; an uppercase letter makes it case-sensitive (`:set smartcase`).
+    pub smartcase: bool,
     /// Whether Enter in insert mode copies the previous line's indentation.
     pub autoindent: bool,
     /// Insert spaces instead of a tab character (`:set expandtab`).
@@ -179,6 +184,8 @@ impl Editor {
             show_line_numbers: true,
             relative_numbers: false,
             hlsearch: true,
+            ignorecase: false,
+            smartcase: false,
             autoindent: true,
             expandtab: true,
             shiftwidth: 4,
@@ -373,9 +380,23 @@ impl Editor {
         }
     }
 
+    /// Whether a search for `pat` should ignore case, given the `ignorecase` /
+    /// `smartcase` options. With smartcase, any uppercase letter in the pattern
+    /// forces a case-sensitive search.
+    fn effective_ignorecase(&self, pat: &str) -> bool {
+        if !self.ignorecase {
+            return false;
+        }
+        if self.smartcase && pat.chars().any(|c| c.is_uppercase()) {
+            return false;
+        }
+        true
+    }
+
     /// Set the search pattern and (re)compile its regex, enabling highlight.
     fn set_search(&mut self, pat: String) {
-        self.search_re = pattern::build(&pat);
+        let ic = self.effective_ignorecase(&pat);
+        self.search_re = pattern::build_opts(&pat, ic);
         self.last_search = pat;
         self.hlsearch = true;
     }
@@ -562,7 +583,10 @@ impl Editor {
     /// uses regex syntax for captures (`$1`, `${name}`). Returns
     /// `(substitutions, lines_changed)`.
     pub fn substitute(&mut self, spec: &SubstituteSpec) -> (usize, usize) {
-        let Some(re) = pattern::build_opts(&spec.pattern, spec.ignorecase) else {
+        // The `/i` flag forces insensitive; otherwise fall back to the
+        // ignorecase/smartcase options (as vim's `:s` does).
+        let ic = spec.ignorecase || self.effective_ignorecase(&spec.pattern);
+        let Some(re) = pattern::build_opts(&spec.pattern, ic) else {
             return (0, 0);
         };
         // Remember for `&` (repeat last substitution).
@@ -3272,7 +3296,8 @@ impl Editor {
         }
         // Ensure a compiled regex exists (e.g. after `n` with no prior compile).
         if self.search_re.is_none() {
-            self.search_re = pattern::build(&self.last_search);
+            let ic = self.effective_ignorecase(&self.last_search);
+            self.search_re = pattern::build_opts(&self.last_search, ic);
         }
         let Some(re) = self.search_re.clone() else {
             return;
@@ -5273,6 +5298,52 @@ mod tests {
         ed.handle_key(key('g'));
         ed.handle_key(key('*'));
         assert_eq!(ed.cursor.col, 4);
+    }
+
+    #[test]
+    fn effective_ignorecase_logic() {
+        let mut ed = ed_with("x");
+        assert!(!ed.effective_ignorecase("foo")); // option off
+        ed.ignorecase = true;
+        assert!(ed.effective_ignorecase("foo")); // on, all lowercase
+        assert!(ed.effective_ignorecase("FOO")); // on, no smartcase -> still insensitive
+        ed.smartcase = true;
+        assert!(ed.effective_ignorecase("foo")); // smartcase + lowercase -> insensitive
+        assert!(!ed.effective_ignorecase("Foo")); // smartcase + uppercase -> sensitive
+    }
+
+    #[test]
+    fn ignorecase_search_finds_other_case() {
+        let mut ed = ed_with("aaa\nBETA\nccc");
+        ed.ignorecase = true;
+        ed.set_search("beta".into());
+        ed.search_repeat(true);
+        assert_eq!(ed.cursor.row, 1); // matched BETA from a lowercase pattern
+    }
+
+    #[test]
+    fn smartcase_uppercase_pattern_is_sensitive() {
+        let mut ed = ed_with("aaa\nbeta\nBETA");
+        ed.ignorecase = true;
+        ed.smartcase = true;
+        ed.set_search("BETA".into());
+        ed.search_repeat(true);
+        assert_eq!(ed.cursor.row, 2); // skips lowercase "beta", lands on exact "BETA"
+    }
+
+    #[test]
+    fn ignorecase_applies_to_substitute() {
+        let mut ed = ed_with("Foo foo FOO");
+        ed.ignorecase = true;
+        let spec = crate::command::SubstituteSpec {
+            range: crate::command::SubRange::CurrentLine,
+            pattern: "foo".into(),
+            replacement: "x".into(),
+            global: true,
+            ignorecase: false, // no /i flag; the option should still apply
+        };
+        ed.substitute(&spec);
+        assert_eq!(ed.buffer.line(0), Some("x x x"));
     }
 
     #[test]

@@ -421,6 +421,16 @@ impl App {
                     self.editor.message = "search highlight cleared".into();
                 }
             }
+            ExCommand::ToggleIgnoreCase(on) => {
+                self.editor.ignorecase = on;
+                self.editor.message =
+                    format!("ignorecase {}", if on { "on" } else { "off" });
+            }
+            ExCommand::ToggleSmartCase(on) => {
+                self.editor.smartcase = on;
+                self.editor.message =
+                    format!("smartcase {}", if on { "on" } else { "off" });
+            }
             ExCommand::Sort { reverse, unique } => {
                 let before = self.editor.buffer.line_count();
                 self.editor.sort_buffer(reverse, unique);
@@ -622,6 +632,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set number|nonumber   :set relativenumber|nornu\n\
          \t:set autoindent|noai   :set expandtab|noet\n\
          \t:set shiftwidth=N  :set tabstop=N  :set scrolloff=N\n\
+         \t:set ignorecase|noic   :set smartcase|noscs   (search case)\n\
          \t:set ft=<lang>     rust tsql pgsql trino snowflake z80 sql\n\
          \t:set mouse|nomouse toggle mouse support\n\
          \t:sort[!] [u]       sort lines (! reverse, u unique)\n\

@@ -87,6 +87,11 @@ pub enum ExCommand {
     },
     /// `:noh` / `:set hlsearch|nohlsearch` — toggle search-match highlighting.
     ToggleHlSearch(bool),
+    /// `:set ignorecase` / `:set noignorecase` — case-insensitive search.
+    ToggleIgnoreCase(bool),
+    /// `:set smartcase` / `:set nosmartcase` — uppercase in pattern forces
+    /// case-sensitive search (only meaningful with `ignorecase`).
+    ToggleSmartCase(bool),
     /// `:sort` / `:sort!` / `:sort u` — sort buffer lines.
     Sort { reverse: bool, unique: bool },
     /// `:ls` / `:buffers` — list open buffers.
@@ -300,6 +305,10 @@ fn parse_set(rest: &str) -> ExCommand {
         "noautoindent" | "noai" => ExCommand::ToggleAutoIndent(false),
         "expandtab" | "et" => ExCommand::ToggleExpandTab(true),
         "noexpandtab" | "noet" => ExCommand::ToggleExpandTab(false),
+        "ignorecase" | "ic" => ExCommand::ToggleIgnoreCase(true),
+        "noignorecase" | "noic" => ExCommand::ToggleIgnoreCase(false),
+        "smartcase" | "scs" => ExCommand::ToggleSmartCase(true),
+        "nosmartcase" | "noscs" => ExCommand::ToggleSmartCase(false),
         _ => {
             if let Some(v) = opt
                 .strip_prefix("ft=")
@@ -421,6 +430,16 @@ mod tests {
         assert_eq!(parse("set scrolloff=5"), ExCommand::SetScrollOff(5));
         assert_eq!(parse("set so=3"), ExCommand::SetScrollOff(3));
         assert_eq!(parse("set scrolloff=0"), ExCommand::SetScrollOff(0));
+    }
+
+    #[test]
+    fn set_case_options() {
+        assert_eq!(parse("set ignorecase"), ExCommand::ToggleIgnoreCase(true));
+        assert_eq!(parse("set ic"), ExCommand::ToggleIgnoreCase(true));
+        assert_eq!(parse("set noignorecase"), ExCommand::ToggleIgnoreCase(false));
+        assert_eq!(parse("set smartcase"), ExCommand::ToggleSmartCase(true));
+        assert_eq!(parse("set scs"), ExCommand::ToggleSmartCase(true));
+        assert_eq!(parse("set noscs"), ExCommand::ToggleSmartCase(false));
     }
 
     #[test]

@@ -12,3 +12,7 @@ set mouse
 
 " Keep a few lines of context above/below the cursor when scrolling
 set scrolloff=3
+
+" Case-insensitive search, but case-sensitive when the pattern has a capital
+set ignorecase
+set smartcase
