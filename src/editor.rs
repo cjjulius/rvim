@@ -3363,9 +3363,45 @@ impl Editor {
             Some(pos) => {
                 self.cursor = pos;
                 let sigil = if forward { '/' } else { '?' };
-                self.message = format!("{sigil}{needle}");
+                let count = self.search_count(&re);
+                self.message = format!("{sigil}{needle}{count}");
             }
             None => self.message = format!("Pattern not found: {needle}"),
+        }
+    }
+
+    /// A ` [idx/total]` indicator of the cursor's position among all matches of
+    /// `re` in the buffer (vim's searchcount). Empty if there are none. Counting
+    /// stops at `MAX` matches, reported as e.g. ` [>1000]`, to bound the cost on
+    /// huge files.
+    fn search_count(&self, re: &Regex) -> String {
+        const MAX: usize = 1000;
+        let mut total = 0usize;
+        let mut idx = 0usize;
+        let mut capped = false;
+        'outer: for row in 0..self.buffer.line_count() {
+            let line = self.buffer.line(row).unwrap_or("");
+            for m in re.find_iter(line) {
+                if m.start() == m.end() {
+                    continue;
+                }
+                total += 1;
+                let col = line[..m.start()].chars().count();
+                if row == self.cursor.row && col == self.cursor.col {
+                    idx = total;
+                }
+                if total >= MAX {
+                    capped = true;
+                    break 'outer;
+                }
+            }
+        }
+        if total == 0 {
+            String::new()
+        } else if capped {
+            format!(" [>{MAX}]")
+        } else {
+            format!(" [{idx}/{total}]")
         }
     }
 
@@ -5487,6 +5523,21 @@ mod tests {
         let mut ed = ed_with("hi");
         ed.handle_key(key('i'));
         assert_eq!(ed.pending_command(), ""); // insert mode shows nothing pending
+    }
+
+    #[test]
+    fn search_count_reports_index_and_total() {
+        let mut ed = ed_with("foo\nfoo\nfoo");
+        ed.handle_key(key('/'));
+        for c in "foo".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Enter)); // from (0,0) the next match is row 1
+        assert!(ed.message.contains("[2/3]"), "{}", ed.message);
+        ed.handle_key(key('n'));
+        assert!(ed.message.contains("[3/3]"), "{}", ed.message);
+        ed.handle_key(key('n')); // wraps back to the first
+        assert!(ed.message.contains("[1/3]"), "{}", ed.message);
     }
 
     #[test]
