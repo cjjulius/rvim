@@ -100,7 +100,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 - **Macros:** `q<reg>` records keystrokes, `q` stops, `@<reg>` replays, `@@`
   repeats the last macro (a `recording @x` indicator shows in the status line).
 - **Insert mode:** autoindent on Enter (`:set autoindent`/`noai`), `Ctrl-w`
-  (delete word before cursor), `Ctrl-u` (delete to line start), `Tab` (4 spaces).
+  (delete word before cursor), `Ctrl-u` (delete to line start), `Ctrl-r<reg>`
+  (paste a register), `Ctrl-t`/`Ctrl-d` (indent/dedent line), `Tab`.
 - **Repeat:** `.` repeats the last change (a delete, paste, replace, indent, or a
   whole insert/change session).
 - **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history).
@@ -299,7 +300,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **244 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **247 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

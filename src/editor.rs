@@ -103,6 +103,8 @@ pub struct Editor {
     insert_entry: char,
     insert_keys: Vec<KeyEvent>,
     insert_replaying: bool,
+    /// After insert-mode `Ctrl-r`: the next key names the register to paste.
+    insert_pending_reg: bool,
     pending_find: Option<char>,
     last_find: Option<(char, char)>,
     marks: HashMap<char, Position>,
@@ -189,6 +191,7 @@ impl Editor {
             insert_entry: 'i',
             insert_keys: Vec::new(),
             insert_replaying: false,
+            insert_pending_reg: false,
             pending_find: None,
             last_find: None,
             marks: HashMap::new(),
@@ -797,11 +800,24 @@ impl Editor {
         if !self.insert_replaying && key.code != KeyCode::Esc {
             self.insert_keys.push(key);
         }
+        // Register name after Ctrl-r.
+        if self.insert_pending_reg {
+            self.insert_pending_reg = false;
+            if let KeyCode::Char(c) = key.code {
+                let reg = self.register_text(c);
+                self.insert_register_text(&reg);
+            }
+            self.scroll_into_view();
+            return;
+        }
         // Insert-mode control shortcuts.
         if key.modifiers.contains(KeyModifiers::CONTROL) {
             match key.code {
                 KeyCode::Char('w') => self.insert_delete_word_before(),
                 KeyCode::Char('u') => self.insert_delete_to_line_start(),
+                KeyCode::Char('r') => self.insert_pending_reg = true,
+                KeyCode::Char('t') => self.insert_indent(true),
+                KeyCode::Char('d') => self.insert_indent(false),
                 _ => {}
             }
             self.scroll_into_view();
@@ -969,6 +985,50 @@ impl Editor {
         let new: String = chars[..start].iter().chain(&chars[col..]).collect();
         self.buffer.set_line(self.cursor.row, new);
         self.cursor.col = start;
+    }
+
+    /// The contents of a register by name (`"` = unnamed).
+    fn register_text(&self, name: char) -> Register {
+        match name {
+            '"' => self.register.clone(),
+            other => self.registers.get(&other).cloned().unwrap_or_default(),
+        }
+    }
+
+    /// Insert a register's text at the cursor (handling embedded newlines), for
+    /// insert-mode `Ctrl-r`.
+    fn insert_register_text(&mut self, reg: &Register) {
+        for ch in reg.text.chars() {
+            if ch == '\n' {
+                self.buffer.split_line(self.cursor);
+                self.cursor.row += 1;
+                self.cursor.col = 0;
+            } else {
+                self.buffer.insert_char(self.cursor, ch);
+                self.cursor.col += 1;
+            }
+        }
+        if reg.linewise {
+            self.buffer.split_line(self.cursor);
+            self.cursor.row += 1;
+            self.cursor.col = 0;
+        }
+    }
+
+    /// `Ctrl-t` / `Ctrl-d` in insert mode: indent / dedent the current line,
+    /// keeping the cursor on the same character.
+    fn insert_indent(&mut self, indent: bool) {
+        let row = self.cursor.row;
+        let before = self.buffer.line_len(row);
+        if indent {
+            self.indent_line(row);
+            let added = self.buffer.line_len(row).saturating_sub(before);
+            self.cursor.col += added;
+        } else {
+            self.dedent_line(row);
+            let removed = before.saturating_sub(self.buffer.line_len(row));
+            self.cursor.col = self.cursor.col.saturating_sub(removed);
+        }
     }
 
     /// `Ctrl-u` in insert mode: delete from the line start to the cursor.
@@ -3470,6 +3530,47 @@ mod tests {
 
     fn ctrl(c: char) -> KeyEvent {
         KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL)
+    }
+
+    #[test]
+    fn insert_ctrl_r_pastes_register() {
+        let mut ed = ed_with("word\ntarget");
+        ed.handle_key(key('y'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('w')); // yiw -> unnamed = "word"
+        ed.handle_key(key('j'));
+        ed.handle_key(key('A')); // append at end of "target"
+        ed.handle_key(ctrl('r'));
+        ed.handle_key(key('"')); // paste unnamed register
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(1), Some("targetword"));
+    }
+
+    #[test]
+    fn insert_ctrl_r_named_register() {
+        let mut ed = ed_with("hi");
+        ed.handle_key(key('"'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y')); // "ayy -> register a = "hi"
+        ed.handle_key(key('A'));
+        ed.handle_key(ctrl('r'));
+        ed.handle_key(key('a'));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("hihi"));
+    }
+
+    #[test]
+    fn insert_ctrl_t_and_ctrl_d_indent() {
+        let mut ed = ed_with("code");
+        ed.shiftwidth = 2;
+        ed.handle_key(key('A')); // insert at end, cursor col 4
+        ed.handle_key(ctrl('t')); // indent -> "  code", cursor col 6
+        assert_eq!(ed.buffer.line(0), Some("  code"));
+        assert_eq!(ed.cursor.col, 6);
+        ed.handle_key(ctrl('d')); // dedent -> "code", cursor col 4
+        assert_eq!(ed.buffer.line(0), Some("code"));
+        assert_eq!(ed.cursor.col, 4);
     }
 
     #[test]
