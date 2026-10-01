@@ -1503,11 +1503,11 @@
     #[test]
     fn sort_buffer_ascending_and_reverse() {
         let mut ed = ed_with("banana\napple\ncherry");
-        ed.sort_buffer(false, false);
+        ed.sort_buffer(false, false, false, false);
         assert_eq!(ed.buffer.line(0), Some("apple"));
         assert_eq!(ed.buffer.line(1), Some("banana"));
         assert_eq!(ed.buffer.line(2), Some("cherry"));
-        ed.sort_buffer(true, false);
+        ed.sort_buffer(true, false, false, false);
         assert_eq!(ed.buffer.line(0), Some("cherry"));
         assert_eq!(ed.buffer.line(2), Some("apple"));
     }
@@ -1515,11 +1515,30 @@
     #[test]
     fn sort_buffer_unique_removes_duplicates() {
         let mut ed = ed_with("b\na\nb\nc\na");
-        ed.sort_buffer(false, true);
+        ed.sort_buffer(false, true, false, false);
         assert_eq!(ed.buffer.line_count(), 3);
         assert_eq!(ed.buffer.line(0), Some("a"));
         assert_eq!(ed.buffer.line(1), Some("b"));
         assert_eq!(ed.buffer.line(2), Some("c"));
+    }
+
+    #[test]
+    fn sort_buffer_numeric() {
+        let mut ed = ed_with("item 10\nitem 2\nitem 100\nitem 9");
+        ed.sort_buffer(false, false, true, false);
+        assert_eq!(ed.buffer.line(0), Some("item 2"));
+        assert_eq!(ed.buffer.line(1), Some("item 9"));
+        assert_eq!(ed.buffer.line(2), Some("item 10"));
+        assert_eq!(ed.buffer.line(3), Some("item 100"));
+    }
+
+    #[test]
+    fn sort_buffer_ignorecase() {
+        let mut ed = ed_with("Banana\napple\nCherry");
+        ed.sort_buffer(false, false, false, true);
+        assert_eq!(ed.buffer.line(0), Some("apple"));
+        assert_eq!(ed.buffer.line(1), Some("Banana"));
+        assert_eq!(ed.buffer.line(2), Some("Cherry"));
     }
 
     #[test]

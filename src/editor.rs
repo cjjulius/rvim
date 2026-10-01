@@ -3536,15 +3536,26 @@ impl Editor {
 
     /// Sort every line in the buffer. `reverse` flips the order; `unique`
     /// removes duplicate lines after sorting.
-    pub fn sort_buffer(&mut self, reverse: bool, unique: bool) {
+    pub fn sort_buffer(&mut self, reverse: bool, unique: bool, numeric: bool, ignorecase: bool) {
         if self.buffer.line_count() <= 1 {
             return;
         }
         self.checkpoint();
         let mut lines: Vec<String> = self.buffer.lines().to_vec();
-        lines.sort();
+        if numeric {
+            // Sort by the first number on each line (vim's `:sort n`).
+            lines.sort_by_key(|l| first_number(l));
+        } else if ignorecase {
+            lines.sort_by_key(|l| l.to_lowercase());
+        } else {
+            lines.sort();
+        }
         if unique {
-            lines.dedup();
+            if ignorecase && !numeric {
+                lines.dedup_by(|a, b| a.to_lowercase() == b.to_lowercase());
+            } else {
+                lines.dedup();
+            }
         }
         if reverse {
             lines.reverse();
@@ -4164,6 +4175,23 @@ impl CaseOp {
             }
         }
     }
+}
+
+/// The first integer appearing in `line` (with an optional leading `-`), for
+/// `:sort n`. Lines with no number sort as 0.
+fn first_number(line: &str) -> i64 {
+    let bytes = line.as_bytes();
+    for i in 0..bytes.len() {
+        if bytes[i].is_ascii_digit() {
+            let start = if i > 0 && bytes[i - 1] == b'-' { i - 1 } else { i };
+            let mut j = i;
+            while j < bytes.len() && bytes[j].is_ascii_digit() {
+                j += 1;
+            }
+            return line[start..j].parse::<i64>().unwrap_or(0);
+        }
+    }
+    0
 }
 
 /// Order two positions into `(earlier, later)`.

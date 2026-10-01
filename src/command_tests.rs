@@ -280,10 +280,19 @@
 
     #[test]
     fn sort_variants() {
-        assert_eq!(parse("sort"), ExCommand::Sort { reverse: false, unique: false });
-        assert_eq!(parse("sort!"), ExCommand::Sort { reverse: true, unique: false });
-        assert_eq!(parse("sort u"), ExCommand::Sort { reverse: false, unique: true });
-        assert_eq!(parse("sort! u"), ExCommand::Sort { reverse: true, unique: true });
+        let base = |reverse, unique, numeric, ignorecase| ExCommand::Sort {
+            reverse,
+            unique,
+            numeric,
+            ignorecase,
+        };
+        assert_eq!(parse("sort"), base(false, false, false, false));
+        assert_eq!(parse("sort!"), base(true, false, false, false));
+        assert_eq!(parse("sort u"), base(false, true, false, false));
+        assert_eq!(parse("sort! u"), base(true, true, false, false));
+        assert_eq!(parse("sort n"), base(false, false, true, false));
+        assert_eq!(parse("sort i"), base(false, false, false, true));
+        assert_eq!(parse("sort! un"), base(true, true, true, false));
     }
 
     #[test]
