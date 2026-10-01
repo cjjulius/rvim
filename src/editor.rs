@@ -2094,11 +2094,7 @@ impl Editor {
             self.pending_comment = false;
             let rows = match key.code {
                 KeyCode::Char('c') => Some((self.cursor.row, self.cursor.row)),
-                code => self.motion_target(code, 1).map(|t| match t {
-                    OpTarget::Chars(_, _) => (self.cursor.row, self.cursor.row),
-                    OpTarget::Lines(a, b) => (a, b),
-                    OpTarget::Span(s, e) => (s.row, e.row),
-                }),
+                code => self.motion_target(code, 1).map(|t| self.target_rows(t)),
             };
             if let Some((a, b)) = rows {
                 self.toggle_comment_lines(a, b);
@@ -2118,11 +2114,7 @@ impl Editor {
             }
             let rows = match key.code {
                 KeyCode::Char('q') => Some((self.cursor.row, self.cursor.row)),
-                code => self.motion_target(code, 1).map(|t| match t {
-                    OpTarget::Chars(_, _) => (self.cursor.row, self.cursor.row),
-                    OpTarget::Lines(a, b) => (a, b),
-                    OpTarget::Span(s, e) => (s.row, e.row),
-                }),
+                code => self.motion_target(code, 1).map(|t| self.target_rows(t)),
             };
             if let Some((a, b)) = rows {
                 self.reflow_lines(a, b);
@@ -2134,11 +2126,7 @@ impl Editor {
         if let Some(iora) = self.pending_format_obj.take() {
             if let KeyCode::Char(obj) = key.code {
                 if let Some(t) = self.text_object(iora, obj) {
-                    let (a, b) = match t {
-                        OpTarget::Lines(a, b) => (a, b),
-                        OpTarget::Chars(_, _) => (self.cursor.row, self.cursor.row),
-                        OpTarget::Span(s, e) => (s.row, e.row),
-                    };
+                    let (a, b) = self.target_rows(t);
                     self.reflow_lines(a, b);
                 }
             }
@@ -2197,11 +2185,7 @@ impl Editor {
             if let KeyCode::Char(obj) = key.code {
                 if let Some(t) = self.text_object(iora, obj) {
                     if op == '>' || op == '<' {
-                        let (a, b) = match t {
-                            OpTarget::Lines(a, b) => (a, b),
-                            OpTarget::Chars(_, _) => (self.cursor.row, self.cursor.row),
-                            OpTarget::Span(s, e) => (s.row, e.row),
-                        };
+                        let (a, b) = self.target_rows(t);
                         self.shift_range(a, b, op == '>');
                     } else {
                         self.apply_op(op, t);
@@ -2765,12 +2749,7 @@ impl Editor {
                     // Doubled (`>>`/`<<`): `count` lines from the cursor.
                     Some((self.cursor.row, (self.cursor.row + count - 1).min(last)))
                 } else {
-                    match self.motion_target(code, count) {
-                        Some(OpTarget::Lines(a, b)) => Some((a, b)),
-                        Some(OpTarget::Chars(_, _)) => Some((self.cursor.row, self.cursor.row)),
-                        Some(OpTarget::Span(s, e)) => Some((s.row, e.row)),
-                        None => None,
-                    }
+                    self.motion_target(code, count).map(|t| self.target_rows(t))
                 };
                 if let Some((a, b)) = rows {
                     self.shift_range(a, b, op == '>');
@@ -2804,6 +2783,17 @@ impl Editor {
         }
         self.clamp_cursor(false);
         self.scroll_into_view();
+    }
+
+    /// The inclusive row range an operator target touches, for the line-wise
+    /// operators (`gc`, `gq`, `>`/`<`) that act on whole lines regardless of the
+    /// target's shape. A charwise `Chars` target stays on the cursor's row.
+    fn target_rows(&self, target: OpTarget) -> (usize, usize) {
+        match target {
+            OpTarget::Lines(a, b) => (a, b),
+            OpTarget::Chars(_, _) => (self.cursor.row, self.cursor.row),
+            OpTarget::Span(s, e) => (s.row, e.row),
+        }
     }
 
     /// The text span a motion covers, relative to the cursor, for use by an
