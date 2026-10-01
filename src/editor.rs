@@ -73,6 +73,8 @@ pub struct Editor {
     pending_register: Option<char>,
     expect_register: bool,
     visual_anchor: Position,
+    /// The last visual selection (start, end, mode) for `gv`.
+    last_visual: Option<(Position, Position, Mode)>,
     last_search: String,
     search_re: Option<Regex>,
     last_subst: Option<SubstituteSpec>,
@@ -158,6 +160,7 @@ impl Editor {
             pending_register: None,
             expect_register: false,
             visual_anchor: Position::default(),
+            last_visual: None,
             last_search: String::new(),
             search_re: None,
             last_subst: None,
@@ -659,6 +662,14 @@ impl Editor {
             self.dot_capture.push(key);
         }
 
+        // Remember the selection extent so we can restore it with `gv` once the
+        // key below exits visual mode.
+        let pre_visual = if self.mode.is_visual() {
+            self.selection().map(|(s, e)| (s, e, self.mode))
+        } else {
+            None
+        };
+
         // Command-line editing takes priority when active.
         let action = if self.mode == Mode::Command {
             self.handle_cmdline(key)
@@ -671,6 +682,12 @@ impl Editor {
                 _ => self.handle_normal(key),
             }
         };
+
+        if let Some(v) = pre_visual {
+            if !self.mode.is_visual() {
+                self.last_visual = Some(v);
+            }
+        }
 
         // At a resting point, finalize (or discard) the captured change.
         if !self.dot_replaying && self.at_rest() {
@@ -1222,7 +1239,14 @@ impl Editor {
                 self.move_line_end_exclusive();
                 self.enter_insert_here();
             }
-            KeyCode::Char('o') => self.open_below(),
+            KeyCode::Char('o') => {
+                if self.mode.is_visual() {
+                    // Swap the cursor and the anchor (move to the other end).
+                    std::mem::swap(&mut self.cursor, &mut self.visual_anchor);
+                } else {
+                    self.open_below();
+                }
+            }
             KeyCode::Char('O') => self.open_above(),
             KeyCode::Char('u') => {
                 if self.mode.is_visual() {
@@ -1305,6 +1329,16 @@ impl Editor {
                 KeyCode::Char('J') => {
                     self.checkpoint();
                     self.buffer.join_line_raw(self.cursor.row);
+                }
+                KeyCode::Char('v') => {
+                    // gv — reselect the last visual selection.
+                    if let Some((s, e, m)) = self.last_visual {
+                        self.mode = m;
+                        self.visual_anchor = s;
+                        self.cursor = e;
+                        self.clamp_cursor(false);
+                        self.scroll_into_view();
+                    }
                 }
                 KeyCode::Char('c') => {
                     if let Some((s, e)) = self.selection() {
@@ -3274,6 +3308,51 @@ mod tests {
 
     fn ctrl(c: char) -> KeyEvent {
         KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL)
+    }
+
+    #[test]
+    fn visual_o_swaps_ends() {
+        let mut ed = ed_with("hello world");
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // cursor col 2
+        ed.handle_key(key('v'));
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // anchor 2, cursor 4
+        ed.handle_key(key('o')); // swap -> cursor 2, anchor 4
+        assert_eq!(ed.cursor.col, 2);
+        // Extend left; selection start moves with cursor.
+        ed.handle_key(key('h'));
+        let (s, e) = ed.selection().unwrap();
+        assert_eq!(s.col, 1);
+        assert_eq!(e.col, 4);
+    }
+
+    #[test]
+    fn gv_reselects_last_visual() {
+        let mut ed = ed_with("abcdef");
+        ed.handle_key(key('v'));
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // select cols 0..=2
+        ed.handle_key(special(KeyCode::Esc)); // exit visual
+        assert_eq!(ed.mode, Mode::Normal);
+        ed.handle_key(key('g'));
+        ed.handle_key(key('v')); // reselect
+        assert_eq!(ed.mode, Mode::Visual);
+        let (s, e) = ed.selection().unwrap();
+        assert_eq!((s.col, e.col), (0, 2));
+    }
+
+    #[test]
+    fn gv_reselects_after_operation() {
+        let mut ed = ed_with("HELLO");
+        ed.handle_key(key('v'));
+        ed.handle_key(key('l')); // select "HE"
+        ed.handle_key(key('u')); // lowercase -> "heLLO", exits visual
+        assert_eq!(ed.buffer.line(0), Some("heLLO"));
+        ed.handle_key(key('g'));
+        ed.handle_key(key('v')); // reselect same extent
+        ed.handle_key(key('U')); // uppercase it back
+        assert_eq!(ed.buffer.line(0), Some("HELLO"));
     }
 
     #[test]

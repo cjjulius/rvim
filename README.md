@@ -102,7 +102,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
   whole insert/change session).
 - **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history).
 - **Visual mode:** `v`/`V` then `d`/`x`, `y`, `c`/`s`, `>`/`<` (indent), and
-  `u`/`U`/`~` (lower/upper/toggle case of the selection).
+  `u`/`U`/`~` (lower/upper/toggle case of the selection). `o` swaps the active
+  end of the selection; `gv` (from normal mode) reselects the last selection.
 - **Search:** `/pattern`, `?pattern`, `n`/`N` (wraps around); patterns are
   **regular expressions** (e.g. `/\bfn\s+\w+`). `*`/`#` search the word under the
   cursor (whole word) forward/back; `g*`/`g#` do so as a substring. All matches
@@ -295,7 +296,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **230 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **233 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

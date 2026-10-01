@@ -545,6 +545,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t  (insert) C-w/C-u delete word-before / to line-start\n\
          \tv / V              visual / visual-line\n\
          \t  (visual) u/U/~   lower / upper / toggle case of selection\n\
+         \t  (visual) o       swap selection end     gv  reselect last\n\
          \tEsc                back to normal mode\n\
          \tAlt / F10          open the top menu bar (command helper)\n\
          \n\
