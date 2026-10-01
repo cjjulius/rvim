@@ -2062,6 +2062,33 @@
     }
 
     #[test]
+    fn changelist_navigates_edit_positions() {
+        let mut ed = ed_with("one\ntwo\nthree\nfour");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('x')); // change on row 0
+        ed.cursor = Position::new(2, 0);
+        ed.handle_key(key('x')); // change on row 2
+        ed.cursor = Position::new(3, 0); // wander away
+        ed.handle_key(key('g'));
+        ed.handle_key(key(';')); // g; -> most recent change (row 2)
+        assert_eq!(ed.cursor.row, 2);
+        ed.handle_key(key('g'));
+        ed.handle_key(key(';')); // older (row 0)
+        assert_eq!(ed.cursor.row, 0);
+        ed.handle_key(key('g'));
+        ed.handle_key(key(',')); // newer (row 2)
+        assert_eq!(ed.cursor.row, 2);
+    }
+
+    #[test]
+    fn changelist_empty_reports_message() {
+        let mut ed = ed_with("hi");
+        ed.handle_key(key('g'));
+        ed.handle_key(key(';'));
+        assert!(ed.message.contains("empty"));
+    }
+
+    #[test]
     fn visual_size_char_counts_columns_then_lines() {
         let mut ed = ed_with("hello world\nsecond\nthird");
         ed.handle_key(key('v'));

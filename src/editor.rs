@@ -165,6 +165,10 @@ pub struct Editor {
     /// slot (== `jumps.len()` when at the live position).
     jumps: Vec<Position>,
     jump_idx: usize,
+    /// Positions of recent changes for `g;` / `g,`; `change_idx` points at the
+    /// current slot (== `changelist.len()` when at the live position).
+    changelist: Vec<Position>,
+    change_idx: usize,
     recording: Option<char>,
     macros: HashMap<char, Vec<KeyEvent>>,
     last_macro: Option<char>,
@@ -269,6 +273,8 @@ impl Editor {
             previous_pos: Position::default(),
             jumps: Vec::new(),
             jump_idx: 0,
+            changelist: Vec::new(),
+            change_idx: 0,
             recording: None,
             macros: HashMap::new(),
             last_macro: None,
@@ -2172,6 +2178,8 @@ impl Editor {
                     self.move_down(count.saturating_sub(1));
                     self.cursor.col = self.last_nonblank_col();
                 }
+                KeyCode::Char(';') => self.change_jump(true),
+                KeyCode::Char(',') => self.change_jump(false),
                 KeyCode::Char('v') => {
                     // gv — reselect the last visual selection.
                     if let Some((s, e, m)) = self.last_visual {
@@ -3835,6 +3843,51 @@ impl Editor {
         self.buffer.checkpoint(self.cursor);
         // The `` `. `` mark tracks the position of the last change.
         self.marks.insert('.', self.cursor);
+        self.record_change(self.cursor);
+    }
+
+    /// Record a change position in the changelist (for `g;` / `g,`), collapsing a
+    /// repeat on the same line and capping the history. Resets the walk index to
+    /// the live end.
+    fn record_change(&mut self, pos: Position) {
+        if self.changelist.last().map(|p| p.row) != Some(pos.row) {
+            self.changelist.push(pos);
+            if self.changelist.len() > 100 {
+                self.changelist.remove(0);
+            }
+        } else if let Some(last) = self.changelist.last_mut() {
+            *last = pos; // keep the newest column on the same line
+        }
+        self.change_idx = self.changelist.len();
+    }
+
+    /// `g;` — jump to an older change position; `g,` (older = false) — to a newer
+    /// one. Returns to the live position list end when exhausted.
+    fn change_jump(&mut self, older: bool) {
+        if self.changelist.is_empty() {
+            self.message = "changelist is empty".into();
+            return;
+        }
+        if older {
+            if self.change_idx == 0 {
+                self.message = "at start of changelist".into();
+                return;
+            }
+            self.change_idx -= 1;
+        } else {
+            if self.change_idx + 1 >= self.changelist.len() {
+                self.message = "at end of changelist".into();
+                return;
+            }
+            self.change_idx += 1;
+        }
+        if let Some(&pos) = self.changelist.get(self.change_idx) {
+            let last = self.buffer.line_count().saturating_sub(1);
+            self.cursor.row = pos.row.min(last);
+            self.cursor.col = pos.col.min(self.cur_len());
+            self.clamp_cursor(false);
+            self.scroll_into_view();
+        }
     }
 
     /// Record where insert/replace mode ended (for `gi` and the `` `^ `` mark).
