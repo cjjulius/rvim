@@ -206,7 +206,8 @@ Several `:set` options can be combined in one command, e.g.
 `:set number expandtab shiftwidth=2`.
 
 On the command line, `Up`/`Down` recall previous commands (`:` history) or
-searches (`/`/`?` history).
+searches (`/`/`?` history), and `Ctrl-w`/`Ctrl-u` delete the previous word / the
+whole line.
 
 **Search & replace** (`:s`) supports ranges and the `g` (global) flag:
 
@@ -389,7 +390,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **374 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **375 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

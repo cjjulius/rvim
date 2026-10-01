@@ -1219,6 +1219,23 @@ impl Editor {
     }
 
     fn handle_cmdline(&mut self, key: KeyEvent) -> Action {
+        // Command-line control shortcuts (so Ctrl-combos don't insert a letter).
+        if key.modifiers.contains(KeyModifiers::CONTROL) {
+            match key.code {
+                KeyCode::Char('w') => {
+                    self.cmdline_delete_word();
+                    self.hist_idx = None;
+                    self.update_incsearch();
+                }
+                KeyCode::Char('u') => {
+                    self.cmdline.clear();
+                    self.hist_idx = None;
+                    self.update_incsearch();
+                }
+                _ => {}
+            }
+            return Action::None;
+        }
         match key.code {
             KeyCode::Esc => {
                 self.cancel_search_preview();
@@ -1279,6 +1296,16 @@ impl Editor {
                 Action::None
             }
             _ => Action::None,
+        }
+    }
+
+    /// `Ctrl-w` on the command line: delete the trailing whitespace and word.
+    fn cmdline_delete_word(&mut self) {
+        while self.cmdline.chars().next_back().is_some_and(char::is_whitespace) {
+            self.cmdline.pop();
+        }
+        while self.cmdline.chars().next_back().is_some_and(|c| !c.is_whitespace()) {
+            self.cmdline.pop();
         }
     }
 

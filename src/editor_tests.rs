@@ -2307,6 +2307,20 @@
     }
 
     #[test]
+    fn cmdline_ctrl_w_and_ctrl_u() {
+        let mut ed = ed_with("");
+        ed.handle_key(key(':'));
+        for c in "set number".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(ctrl('w')); // delete the word "number"
+        assert_eq!(ed.cmdline, "set ");
+        ed.handle_key(ctrl('u')); // clear the line
+        assert_eq!(ed.cmdline, "");
+        assert_eq!(ed.mode, Mode::Command); // still editing
+    }
+
+    #[test]
     fn at_colon_repeats_last_ex_command() {
         let mut ed = ed_with("");
         ed.handle_key(key(':'));
