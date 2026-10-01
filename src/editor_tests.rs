@@ -182,6 +182,28 @@
     }
 
     #[test]
+    fn z_dot_cr_dash_reposition_and_first_nonblank() {
+        let mut ed = big_buffer(100); // view_rows = 10
+        ed.cursor = Position::new(50, 3);
+        ed.handle_key(key('z'));
+        ed.handle_key(key('.')); // center + first non-blank
+        assert_eq!(ed.top, 45);
+        assert_eq!(ed.cursor.col, 0);
+
+        ed.cursor = Position::new(50, 3);
+        ed.handle_key(key('z'));
+        ed.handle_key(special(KeyCode::Enter)); // line to top + first non-blank
+        assert_eq!(ed.top, 50);
+        assert_eq!(ed.cursor.col, 0);
+
+        ed.cursor = Position::new(50, 3);
+        ed.handle_key(key('z'));
+        ed.handle_key(key('-')); // line to bottom + first non-blank
+        assert_eq!(ed.top, 41);
+        assert_eq!(ed.cursor.col, 0);
+    }
+
+    #[test]
     fn zz_zt_zb_position_viewport() {
         let mut ed = big_buffer(100);
         ed.cursor.row = 50;
