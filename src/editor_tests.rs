@@ -448,6 +448,49 @@
     }
 
     #[test]
+    fn rot13_doubled_line() {
+        let mut ed = ed_with("Hello, World!");
+        ed.handle_key(key('g'));
+        ed.handle_key(key('?'));
+        ed.handle_key(key('?')); // g?? -> ROT13 the whole line
+        assert_eq!(ed.buffer.line(0), Some("Uryyb, Jbeyq!"));
+    }
+
+    #[test]
+    fn rot13_inner_word() {
+        let mut ed = ed_with("Hello world");
+        ed.handle_key(key('g'));
+        ed.handle_key(key('?'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('w')); // g?iw -> ROT13 the inner word
+        assert_eq!(ed.buffer.line(0), Some("Uryyb world"));
+    }
+
+    #[test]
+    fn rot13_visual_selection() {
+        let mut ed = ed_with("abc");
+        ed.handle_key(key('v'));
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // select "abc"
+        ed.handle_key(key('g'));
+        ed.handle_key(key('?')); // ROT13 the selection
+        assert_eq!(ed.buffer.line(0), Some("nop"));
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn rot13_is_its_own_inverse() {
+        let mut ed = ed_with("The Quick brown FOX 123");
+        ed.handle_key(key('g'));
+        ed.handle_key(key('?'));
+        ed.handle_key(key('?')); // encode
+        ed.handle_key(key('g'));
+        ed.handle_key(key('?'));
+        ed.handle_key(key('?')); // decode -> original (digits untouched)
+        assert_eq!(ed.buffer.line(0), Some("The Quick brown FOX 123"));
+    }
+
+    #[test]
     fn text_object_diw() {
         let mut ed = ed_with("foo bar baz");
         ed.handle_key(key('w')); // cursor on "bar" (col 4)

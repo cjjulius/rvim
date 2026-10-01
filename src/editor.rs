@@ -2529,6 +2529,15 @@ impl Editor {
                 KeyCode::Char('u') => self.pending_case = Some(CaseOp::Lower),
                 KeyCode::Char('U') => self.pending_case = Some(CaseOp::Upper),
                 KeyCode::Char('~') => self.pending_case = Some(CaseOp::Toggle),
+                KeyCode::Char('?') => {
+                    // g? — ROT13. On a selection, transform it now; otherwise
+                    // wait for a motion / text object (g??, g?ap, g?w, …).
+                    if self.mode.is_visual() {
+                        self.transform_selection(CaseOp::Rot13);
+                    } else {
+                        self.pending_case = Some(CaseOp::Rot13);
+                    }
+                }
                 KeyCode::Char('*') => self.search_word(true, false),
                 KeyCode::Char('#') => self.search_word(false, false),
                 KeyCode::Char('e') => self.move_word_end_back(count, false),
@@ -4752,6 +4761,7 @@ enum CaseOp {
     Lower,
     Upper,
     Toggle,
+    Rot13,
 }
 
 impl CaseOp {
@@ -4761,6 +4771,7 @@ impl CaseOp {
             CaseOp::Lower => 'u',
             CaseOp::Upper => 'U',
             CaseOp::Toggle => '~',
+            CaseOp::Rot13 => '?',
         }
     }
 
@@ -4773,6 +4784,15 @@ impl CaseOp {
                     c.to_lowercase().next().unwrap_or(c)
                 } else if c.is_lowercase() {
                     c.to_uppercase().next().unwrap_or(c)
+                } else {
+                    c
+                }
+            }
+            CaseOp::Rot13 => {
+                if c.is_ascii_lowercase() {
+                    (((c as u8 - b'a' + 13) % 26) + b'a') as char
+                } else if c.is_ascii_uppercase() {
+                    (((c as u8 - b'A' + 13) % 26) + b'A') as char
                 } else {
                     c
                 }

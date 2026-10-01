@@ -875,6 +875,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t  (visual) r<c>    replace every selected char with c\n\
          \t  (visual) C-a/C-x increment / decrement number on each line\n\
          \t  (visual) u/U/~   lower / upper / toggle case of selection\n\
+         \t  (visual) g?      ROT13 the selection\n\
          \t  (visual) o       swap selection end     gv  reselect last\n\
          \t  (visual) p/P     replace selection with register\n\
          \tEsc                back to normal mode\n\
@@ -907,6 +908,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \td/y/c + i/a + obj   text objects: diw daW dip ci( yi\" da{{ ...\n\
          \tdgg / dG           delete to top / bottom of file\n\
          \tgu / gU / g~ + mot  lower / upper / toggle case (guw gUiw guu)\n\
+         \tg? + mot            ROT13 (g?w g?ip g??, or on a visual selection)\n\
          \tgcc  gc<motion>     toggle line comment (also visual gc)\n\
          \tD / C              delete / change to end of line\n\
          \t>> / <<            indent / dedent (also in visual mode)\n\

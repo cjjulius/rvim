@@ -93,8 +93,9 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
 - **Text objects:** `d`/`y`/`c` + `i`/`a` + object — `iw`/`aw` (word),
   `iW`/`aW` (WORD), `ip`/`ap` (paragraph), `i(` `i{` `i[` `i<` and `i"` `i'`
   `` i` `` (inner), `a(` … (around). E.g. `diw`, `ci(`, `yi"`, `dap`.
-- **Case operators:** `gu`/`gU`/`g~` (lower/upper/toggle) over a motion, a text
-  object, or doubled for the whole line — `guw`, `gUiw`, `g~$`, `guu`.
+- **Case operators:** `gu`/`gU`/`g~` (lower/upper/toggle) and `g?` (ROT13) over
+  a motion, a text object, or doubled for the whole line — `guw`, `gUiw`, `g~$`,
+  `guu`, `g?w`, `g?ip`, `g??`; `g?` also works on a visual selection.
 - **Comment toggling:** `gcc` toggles the current line, `gc<motion>` a range
   (e.g. `gcj`, `gcG`), and `gc` in visual mode the selection — using the current
   language's comment marker (`//`, `--`, `;`), indentation preserved.
@@ -408,7 +409,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **402 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **406 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
