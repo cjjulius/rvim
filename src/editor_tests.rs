@@ -1710,7 +1710,7 @@
             pattern: r"\d+".into(),
             replacement: "#".into(),
             global: true,
-            ignorecase: false,
+            ignorecase: false, count_only: false,
         };
         let (subs, _) = ed.substitute(&spec);
         assert_eq!(subs, 2);
@@ -1754,7 +1754,7 @@
             pattern: "foo".into(),
             replacement: "x".into(),
             global: true,
-            ignorecase: true,
+            ignorecase: true, count_only: false,
         };
         let (subs, _) = ed.substitute(&spec);
         assert_eq!(subs, 3);
@@ -1770,7 +1770,7 @@
             pattern: r"(\d+)-(\d+)-(\d+)".into(),
             replacement: r"\3/\2/\1".into(),
             global: false,
-            ignorecase: false,
+            ignorecase: false, count_only: false,
         };
         let (subs, _) = ed.substitute(&spec);
         assert_eq!(subs, 1);
@@ -1785,7 +1785,7 @@
             pattern: "foo".into(),
             replacement: "bar".into(),
             global: true,
-            ignorecase: false,
+            ignorecase: false, count_only: false,
         };
         ed.substitute(&spec); // line 0 -> "bar bar"
         assert_eq!(ed.buffer.line(0), Some("bar bar"));
@@ -1802,7 +1802,7 @@
             pattern: "(b".into(), // invalid regex -> literal
             replacement: "X".into(),
             global: false,
-            ignorecase: false,
+            ignorecase: false, count_only: false,
         };
         let (subs, _) = ed.substitute(&spec);
         assert_eq!(subs, 1);
@@ -1952,6 +1952,23 @@
     }
 
     #[test]
+    fn substitute_count_only_leaves_buffer_unchanged() {
+        let mut ed = ed_with("foo foo\nbar foo\nbaz");
+        let spec = SubstituteSpec {
+            range: SubRange::WholeFile,
+            pattern: "foo".into(),
+            replacement: "X".into(),
+            global: true,
+            ignorecase: false,
+            count_only: true,
+        };
+        let (subs, lines) = ed.substitute(&spec);
+        assert_eq!(subs, 3); // three matches
+        assert_eq!(lines, 2); // across two lines
+        assert_eq!(ed.buffer.line(0), Some("foo foo")); // nothing changed
+    }
+
+    #[test]
     fn ignorecase_applies_to_substitute() {
         let mut ed = ed_with("Foo foo FOO");
         ed.ignorecase = true;
@@ -1960,7 +1977,7 @@
             pattern: "foo".into(),
             replacement: "x".into(),
             global: true,
-            ignorecase: false, // no /i flag; the option should still apply
+            ignorecase: false, count_only: false, // no /i flag; the option should still apply
         };
         ed.substitute(&spec);
         assert_eq!(ed.buffer.line(0), Some("x x x"));
@@ -2067,7 +2084,7 @@
             pattern: "foo".into(),
             replacement: "bar".into(),
             global: false,
-            ignorecase: false,
+            ignorecase: false, count_only: false,
         };
         let (subs, lines) = ed.substitute(&spec);
         assert_eq!((subs, lines), (1, 1));
@@ -2082,7 +2099,7 @@
             pattern: "x".into(),
             replacement: "Q".into(),
             global: true,
-            ignorecase: false,
+            ignorecase: false, count_only: false,
         };
         let (subs, lines) = ed.substitute(&spec);
         assert_eq!((subs, lines), (3, 2));
@@ -2099,7 +2116,7 @@
             pattern: "z".into(),
             replacement: "Y".into(),
             global: false,
-            ignorecase: false,
+            ignorecase: false, count_only: false,
         };
         let (subs, lines) = ed.substitute(&spec);
         assert_eq!((subs, lines), (2, 2));
@@ -2117,7 +2134,7 @@
             pattern: "zzz".into(),
             replacement: "!".into(),
             global: true,
-            ignorecase: false,
+            ignorecase: false, count_only: false,
         };
         let (subs, _) = ed.substitute(&spec);
         assert_eq!(subs, 0);
@@ -2134,7 +2151,7 @@
             pattern: "-".into(),
             replacement: "".into(),
             global: true,
-            ignorecase: false,
+            ignorecase: false, count_only: false,
         };
         let (subs, _) = ed.substitute(&spec);
         assert_eq!(subs, 2);

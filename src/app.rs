@@ -618,6 +618,10 @@ impl App {
                 let (subs, lines) = self.editor.substitute(&spec);
                 self.editor.message = if subs == 0 {
                     format!("E486: Pattern not found: {}", spec.pattern)
+                } else if spec.count_only {
+                    let s_p = if subs == 1 { "" } else { "es" };
+                    let l_p = if lines == 1 { "" } else { "s" };
+                    format!("{subs} match{s_p} on {lines} line{l_p}")
                 } else {
                     let s_p = if subs == 1 { "" } else { "s" };
                     let l_p = if lines == 1 { "" } else { "s" };
@@ -831,6 +835,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:e / :e!            reload current file (! discards changes)\n\
          \t:ls :bn :bp :b<n>  list / next / prev / goto buffer   :bd close\n\
          \tCtrl-^ / :b#       switch to the alternate (last) buffer\n\
+         \t:s/pat/rep/[gin]   substitute (g all, i ignore-case, n count only)\n\
          \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///)\n\
          \t:theme <name>      themes: {themes}\n\
          \t:set number|nonumber   :set relativenumber|nornu\n\
