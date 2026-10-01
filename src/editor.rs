@@ -2826,6 +2826,18 @@ impl Editor {
             }
             KeyCode::Char('_') => OpTarget::Lines(row, (row + count - 1).min(last)),
             KeyCode::Char('G') => OpTarget::Lines(row, last),
+            // `%` — operate from the cursor to the matching bracket, inclusive
+            // (charwise, may cross lines). `d%`, `y%`, `c%`.
+            KeyCode::Char('%') => {
+                let m = self.matching_bracket()?;
+                let cur = self.cursor;
+                let (a, b) = if (m.row, m.col) >= (cur.row, cur.col) {
+                    (cur, m)
+                } else {
+                    (m, cur)
+                };
+                return Some(OpTarget::Span(a, b));
+            }
             _ => return None,
         })
     }
