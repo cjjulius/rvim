@@ -125,6 +125,32 @@ impl App {
         }
     }
 
+    /// `:e` / `:e!` with no argument — reload the current file from disk. Without
+    /// `force`, refuses when there are unsaved changes. The cursor row is kept
+    /// where possible.
+    fn reload_file(&mut self, force: bool) {
+        let Some(path) = self.editor.buffer.path().map(|p| p.display().to_string()) else {
+            self.editor.message = "E32: No file name".into();
+            return;
+        };
+        if self.editor.buffer.is_dirty() && !force {
+            self.editor.message =
+                "E37: No write since last change (add ! to override)".into();
+            return;
+        }
+        let row = self.editor.cursor.row;
+        match Editor::from_file(&path) {
+            Ok(mut ed) => {
+                self.inherit_prefs(&mut ed);
+                ed.cursor.row = row.min(ed.buffer.line_count().saturating_sub(1));
+                let lines = ed.buffer.line_count();
+                self.editor = ed;
+                self.editor.message = format!("\"{path}\" {lines} lines --reloaded--");
+            }
+            Err(e) => self.editor.message = format!("E212: Can't open \"{path}\": {e}"),
+        }
+    }
+
     /// `:bn` — rotate to the next buffer.
     fn buffer_next(&mut self) {
         if self.others.is_empty() {
@@ -414,6 +440,7 @@ impl App {
                 }
             }
             ExCommand::Edit(path) => self.edit_file(&path),
+            ExCommand::Reload { force } => self.reload_file(force),
             ExCommand::ReadFile(path) => match std::fs::read_to_string(&path) {
                 Ok(text) => self.editor.read_lines_below(&text),
                 Err(e) => self.editor.message = format!("E484: can't open \"{path}\": {e}"),
@@ -756,6 +783,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:qa  :wa  :wqa     quit / write / write-quit all buffers (! to force)\n\
          \tZZ / ZQ            write & quit / quit without saving\n\
          \t:e <file>          open file     :r <file>  read file below cursor\n\
+         \t:e / :e!            reload current file (! discards changes)\n\
          \t:ls :bn :bp :b<n>  list / next / prev / goto buffer   :bd close\n\
          \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///)\n\
          \t:theme <name>      themes: {themes}\n\
@@ -841,6 +869,25 @@ mod tests {
         assert!(!app.quit);
         app.run_ex("q!");
         assert!(app.quit);
+    }
+
+    #[test]
+    fn reload_discards_changes_with_force() {
+        let path = std::env::temp_dir()
+            .join(format!("rvim_reload_{}.txt", std::process::id()));
+        std::fs::write(&path, "original\n").unwrap();
+        let mut app = App::open(path.to_str().unwrap()).unwrap();
+        app.editor
+            .buffer
+            .insert_char(crate::buffer::Position::new(0, 0), 'X');
+        assert!(app.editor.buffer.is_dirty());
+        app.run_ex("e"); // blocked: unsaved changes
+        assert!(app.editor.buffer.is_dirty());
+        assert!(app.editor.message.contains("No write"));
+        app.run_ex("e!"); // forced reload
+        assert_eq!(app.editor.buffer.line(0), Some("original"));
+        assert!(!app.editor.buffer.is_dirty());
+        std::fs::remove_file(&path).ok();
     }
 
     #[test]
