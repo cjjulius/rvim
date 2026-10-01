@@ -231,7 +231,9 @@ On the command line, `Up`/`Down` recall previous commands (`:` history) or
 searches (`/`/`?` history), and `Ctrl-w`/`Ctrl-u` delete the previous word / the
 whole line. `Tab` completes the command name (`:sor`→`:sort`) — or, after
 `:set `, the option name (`:set nu`→`:set number`) — and repeated `Tab` /
-`Shift-Tab` cycle forward / backward through the matches.
+`Shift-Tab` cycle forward / backward through the matches. When more than one
+matches, a **wildmenu** of candidates appears just above the command line with
+the current pick highlighted, scrolling to keep it in view on a narrow terminal.
 
 **Search & replace** (`:s`) supports ranges and the `g` (global) flag:
 
@@ -417,7 +419,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **422 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **425 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

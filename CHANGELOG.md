@@ -23,6 +23,9 @@ All notable changes to rvim are recorded here. Versions follow
 - `Tab` completion: completes the ex-command name, or the option name after
   `:set `, with repeated `Tab` / `Shift-Tab` cycling forward / backward through
   the matches.
+- Wildmenu: when a `Tab` completion has more than one candidate, the candidates
+  are shown just above the command line with the current one highlighted,
+  sliding to keep the selection visible on a narrow terminal.
 
 ### Operators
 - `g?` ROT13 operator — over a motion (`g?w`), a text object (`g?ip`), doubled

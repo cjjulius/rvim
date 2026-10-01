@@ -937,7 +937,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \n\
          COMMANDS\n\
          \t(command line) Up/Down  recall previous commands / searches\n\
-         \t(command line) Tab      complete command / :set option (cycles)\n\
+         \t(command line) Tab      complete command / :set option (wildmenu, cycles)\n\
          \t(command line) C-w/C-u  delete previous word / whole line\n\
          \t:w [file]  :q  :q!  :wq  :x   write / quit variants\n\
          \t:qa  :wa  :wqa     quit / write / write-quit all buffers (! to force)\n\

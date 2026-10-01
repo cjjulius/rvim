@@ -214,6 +214,9 @@ pub fn render(
     }
 
     draw_status_line(out, editor, theme, &layout)?;
+    // While completing on the command line, the candidate wildmenu takes over
+    // the status-line row (vim shows it just above the command line).
+    draw_wildmenu(out, editor, theme, &layout)?;
     draw_command_line(out, editor, theme, &layout)?;
 
     // The menu bar overlays everything and keeps the text cursor hidden.
@@ -555,6 +558,80 @@ fn draw_command_line(
     Ok(())
 }
 
+/// Choose which completion candidates to show on the wildmenu, as
+/// `(cell_text, selected)` pairs. Each cell is the item padded with a space on
+/// each side. A sliding window keeps the selected item visible when the full
+/// list is wider than `width`, expanding right-then-left from the selection.
+pub fn wildmenu_cells(items: &[String], selected: usize, width: usize) -> Vec<(String, bool)> {
+    if items.is_empty() || width == 0 || selected >= items.len() {
+        return Vec::new();
+    }
+    let cell_w = |s: &str| s.chars().count() + 2;
+    let mut start = selected;
+    let mut end = selected + 1;
+    let mut used = cell_w(&items[selected]);
+    loop {
+        let mut grew = false;
+        if end < items.len() && used + cell_w(&items[end]) <= width {
+            used += cell_w(&items[end]);
+            end += 1;
+            grew = true;
+        }
+        if start > 0 && used + cell_w(&items[start - 1]) <= width {
+            used += cell_w(&items[start - 1]);
+            start -= 1;
+            grew = true;
+        }
+        if !grew {
+            break;
+        }
+    }
+    (start..end)
+        .map(|i| (format!(" {} ", items[i]), i == selected))
+        .collect()
+}
+
+/// Draw the wildmenu (command-line completion candidates) on the status-line
+/// row while a `Tab` completion cycle is active. Returns whether it drew.
+fn draw_wildmenu(
+    out: &mut impl Write,
+    editor: &Editor,
+    theme: &Theme,
+    layout: &Layout,
+) -> io::Result<bool> {
+    let Some((items, selected)) = editor.completion_menu() else {
+        return Ok(false);
+    };
+    let cells = wildmenu_cells(items, selected, layout.cols as usize);
+    if cells.is_empty() {
+        return Ok(false);
+    }
+    let y = layout.rows.saturating_sub(2);
+    queue!(
+        out,
+        MoveTo(0, y),
+        SetBackgroundColor(theme.status_bg),
+        SetForegroundColor(theme.status_fg),
+        Clear(ClearType::CurrentLine)
+    )?;
+    for (text, is_sel) in cells {
+        if is_sel {
+            queue!(
+                out,
+                SetBackgroundColor(theme.mode_bg),
+                SetForegroundColor(theme.mode_fg),
+                Print(text),
+                SetBackgroundColor(theme.status_bg),
+                SetForegroundColor(theme.status_fg)
+            )?;
+        } else {
+            queue!(out, Print(text))?;
+        }
+    }
+    queue!(out, ResetColor)?;
+    Ok(true)
+}
+
 // ---- menu bar --------------------------------------------------------------
 
 /// The x column where each top-level menu title's segment begins.
@@ -890,6 +967,33 @@ mod tests {
     fn compose_row_truncates_when_too_narrow() {
         let row = compose_row("A very long label", "x", 8);
         assert_eq!(row.chars().count(), 8);
+    }
+
+    #[test]
+    fn wildmenu_shows_all_items_when_they_fit() {
+        let items = vec!["wq".to_string(), "wall".to_string(), "write".to_string()];
+        let cells = wildmenu_cells(&items, 1, 80);
+        assert_eq!(cells.len(), 3);
+        assert_eq!(cells[0], (" wq ".to_string(), false));
+        assert_eq!(cells[1], (" wall ".to_string(), true)); // selected
+        assert_eq!(cells[2], (" write ".to_string(), false));
+    }
+
+    #[test]
+    fn wildmenu_window_keeps_selected_visible() {
+        let items: Vec<String> = (0..10).map(|i| format!("opt{i}")).collect();
+        // Narrow width: only a few cells fit; the selected one must be present.
+        let cells = wildmenu_cells(&items, 9, 16);
+        assert!(!cells.is_empty());
+        assert!(cells.iter().any(|(t, sel)| *sel && t.contains("opt9")));
+        // Everything shown fits the width.
+        let total: usize = cells.iter().map(|(t, _)| t.chars().count()).sum();
+        assert!(total <= 16);
+    }
+
+    #[test]
+    fn wildmenu_empty_for_no_items() {
+        assert!(wildmenu_cells(&[], 0, 80).is_empty());
     }
 
     #[test]
