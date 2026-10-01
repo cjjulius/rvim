@@ -210,6 +210,33 @@ impl Editor {
         self.menu = None;
     }
 
+    /// Mouse: select item `idx` at dropdown `level` and activate it (open a
+    /// submenu, or run a command and close the menu).
+    pub fn menu_mouse_select(&mut self, level: usize, idx: usize) {
+        let outcome = {
+            let menu = match self.menu.as_mut() {
+                Some(m) => m,
+                None => return,
+            };
+            if level > menu.stack.len() {
+                return;
+            }
+            menu.stack.truncate(level);
+            menu.stack.push(idx);
+            menu.enter()
+        };
+        match outcome {
+            MenuOutcome::Run(cmd) => {
+                self.menu = None;
+                self.mode = Mode::Command;
+                self.line_kind = LineKind::Ex;
+                self.cmdline = cmd;
+            }
+            MenuOutcome::Close => self.menu = None,
+            MenuOutcome::None => {}
+        }
+    }
+
     fn handle_menu_key(&mut self, key: KeyEvent) -> Action {
         let outcome = {
             let menu = match self.menu.as_mut() {
@@ -3262,6 +3289,25 @@ mod tests {
         ed.handle_key(special(KeyCode::Esc)); // close
         assert!(!ed.is_menu_open());
         assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn menu_mouse_select_runs_command() {
+        let mut ed = menu_ed();
+        ed.handle_key(special(KeyCode::Down)); // open File dropdown (level 0)
+        ed.menu_mouse_select(0, 2); // click "Write & Quit" (wq)
+        assert!(!ed.is_menu_open());
+        assert_eq!(ed.mode, Mode::Command);
+        assert_eq!(ed.cmdline, "wq");
+    }
+
+    #[test]
+    fn menu_mouse_select_opens_submenu() {
+        let mut ed = menu_ed();
+        ed.menu_open_initial('v'); // View dropdown open at "Theme" (a submenu)
+        ed.menu_mouse_select(0, 0); // click "Theme"
+        assert!(ed.is_menu_open());
+        assert_eq!(ed.menu().unwrap().depth(), 2); // submenu opened
     }
 
     #[test]

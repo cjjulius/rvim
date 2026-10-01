@@ -498,6 +498,87 @@ pub fn compose_row(label: &str, right: &str, inner_w: usize) -> String {
     }
 }
 
+/// Geometry of one open dropdown level, shared by rendering and mouse hit-tests.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MenuLevelGeom {
+    pub x: u16,
+    pub y: u16,
+    pub width: u16,
+    pub scroll: usize,
+    /// Number of item rows actually shown.
+    pub visible: usize,
+    pub items_len: usize,
+}
+
+fn dropdown_inner_width(items: &[MenuItem]) -> usize {
+    items
+        .iter()
+        .map(|it| it.label.chars().count() + item_right(it).chars().count() + 3)
+        .max()
+        .unwrap_or(10)
+        .max(10)
+}
+
+/// Compute the box geometry for every open dropdown level (one entry per level).
+/// Deterministic from the menu state + terminal size, so hit-testing matches
+/// what was drawn.
+pub fn menu_geometry(menu: &MenuState, cols: u16, rows: u16) -> Vec<MenuLevelGeom> {
+    let titles: Vec<String> = menu.menus.iter().map(|m| m.title.clone()).collect();
+    let positions = menu_bar_positions(&titles);
+    let mut out = Vec::new();
+    let mut x = positions.get(menu.top).copied().unwrap_or(0);
+    let mut y = 1u16;
+    for level in 0..menu.depth() {
+        let items = match menu.items_at(level) {
+            Some(it) => it,
+            None => break,
+        };
+        let sel = menu.selected_at(level);
+        let box_w = ((dropdown_inner_width(items) as u16) + 2).min(cols.saturating_sub(x).max(4));
+        let max_rows = rows.saturating_sub(2).saturating_sub(y) as usize;
+        let (scroll, shown) = if max_rows < 3 {
+            (0, 0)
+        } else {
+            let visible = (max_rows - 2).max(1);
+            let n = items.len();
+            let scroll = if n > visible {
+                sel.saturating_sub(visible - 1).min(n - visible)
+            } else {
+                0
+            };
+            (scroll, visible.min(n))
+        };
+        out.push(MenuLevelGeom {
+            x,
+            y,
+            width: box_w,
+            scroll,
+            visible: shown,
+            items_len: items.len(),
+        });
+        let sel_row = y + 1 + sel.saturating_sub(scroll) as u16;
+        x = x.saturating_add(box_w).min(cols.saturating_sub(1));
+        y = sel_row;
+    }
+    out
+}
+
+/// Map a mouse click to `(level, item_index)` within an open dropdown, if it
+/// landed on an item row.
+pub fn menu_hit_test(geom: &[MenuLevelGeom], col: u16, row: u16) -> Option<(usize, usize)> {
+    for (level, g) in geom.iter().enumerate() {
+        let y0 = g.y + 1;
+        let y1 = y0 + g.visible as u16;
+        if col >= g.x && col < g.x + g.width && row >= y0 && row < y1 {
+            let idx = (row - y0) as usize + g.scroll;
+            if idx < g.items_len {
+                return Some((level, idx));
+            }
+        }
+    }
+    None
+}
+
 fn draw_menu(
     out: &mut impl Write,
     theme: &Theme,
@@ -540,91 +621,56 @@ fn draw_menu(
         )?;
     }
 
-    // Cascading dropdowns.
-    let mut anchor_x = positions.get(menu.top).copied().unwrap_or(0);
-    let mut anchor_y = 1u16;
-    for level in 0..menu.depth() {
-        let items = match menu.items_at(level) {
-            Some(it) => it,
-            None => break,
-        };
-        let sel = menu.selected_at(level);
-        let (w, sel_y) = draw_dropdown(out, theme, layout, anchor_x, anchor_y, items, sel)?;
-        anchor_x = anchor_x.saturating_add(w).min(cols.saturating_sub(1));
-        anchor_y = sel_y; // next (sub)menu aligns to the selected row
+    // Cascading dropdowns, positioned by the shared geometry.
+    let geom = menu_geometry(menu, layout.cols, layout.rows);
+    for (level, g) in geom.iter().enumerate() {
+        if let Some(items) = menu.items_at(level) {
+            draw_dropdown(out, theme, g, items, menu.selected_at(level))?;
+        }
     }
 
     queue!(out, ResetColor)
 }
 
-/// Draw a single bordered dropdown box. Returns `(width, screen_y_of_selected)`.
-#[allow(clippy::too_many_arguments)]
+/// Draw a single bordered dropdown box at a precomputed geometry.
 fn draw_dropdown(
     out: &mut impl Write,
     theme: &Theme,
-    layout: &Layout,
-    x: u16,
-    y: u16,
+    g: &MenuLevelGeom,
     items: &[MenuItem],
     sel: usize,
-) -> io::Result<(u16, u16)> {
-    let cols = layout.cols;
-    let rows = layout.rows;
+) -> io::Result<()> {
+    if g.visible == 0 {
+        return Ok(());
+    }
     let bg = theme.status_bg;
     let fg = theme.status_fg;
     let sel_bg = theme.mode_bg;
     let sel_fg = theme.mode_fg;
+    let inner_w = g.width.saturating_sub(2) as usize;
 
-    let content_w = items
-        .iter()
-        .map(|it| it.label.chars().count() + item_right(it).chars().count() + 3)
-        .max()
-        .unwrap_or(10)
-        .max(10);
-    let box_w = ((content_w as u16) + 2).min(cols.saturating_sub(x).max(4));
-    let inner_w = box_w.saturating_sub(2) as usize;
-
-    // Vertical room between this box's top and the status line.
-    let max_rows = rows.saturating_sub(2).saturating_sub(y) as usize;
-    if max_rows < 3 {
-        return Ok((box_w, y)); // no room to draw a usable box
-    }
-    let visible = (max_rows - 2).max(1);
-    let n = items.len();
-    let scroll = if n > visible {
-        sel.saturating_sub(visible - 1).min(n - visible)
-    } else {
-        0
-    };
-    let shown = visible.min(n);
-
-    // Top border (with a ▲ when scrolled up).
-    let top_fill = if scroll > 0 {
+    let top_fill = if g.scroll > 0 {
         format!("─▲{}", "─".repeat(inner_w.saturating_sub(2)))
     } else {
         "─".repeat(inner_w)
     };
     queue!(
         out,
-        MoveTo(x, y),
+        MoveTo(g.x, g.y),
         SetBackgroundColor(bg),
         SetForegroundColor(fg),
         Print(format!("┌{top_fill}┐"))
     )?;
 
-    let mut sel_screen_y = y + 1;
-    for row in 0..shown {
-        let idx = scroll + row;
+    for row in 0..g.visible {
+        let idx = g.scroll + row;
         let item = &items[idx];
-        let yy = y + 1 + row as u16;
-        if idx == sel {
-            sel_screen_y = yy;
-        }
+        let yy = g.y + 1 + row as u16;
         let body = compose_row(&item.label, &item_right(item), inner_w);
         let (ifg, ibg) = if idx == sel { (sel_fg, sel_bg) } else { (fg, bg) };
         queue!(
             out,
-            MoveTo(x, yy),
+            MoveTo(g.x, yy),
             SetForegroundColor(fg),
             SetBackgroundColor(bg),
             Print("│"),
@@ -637,8 +683,7 @@ fn draw_dropdown(
         )?;
     }
 
-    // Bottom border (with a ▼ when more items are below).
-    let more_below = scroll + shown < n;
+    let more_below = g.scroll + g.visible < g.items_len;
     let bot_fill = if more_below {
         format!("─▼{}", "─".repeat(inner_w.saturating_sub(2)))
     } else {
@@ -646,13 +691,12 @@ fn draw_dropdown(
     };
     queue!(
         out,
-        MoveTo(x, y + 1 + shown as u16),
+        MoveTo(g.x, g.y + 1 + g.visible as u16),
         SetForegroundColor(fg),
         SetBackgroundColor(bg),
         Print(format!("└{bot_fill}┘"))
     )?;
-
-    Ok((box_w, sel_screen_y))
+    Ok(())
 }
 
 #[cfg(test)]
@@ -672,6 +716,22 @@ mod tests {
         assert!(out.contains("File"));
         assert!(out.contains("Write"));
         assert!(out.contains('┌') && out.contains('┘')); // a box was drawn
+    }
+
+    #[test]
+    fn menu_geometry_and_hit_test() {
+        use crate::menu::{build_menus, MenuState};
+        let mut state = MenuState::new(build_menus(&["matrix"], &["wordcount"]));
+        state.stack = vec![0]; // File dropdown open
+        let geom = menu_geometry(&state, 80, 24);
+        assert_eq!(geom.len(), 1);
+        let g = geom[0];
+        // The first item sits at row g.y+1 within the box; a click there hits item 0.
+        assert_eq!(menu_hit_test(&geom, g.x + 1, g.y + 1), Some((0, 0)));
+        // A click on the second row hits item 1.
+        assert_eq!(menu_hit_test(&geom, g.x + 1, g.y + 2), Some((0, 1)));
+        // A click outside the box misses.
+        assert_eq!(menu_hit_test(&geom, g.x + g.width + 5, g.y + 1), None);
     }
 
     #[test]
