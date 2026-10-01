@@ -183,7 +183,7 @@ pub fn render(
         queue!(out, MoveTo(0, layout.top_offset + y))?;
         draw_gutter(out, editor, theme, &layout, row)?;
 
-        let line_bg = if row == editor.cursor.row {
+        let line_bg = if editor.cursorline && row == editor.cursor.row {
             theme.cursor_line_bg
         } else {
             theme.bg
