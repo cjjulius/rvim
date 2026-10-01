@@ -306,6 +306,19 @@
     }
 
     #[test]
+    fn h_l_honor_count() {
+        let mut ed = big_buffer(100); // view_rows = 10
+        ed.top = 20;
+        ed.cursor.row = 25;
+        ed.handle_key(key('3'));
+        ed.handle_key(key('H')); // 3 lines below the top (20 + 2)
+        assert_eq!(ed.cursor.row, 22);
+        ed.handle_key(key('2'));
+        ed.handle_key(key('L')); // 2 lines above the bottom (29 - 1)
+        assert_eq!(ed.cursor.row, 28);
+    }
+
+    #[test]
     fn hml_jump_within_viewport() {
         let mut ed = big_buffer(100);
         ed.top = 20;

@@ -2092,17 +2092,25 @@ impl Editor {
                 self.pending_op_count = Some(count);
             }
             KeyCode::Char('H') => {
-                self.cursor.row = self.top.min(self.buffer.line_count().saturating_sub(1));
+                self.record_jump();
+                let last = self.buffer.line_count().saturating_sub(1);
+                let bottom = (self.top + self.view_rows.saturating_sub(1)).min(last);
+                // `[count]H` -> count-1 lines below the top, bounded to the window.
+                self.cursor.row = (self.top + count.saturating_sub(1)).min(bottom);
                 self.move_first_nonblank();
             }
             KeyCode::Char('M') => {
+                self.record_jump();
                 let last = self.buffer.line_count().saturating_sub(1);
                 self.cursor.row = (self.top + self.view_rows / 2).min(last);
                 self.move_first_nonblank();
             }
             KeyCode::Char('L') => {
+                self.record_jump();
                 let last = self.buffer.line_count().saturating_sub(1);
-                self.cursor.row = (self.top + self.view_rows.saturating_sub(1)).min(last);
+                let bottom = (self.top + self.view_rows.saturating_sub(1)).min(last);
+                // `[count]L` -> count-1 lines above the bottom, not above the top.
+                self.cursor.row = bottom.saturating_sub(count.saturating_sub(1)).max(self.top);
                 self.move_first_nonblank();
             }
             KeyCode::Char('d') => {
