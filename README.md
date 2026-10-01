@@ -146,10 +146,11 @@ override).
 | `:2,5s/foo/bar/`   | first `foo` per line, lines 2–5               |
 | `:.,$s/foo//g`     | delete every `foo` from the cursor line to EOF|
 
-Patterns are **regular expressions**, and the replacement supports capture
-groups (`$1`, `${name}`) — e.g. `:%s/(\w+)=(\w+)/$2=$1/g`. An invalid regex
-falls back to a literal match. A single undo (`u`) reverts an entire
-substitution.
+Patterns are **regular expressions**, and the replacement uses **vim-style
+backreferences** — `\1`–`\9` for groups and `&` for the whole match — e.g.
+`:%s/(\w+)=(\w+)/\2=\1/g`. An invalid regex falls back to a literal match.
+`&` (normal mode) repeats the last substitution on the current line. A single
+undo (`u`) reverts an entire substitution.
 
 ### Menu bar (press Alt, or F10)
 An auto-hiding menu bar lives at the top of the screen. It's a **teaching aid**
@@ -294,7 +295,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **228 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **230 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
