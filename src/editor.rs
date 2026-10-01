@@ -680,6 +680,24 @@ impl Editor {
         self.clamp_cursor(false);
     }
 
+    /// `Ctrl-f` / `Ctrl-b` — scroll forward / backward one full page, with vim's
+    /// two-line overlap. The cursor lands on the first non-blank of the top line
+    /// (forward) or bottom line (backward) of the new view. `count` pages at once.
+    fn page_scroll(&mut self, forward: bool, count: usize) {
+        let last = self.buffer.line_count().saturating_sub(1);
+        let step = self.view_rows.saturating_sub(2).max(1) * count.max(1);
+        if forward {
+            self.top = (self.top + step).min(last);
+            self.cursor.row = self.top;
+        } else {
+            self.top = self.top.saturating_sub(step);
+            self.cursor.row = (self.top + self.view_rows.saturating_sub(1)).min(last);
+        }
+        self.move_first_nonblank();
+        self.clamp_cursor(false);
+        self.scroll_into_view();
+    }
+
     fn scroll_into_view(&mut self) {
         if self.cursor.row < self.top {
             self.top = self.cursor.row;
@@ -1328,6 +1346,16 @@ impl Editor {
                 }
                 KeyCode::Char('u') => {
                     self.move_up(self.view_rows / 2);
+                    return Action::None;
+                }
+                KeyCode::Char('f') => {
+                    let c = self.pending_count.take().unwrap_or(1);
+                    self.page_scroll(true, c);
+                    return Action::None;
+                }
+                KeyCode::Char('b') => {
+                    let c = self.pending_count.take().unwrap_or(1);
+                    self.page_scroll(false, c);
                     return Action::None;
                 }
                 KeyCode::Char('e') => {
@@ -3554,6 +3582,27 @@ mod tests {
         ed.handle_key(key('z'));
         ed.handle_key(key('b'));
         assert_eq!(ed.top, 41); // 50 + 1 - 10
+    }
+
+    #[test]
+    fn ctrl_f_and_b_page_scroll() {
+        let mut ed = big_buffer(100); // view_rows = 10 -> step = 8 (2-line overlap)
+        ed.handle_key(ctrl('f'));
+        assert_eq!(ed.top, 8);
+        assert_eq!(ed.cursor.row, 8); // cursor on top line of new page
+        ed.handle_key(ctrl('f'));
+        assert_eq!(ed.top, 16);
+        ed.handle_key(ctrl('b'));
+        assert_eq!(ed.top, 8);
+        assert_eq!(ed.cursor.row, 17); // cursor on bottom line of restored page
+    }
+
+    #[test]
+    fn ctrl_f_honors_count() {
+        let mut ed = big_buffer(100);
+        ed.handle_key(key('2'));
+        ed.handle_key(ctrl('f')); // two pages at once: 8 * 2
+        assert_eq!(ed.top, 16);
     }
 
     #[test]
