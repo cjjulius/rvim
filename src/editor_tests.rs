@@ -85,6 +85,29 @@
     }
 
     #[test]
+    fn count_undo_reverts_several_changes() {
+        let mut ed = ed_with("abcdef");
+        ed.handle_key(key('x'));
+        ed.handle_key(key('x'));
+        ed.handle_key(key('x')); // -> "def"
+        assert_eq!(ed.buffer.line(0), Some("def"));
+        ed.handle_key(key('3'));
+        ed.handle_key(key('u')); // 3u undoes all three
+        assert_eq!(ed.buffer.line(0), Some("abcdef"));
+    }
+
+    #[test]
+    fn count_redo_reapplies_changes() {
+        let mut ed = ed_with("abcdef");
+        ed.handle_key(key('x'));
+        ed.handle_key(key('x')); // -> "cdef"
+        ed.undo_times(2); // back to "abcdef"
+        assert_eq!(ed.buffer.line(0), Some("abcdef"));
+        ed.redo_times(2); // forward to "cdef"
+        assert_eq!(ed.buffer.line(0), Some("cdef"));
+    }
+
+    #[test]
     fn word_motion_forward() {
         let mut ed = ed_with("foo bar baz");
         ed.handle_key(key('w'));
