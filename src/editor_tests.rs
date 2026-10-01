@@ -2334,6 +2334,27 @@
     }
 
     #[test]
+    fn visual_j_joins_selected_lines() {
+        let mut ed = ed_with("one\ntwo\nthree\nfour");
+        ed.handle_key(key('V'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('j')); // select lines 0-2
+        ed.handle_key(key('J'));
+        assert_eq!(ed.buffer.line(0), Some("one two three"));
+        assert_eq!(ed.buffer.line(1), Some("four"));
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn normal_j_with_count_joins_several() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('J')); // 3J joins three lines
+        assert_eq!(ed.buffer.line(0), Some("a b c"));
+        assert_eq!(ed.buffer.line(1), Some("d"));
+    }
+
+    #[test]
     fn visual_r_replaces_selected_chars() {
         let mut ed = ed_with("hello");
         ed.handle_key(key('v'));

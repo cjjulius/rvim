@@ -2208,8 +2208,16 @@ impl Editor {
                 }
             }
             KeyCode::Char('J') => {
-                self.checkpoint();
-                self.buffer.join_line(self.cursor.row);
+                if self.mode.is_visual() {
+                    self.join_selection(false);
+                } else {
+                    self.checkpoint();
+                    for _ in 0..count.saturating_sub(1).max(1) {
+                        if !self.buffer.join_line(self.cursor.row) {
+                            break;
+                        }
+                    }
+                }
             }
             KeyCode::Char('v') => self.toggle_visual(Mode::Visual),
             KeyCode::Char('V') => self.toggle_visual(Mode::VisualLine),
@@ -2280,8 +2288,16 @@ impl Editor {
                     self.enter_insert_here();
                 }
                 KeyCode::Char('J') => {
-                    self.checkpoint();
-                    self.buffer.join_line_raw(self.cursor.row);
+                    if self.mode.is_visual() {
+                        self.join_selection(true);
+                    } else {
+                        self.checkpoint();
+                        for _ in 0..count.saturating_sub(1).max(1) {
+                            if !self.buffer.join_line_raw(self.cursor.row) {
+                                break;
+                            }
+                        }
+                    }
                 }
                 KeyCode::Char('_') => {
                     // g_ — last non-blank char (count-1 lines down).
@@ -3642,6 +3658,30 @@ impl Editor {
 
     /// Apply a case transform to the current visual selection, then return to
     /// Normal mode.
+    /// Visual `J`/`gJ`: join all selected lines into one (`raw` keeps whitespace),
+    /// then return to Normal with the cursor on the joined line.
+    fn join_selection(&mut self, raw: bool) {
+        let Some((start, end)) = self.selection() else {
+            self.mode = Mode::Normal;
+            return;
+        };
+        self.checkpoint();
+        let joins = (end.row - start.row).max(1);
+        for _ in 0..joins {
+            let ok = if raw {
+                self.buffer.join_line_raw(start.row)
+            } else {
+                self.buffer.join_line(start.row)
+            };
+            if !ok {
+                break;
+            }
+        }
+        self.cursor.row = start.row.min(self.buffer.line_count().saturating_sub(1));
+        self.mode = Mode::Normal;
+        self.clamp_cursor(false);
+    }
+
     /// Visual `r<c>`: replace every character in the selection with `c`,
     /// respecting charwise / linewise / block shapes, then return to Normal.
     fn replace_selection(&mut self, c: char) {
