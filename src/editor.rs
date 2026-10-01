@@ -2143,6 +2143,11 @@ impl Editor {
                 ('[', KeyCode::Char('{')) => self.unmatched_bracket('{', '}', false, n),
                 (']', KeyCode::Char(')')) => self.unmatched_bracket('(', ')', true, n),
                 (']', KeyCode::Char('}')) => self.unmatched_bracket('{', '}', true, n),
+                // Indent-adjusted paste: `]p` below, `[p` / `[P` / `]P` above.
+                (']', KeyCode::Char('p')) => self.paste_reindent(true),
+                ('[', KeyCode::Char('p'))
+                | ('[', KeyCode::Char('P'))
+                | (']', KeyCode::Char('P')) => self.paste_reindent(false),
                 _ => {}
             }
             return Action::None;
@@ -4595,6 +4600,51 @@ impl Editor {
         }
         self.checkpoint();
         self.paste_text(&reg, after);
+    }
+
+    /// `]p` / `[p` — paste the register's lines below / above the current line,
+    /// reindenting so the first pasted line matches the current line's indent and
+    /// the rest keep their indent relative to it. Always line-wise.
+    fn paste_reindent(&mut self, after: bool) {
+        let reg = self.active_register();
+        if reg.text.is_empty() {
+            return;
+        }
+        self.checkpoint();
+        let cur_indent = self.leading_indent(self.cursor.row);
+        let lines: Vec<&str> = reg.text.split('\n').collect();
+        // Baseline: the indent (in chars) of the first non-blank pasted line.
+        let base = lines
+            .iter()
+            .find(|l| !l.trim().is_empty())
+            .map(|l| l.chars().take_while(|c| *c == ' ' || *c == '\t').count())
+            .unwrap_or(0);
+        let row = if after {
+            self.cursor.row + 1
+        } else {
+            self.cursor.row
+        };
+        for (i, line) in lines.iter().enumerate() {
+            let new = if line.trim().is_empty() {
+                String::new()
+            } else {
+                let orig = line.chars().take_while(|c| *c == ' ' || *c == '\t').count();
+                let rel = orig.saturating_sub(base);
+                format!("{}{}{}", cur_indent, " ".repeat(rel), line.trim_start())
+            };
+            self.buffer.insert_line(row + i, new);
+        }
+        let last = lines.len().saturating_sub(1);
+        let end_col = self
+            .buffer
+            .line(row + last)
+            .map(|l| l.chars().count().saturating_sub(1))
+            .unwrap_or(0);
+        self.set_change_marks(Position::new(row, 0), Position::new(row + last, end_col));
+        self.cursor.row = row;
+        self.move_first_nonblank();
+        self.clamp_cursor(false);
+        self.scroll_into_view();
     }
 
     /// `gp` / `gP` — like `p`/`P`, but leave the cursor just after the pasted

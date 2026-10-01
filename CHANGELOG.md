@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Editing
+- `]p` / `[p` paste the register's lines below / above the current line,
+  reindenting them so the first line matches the current line's indent and the
+  rest keep their relative indent.
+
 ### Motions
 - `f`/`F`/`t`/`T` (and `;`/`,`) take a count — `3fx` jumps to the 3rd `x` — and
   work as operator motions: `dfx`, `ct)`, `dFx`, `y2tn`, etc.

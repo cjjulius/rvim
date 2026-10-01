@@ -3128,6 +3128,38 @@
     }
 
     #[test]
+    fn bracket_p_reindents_to_current_line() {
+        let mut ed = ed_with("        anchor");
+        ed.register = Register { text: "code".into(), linewise: true };
+        ed.cursor = Position::new(0, 8);
+        ed.handle_key(key(']'));
+        ed.handle_key(key('p')); // ]p -> paste below, indent to match "anchor"
+        assert_eq!(ed.buffer.line(1), Some("        code"));
+    }
+
+    #[test]
+    fn bracket_p_preserves_relative_indent() {
+        let mut ed = ed_with("    anchor");
+        ed.register = Register { text: "a\n  b".into(), linewise: true };
+        ed.cursor = Position::new(0, 4);
+        ed.handle_key(key(']'));
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(1), Some("    a"));
+        assert_eq!(ed.buffer.line(2), Some("      b")); // 4 + its own 2
+    }
+
+    #[test]
+    fn bracket_paste_above_with_indent() {
+        let mut ed = ed_with("    anchor");
+        ed.register = Register { text: "x".into(), linewise: true };
+        ed.cursor = Position::new(0, 4);
+        ed.handle_key(key('['));
+        ed.handle_key(key('p')); // [p -> paste above, indent-adjusted
+        assert_eq!(ed.buffer.line(0), Some("    x"));
+        assert_eq!(ed.buffer.line(1), Some("    anchor"));
+    }
+
+    #[test]
     fn g_ampersand_repeats_substitute_over_file() {
         let mut ed = ed_with("foo\nfoo\nfoo");
         let spec = SubstituteSpec {
