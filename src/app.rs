@@ -842,7 +842,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tCtrl-g / ga        file info / character code under cursor\n\
          \tgq{{motion}} / gqq   reflow lines to textwidth (gw too)\n\
          \tgi  `.  `^         resume insert / last change / last insert\n\
-         \tq<x> q  @<x>  @@   record macro / stop / replay / repeat\n\
+         \tq<x> q  @<x>  @@   record macro / stop / replay / repeat   @: last :cmd\n\
          \n\
          COMMANDS\n\
          \t(command line) Up/Down  recall previous commands / searches\n\

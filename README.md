@@ -110,6 +110,7 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   so you can hop back to where you were just editing.
 - **Macros:** `q<reg>` records keystrokes, `q` stops, `@<reg>` replays, `@@`
   repeats the last macro (a `recording @x` indicator shows in the status line).
+  `@:` repeats the last `:` command-line command.
 - **Insert mode:** autoindent on Enter (`:set autoindent`/`noai`), `Ctrl-w`
   (delete word before cursor), `Ctrl-u` (delete to line start), `Ctrl-r<reg>`
   (paste a register), `Ctrl-t`/`Ctrl-d` (indent/dedent line), `Tab`.
@@ -377,7 +378,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **362 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **364 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
