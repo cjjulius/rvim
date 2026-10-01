@@ -155,6 +155,9 @@ override).
 `:set tabstop=N` · `:noh` / `:set hlsearch|nohlsearch` · `:sort[!] [u]` ·
 `:source <file>` · `:help` · `:version`
 
+On the command line, `Up`/`Down` recall previous commands (`:` history) or
+searches (`/`/`?` history).
+
 **Search & replace** (`:s`) supports ranges and the `g` (global) flag:
 
 | Command            | Effect                                        |
@@ -316,7 +319,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **266 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **268 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
