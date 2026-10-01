@@ -616,6 +616,7 @@ impl App {
             ExCommand::PutRegister { dest, register } => {
                 self.editor.put_register(dest, register);
             }
+            ExCommand::Normal { range, keys } => self.run_normal(range, &keys),
             ExCommand::Sort { range, reverse, unique, numeric, ignorecase } => {
                 let before = self.editor.buffer.line_count();
                 self.editor.sort_lines(range, reverse, unique, numeric, ignorecase);
@@ -708,6 +709,41 @@ impl App {
             }
         }
         (written, failed)
+    }
+
+    /// `:[range]normal {keys}` — feed `keys` as Normal-mode input. With a range,
+    /// run them at the start of each line in it; otherwise once at the cursor.
+    fn run_normal(&mut self, range: Option<command::SubRange>, keys: &str) {
+        let rows: Vec<usize> = match range {
+            Some(r) => {
+                let (a, b) = self.editor.range_rows(r);
+                (a..=b).collect()
+            }
+            None => vec![self.editor.cursor.row],
+        };
+        for row in rows {
+            let last = self.editor.buffer.line_count().saturating_sub(1);
+            if row > last {
+                break;
+            }
+            self.editor.cursor.row = row;
+            self.editor.cursor.col = 0;
+            self.feed_normal_keys(keys);
+        }
+    }
+
+    /// Feed each character of `keys` to the editor as a Normal-mode key event,
+    /// running any ex-command it produces, then press Esc so insert/pending state
+    /// is always cleaned up (as vim does at the end of `:normal`).
+    fn feed_normal_keys(&mut self, keys: &str) {
+        for c in keys.chars() {
+            let ev = crossterm::event::KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE);
+            if let Action::RunEx(cmd) = self.editor.handle_key(ev) {
+                self.run_ex(&cmd);
+            }
+        }
+        let esc = crossterm::event::KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
+        self.editor.handle_key(esc);
     }
 
     fn run_passthrough(&mut self, name: &str, args: &str) {
@@ -867,6 +903,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tCtrl-^ / :b#       switch to the alternate (last) buffer\n\
          \t:s/pat/rep/[gin]   substitute (g all, i ignore-case, n count only)\n\
          \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///)\n\
+         \t:[range]norm {{keys}}  run Normal-mode keys (per line over a range)\n\
          \t:theme <name>      themes: {themes}\n\
          \t:set number|nonumber   :set relativenumber|nornu\n\
          \t:set autoindent|noai   :set expandtab|noet\n\
