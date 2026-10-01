@@ -2093,6 +2093,7 @@ impl Editor {
                 code => self.motion_target(code, 1).map(|t| match t {
                     OpTarget::Chars(_, _) => (self.cursor.row, self.cursor.row),
                     OpTarget::Lines(a, b) => (a, b),
+                    OpTarget::Span(s, e) => (s.row, e.row),
                 }),
             };
             if let Some((a, b)) = rows {
@@ -2116,6 +2117,7 @@ impl Editor {
                 code => self.motion_target(code, 1).map(|t| match t {
                     OpTarget::Chars(_, _) => (self.cursor.row, self.cursor.row),
                     OpTarget::Lines(a, b) => (a, b),
+                    OpTarget::Span(s, e) => (s.row, e.row),
                 }),
             };
             if let Some((a, b)) = rows {
@@ -2131,6 +2133,7 @@ impl Editor {
                     let (a, b) = match t {
                         OpTarget::Lines(a, b) => (a, b),
                         OpTarget::Chars(_, _) => (self.cursor.row, self.cursor.row),
+                        OpTarget::Span(s, e) => (s.row, e.row),
                     };
                     self.reflow_lines(a, b);
                 }
@@ -2751,6 +2754,7 @@ impl Editor {
                     match self.motion_target(code, count) {
                         Some(OpTarget::Lines(a, b)) => Some((a, b)),
                         Some(OpTarget::Chars(_, _)) => Some((self.cursor.row, self.cursor.row)),
+                        Some(OpTarget::Span(s, e)) => Some((s.row, e.row)),
                         None => None,
                     }
                 };
@@ -2895,6 +2899,24 @@ impl Editor {
                     self.set_change_marks(Position::new(a, 0), Position::new(b, end_col));
                 }
             }
+            OpTarget::Span(start, end) => {
+                // Inclusive charwise span across lines (multi-line text objects).
+                let text = self.extract_range(start, end, false);
+                if is_delete {
+                    self.checkpoint();
+                    self.store_delete(text, false);
+                    self.delete_range(start, end, false);
+                    self.cursor = start;
+                    self.set_change_marks(start, start);
+                    if is_change {
+                        self.mode = Mode::Insert;
+                    }
+                } else {
+                    self.store_yank(text, false);
+                    self.cursor = start;
+                    self.set_change_marks(start, end);
+                }
+            }
         }
         self.clamp_cursor(false);
         self.scroll_into_view();
@@ -2927,6 +2949,23 @@ impl Editor {
                     self.buffer.set_line(row, new);
                 }
                 self.cursor.row = a;
+            }
+            OpTarget::Span(start, end) => {
+                // Transform an inclusive charwise span across lines.
+                for row in start.row..=end.row {
+                    let chars: Vec<char> =
+                        self.buffer.line(row).unwrap_or("").chars().collect();
+                    let len = chars.len();
+                    let c0 = if row == start.row { start.col.min(len) } else { 0 };
+                    let c1 = if row == end.row { (end.col + 1).min(len) } else { len };
+                    let new: String = chars
+                        .iter()
+                        .enumerate()
+                        .map(|(i, &c)| if i >= c0 && i < c1 { cop.apply(c) } else { c })
+                        .collect();
+                    self.buffer.set_line(row, new);
+                }
+                self.cursor = start;
             }
         }
         self.clamp_cursor(false);
@@ -3495,16 +3534,103 @@ impl Editor {
             '`' => ('`', '`'),
             _ => return None,
         };
-        let (o, c) = if open == close {
-            Self::find_quotes(&chars, col, open)?
-        } else {
-            Self::find_pair(&chars, col, open, close)?
-        };
-        if around {
-            Some(OpTarget::Chars(o, c + 1))
-        } else {
-            Some(OpTarget::Chars(o + 1, c))
+        if open == close {
+            let (o, c) = Self::find_quotes(&chars, col, open)?;
+            return Some(if around {
+                OpTarget::Chars(o, c + 1)
+            } else {
+                OpTarget::Chars(o + 1, c)
+            });
         }
+        // Bracket pair: try the current line first (fast; keeps single-line
+        // behavior), then fall back to an enclosing pair that spans lines.
+        if let Some((o, c)) = Self::find_pair(&chars, col, open, close) {
+            return Some(if around {
+                OpTarget::Chars(o, c + 1)
+            } else {
+                OpTarget::Chars(o + 1, c)
+            });
+        }
+        let (op, cp) = self.find_pair_pos(open, close)?;
+        if around {
+            Some(OpTarget::Span(op, cp))
+        } else {
+            let start = self.pos_after(op);
+            let end = self.pos_before(cp);
+            if start.row > end.row || (start.row == end.row && start.col > end.col) {
+                // Empty inner region (adjacent brackets) -> no-op.
+                Some(OpTarget::Chars(self.cursor.col, self.cursor.col))
+            } else {
+                Some(OpTarget::Span(start, end))
+            }
+        }
+    }
+
+    /// The position one character after `p`, crossing to the next line's start
+    /// when `p` is at end of line. Returns `p` unchanged at end of buffer.
+    fn pos_after(&self, p: Position) -> Position {
+        let len = self.buffer.line(p.row).map(|l| l.chars().count()).unwrap_or(0);
+        if p.col + 1 < len {
+            Position::new(p.row, p.col + 1)
+        } else if p.row + 1 < self.buffer.line_count() {
+            Position::new(p.row + 1, 0)
+        } else {
+            p
+        }
+    }
+
+    /// The position one character before `p`, crossing to the previous line's
+    /// end when `p` is at column 0. Returns `p` unchanged at the buffer start.
+    fn pos_before(&self, p: Position) -> Position {
+        if p.col > 0 {
+            Position::new(p.row, p.col - 1)
+        } else if p.row > 0 {
+            let prev = self.buffer.line(p.row - 1).map(|l| l.chars().count()).unwrap_or(0);
+            Position::new(p.row - 1, prev.saturating_sub(1))
+        } else {
+            p
+        }
+    }
+
+    /// The position of the nearest unmatched `open` bracket at or before the
+    /// cursor, scanning backward across lines (for multi-line pair objects).
+    fn enclosing_open(&self, open: char, close: char) -> Option<Position> {
+        let cur = self.cursor;
+        let mut depth = 0i32;
+        let mut row = cur.row;
+        loop {
+            let line: Vec<char> = self.buffer.line(row)?.chars().collect();
+            let mut col = if row == cur.row {
+                (cur.col as isize).min(line.len() as isize - 1)
+            } else {
+                line.len() as isize - 1
+            };
+            while col >= 0 {
+                let c = line[col as usize];
+                let on_cursor = row == cur.row && col == cur.col as isize;
+                if c == close && !on_cursor {
+                    depth += 1;
+                } else if c == open {
+                    if depth == 0 {
+                        return Some(Position::new(row, col as usize));
+                    }
+                    depth -= 1;
+                }
+                col -= 1;
+            }
+            if row == 0 {
+                return None;
+            }
+            row -= 1;
+        }
+    }
+
+    /// Find the enclosing `open`/`close` pair across lines, as `(open_pos,
+    /// close_pos)`. Used when the pair does not fit on the current line.
+    fn find_pair_pos(&self, open: char, close: char) -> Option<(Position, Position)> {
+        let o = self.enclosing_open(open, close)?;
+        let c = self.scan_bracket(o.row, o.col, open, close, true)?;
+        Some((o, c))
     }
 
     fn find_pair(chars: &[char], col: usize, open: char, close: char) -> Option<(usize, usize)> {
@@ -5225,6 +5351,9 @@ enum OpTarget {
     Chars(usize, usize),
     /// Inclusive line range.
     Lines(usize, usize),
+    /// An inclusive charwise span across lines (`start`..=`end`), for multi-line
+    /// text objects such as `ci{` spanning several rows.
+    Span(Position, Position),
 }
 
 /// A case transformation applied to characters in a visual selection.

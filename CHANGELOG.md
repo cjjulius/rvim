@@ -10,6 +10,9 @@ All notable changes to rvim are recorded here. Versions follow
   across lines), bounded by `.`/`!`/`?` punctuation and blank lines.
 - Sentence text objects `is` / `as` (e.g. `das`, `cis`) select the sentence
   under the cursor, with `as` keeping the trailing whitespace.
+- Bracket text objects (`i(`/`a(`, `i{`/`a{`, `i[`/`a[`, `i<`/`a<`) now span
+  multiple lines, so `ci{` / `da(` / `yi[` work across a block or argument list
+  that covers several rows (via a new charwise `OpTarget::Span`).
 
 ### Marks
 - The `` `[ `` / `` `] `` (and linewise `'[` / `']`) marks are now set to the
