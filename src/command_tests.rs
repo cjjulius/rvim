@@ -190,6 +190,14 @@
     }
 
     #[test]
+    fn set_wrapscan() {
+        assert_eq!(parse("set wrapscan"), ExCommand::ToggleWrapScan(true));
+        assert_eq!(parse("set ws"), ExCommand::ToggleWrapScan(true));
+        assert_eq!(parse("set nowrapscan"), ExCommand::ToggleWrapScan(false));
+        assert_eq!(parse("set nows"), ExCommand::ToggleWrapScan(false));
+    }
+
+    #[test]
     fn set_case_options() {
         assert_eq!(parse("set ignorecase"), ExCommand::ToggleIgnoreCase(true));
         assert_eq!(parse("set ic"), ExCommand::ToggleIgnoreCase(true));

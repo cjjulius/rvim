@@ -76,6 +76,8 @@ pub struct Editor {
     pub smartcase: bool,
     /// Preview the first match while typing a `/` or `?` search (`:set incsearch`).
     pub incsearch: bool,
+    /// Whether searches wrap around the ends of the buffer (`:set wrapscan`).
+    pub wrapscan: bool,
     /// Cursor position when a search was started, for incsearch preview/restore.
     search_origin: Position,
     /// Search highlight state saved on search entry, restored if the search is
@@ -224,6 +226,7 @@ impl Editor {
             ignorecase: false,
             smartcase: false,
             incsearch: true,
+            wrapscan: true,
             search_origin: Position::default(),
             saved_search_re: None,
             saved_last_search: String::new(),
@@ -3790,8 +3793,21 @@ impl Editor {
         self.hlsearch = true;
         self.record_jump();
         let needle = self.last_search.clone();
-        match self.find_match(&re, forward, self.cursor) {
+        let origin = self.cursor;
+        match self.find_match(&re, forward, origin) {
             Some(pos) => {
+                // With `nowrapscan`, reject a match found only by wrapping past the
+                // end/start of the buffer.
+                if !self.wrapscan {
+                    let o = (origin.row, origin.col);
+                    let p = (pos.row, pos.col);
+                    let wrapped = if forward { p <= o } else { p >= o };
+                    if wrapped {
+                        let edge = if forward { "BOTTOM" } else { "TOP" };
+                        self.message = format!("search hit {edge} without match: {needle}");
+                        return;
+                    }
+                }
                 self.cursor = pos;
                 let sigil = if forward { '/' } else { '?' };
                 let count = self.search_count(&re);

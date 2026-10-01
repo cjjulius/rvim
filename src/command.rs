@@ -108,6 +108,8 @@ pub enum ExCommand {
     ToggleIncSearch(bool),
     /// `:set list` / `:set nolist` — show tabs and trailing whitespace.
     ToggleList(bool),
+    /// `:set wrapscan` / `:set nowrapscan` — whether searches wrap around the file.
+    ToggleWrapScan(bool),
     /// `:sort` / `:sort!` / `:sort u` — sort buffer lines.
     Sort { reverse: bool, unique: bool },
     /// `:[range]m[ove] {addr}` — move the range's lines to after `dest`.
@@ -488,6 +490,8 @@ fn parse_set(rest: &str) -> ExCommand {
         "noincsearch" | "nois" => ExCommand::ToggleIncSearch(false),
         "list" => ExCommand::ToggleList(true),
         "nolist" => ExCommand::ToggleList(false),
+        "wrapscan" | "ws" => ExCommand::ToggleWrapScan(true),
+        "nowrapscan" | "nows" => ExCommand::ToggleWrapScan(false),
         _ => {
             if let Some(v) = opt
                 .strip_prefix("ft=")
