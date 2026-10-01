@@ -610,6 +610,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          COMMANDS\n\
          \t(command line) Up/Down  recall previous commands / searches\n\
          \t:w [file]  :q  :q!  :wq  :x   write / quit variants\n\
+         \tZZ / ZQ            write & quit / quit without saving\n\
          \t:e <file>          open file\n\
          \t:ls :bn :bp :b<n>  list / next / prev / goto buffer   :bd close\n\
          \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///)\n\
