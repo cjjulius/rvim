@@ -353,6 +353,33 @@ impl App {
                     self.quit = true;
                 }
             }
+            ExCommand::QuitAll { force } => {
+                let dirty = self.editor.buffer.is_dirty()
+                    || self.others.iter().any(|e| e.buffer.is_dirty());
+                if dirty && !force {
+                    self.editor.message =
+                        "E37: No write since last change (add ! to override)".into();
+                } else {
+                    self.quit = true;
+                }
+            }
+            ExCommand::WriteAll => {
+                let (written, failed) = self.write_all();
+                self.editor.message = if failed == 0 {
+                    format!("{written} buffer(s) written")
+                } else {
+                    format!("{written} written, {failed} failed (no file name?)")
+                };
+            }
+            ExCommand::WriteQuitAll { force } => {
+                let (_, failed) = self.write_all();
+                if failed == 0 || force {
+                    self.quit = true;
+                } else {
+                    self.editor.message =
+                        format!("{failed} buffer(s) could not be written (add ! to override)");
+                }
+            }
             ExCommand::Edit(path) => self.edit_file(&path),
             ExCommand::BufferList => self.buffer_list(),
             ExCommand::BufferNext => self.buffer_next(),
@@ -505,6 +532,27 @@ impl App {
         }
     }
 
+    /// Save the active buffer and every other open buffer that has a file name.
+    /// Returns `(written, failed)`; a buffer with no path counts as a failure.
+    fn write_all(&mut self) -> (usize, usize) {
+        let mut written = 0;
+        let mut failed = 0;
+        for ed in std::iter::once(&mut self.editor).chain(self.others.iter_mut()) {
+            if ed.buffer.path().is_none() {
+                failed += 1;
+                continue;
+            }
+            match ed.buffer.save() {
+                Ok(_) => {
+                    ed.redetect_language();
+                    written += 1;
+                }
+                Err(_) => failed += 1,
+            }
+        }
+        (written, failed)
+    }
+
     fn run_passthrough(&mut self, name: &str, args: &str) {
         // A couple of `:set` options not handled by the parser.
         if name == "set" {
@@ -629,6 +677,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          COMMANDS\n\
          \t(command line) Up/Down  recall previous commands / searches\n\
          \t:w [file]  :q  :q!  :wq  :x   write / quit variants\n\
+         \t:qa  :wa  :wqa     quit / write / write-quit all buffers (! to force)\n\
          \tZZ / ZQ            write & quit / quit without saving\n\
          \t:e <file>          open file\n\
          \t:ls :bn :bp :b<n>  list / next / prev / goto buffer   :bd close\n\
@@ -709,6 +758,31 @@ mod tests {
         app.run_ex("q");
         assert!(!app.quit);
         app.run_ex("q!");
+        assert!(app.quit);
+    }
+
+    #[test]
+    fn run_ex_quit_all_respects_dirty() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("x");
+        app.editor.buffer.insert_char(crate::buffer::Position::new(0, 1), 'y');
+        app.run_ex("qa");
+        assert!(!app.quit); // blocked: unsaved changes
+        app.run_ex("qa!");
+        assert!(app.quit); // forced
+    }
+
+    #[test]
+    fn run_ex_write_all_reports_unnamed_buffer() {
+        let mut app = App::new();
+        // A fresh scratch buffer has no file name, so it can't be written.
+        app.editor.buffer = crate::buffer::Buffer::from_text("scratch");
+        app.run_ex("wa");
+        assert!(app.editor.message.contains("failed"), "{}", app.editor.message);
+        // write-quit-all without force must not quit when a buffer can't be saved.
+        app.run_ex("wqa");
+        assert!(!app.quit);
+        app.run_ex("wqa!");
         assert!(app.quit);
     }
 
