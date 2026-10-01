@@ -2253,6 +2253,30 @@
     }
 
     #[test]
+    fn visual_ctrl_a_increments_each_line() {
+        let mut ed = ed_with("x 1\ny 5\nz 9");
+        ed.handle_key(key('V'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('j'));
+        ed.handle_key(ctrl('a'));
+        assert_eq!(ed.buffer.line(0), Some("x 2"));
+        assert_eq!(ed.buffer.line(1), Some("y 6"));
+        assert_eq!(ed.buffer.line(2), Some("z 10"));
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn visual_ctrl_x_with_count() {
+        let mut ed = ed_with("10\n20");
+        ed.handle_key(key('V'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('3'));
+        ed.handle_key(ctrl('x'));
+        assert_eq!(ed.buffer.line(0), Some("7"));
+        assert_eq!(ed.buffer.line(1), Some("17"));
+    }
+
+    #[test]
     fn visual_r_replaces_selected_chars() {
         let mut ed = ed_with("hello");
         ed.handle_key(key('v'));

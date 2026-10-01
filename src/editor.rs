@@ -1857,12 +1857,20 @@ impl Editor {
                 }
                 KeyCode::Char('a') => {
                     let c = self.pending_count.take().unwrap_or(1);
-                    self.modify_number(1, c);
+                    if self.mode.is_visual() {
+                        self.modify_number_visual(1, c);
+                    } else {
+                        self.modify_number(1, c);
+                    }
                     return Action::None;
                 }
                 KeyCode::Char('x') => {
                     let c = self.pending_count.take().unwrap_or(1);
-                    self.modify_number(-1, c);
+                    if self.mode.is_visual() {
+                        self.modify_number_visual(-1, c);
+                    } else {
+                        self.modify_number(-1, c);
+                    }
                     return Action::None;
                 }
                 KeyCode::Char('v') => {
@@ -3368,21 +3376,27 @@ impl Editor {
 
     /// `Ctrl-a` / `Ctrl-x` — add `delta * count` to the decimal number under or
     /// after the cursor on the current line (a leading `-` is kept).
-    fn modify_number(&mut self, delta: isize, count: usize) {
-        let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+    /// Compute the result of bumping the first number at or after `from_col` on
+    /// `row` by `delta * count`. Returns `(new_line, end_col)` without mutating,
+    /// or `None` if there's no number. Honors an immediately-preceding `-`.
+    fn compute_number_bump(
+        &self,
+        row: usize,
+        delta: isize,
+        count: usize,
+        from_col: usize,
+    ) -> Option<(String, usize)> {
+        let chars: Vec<char> = self.buffer.line(row).unwrap_or("").chars().collect();
         let n = chars.len();
-        let mut i = self.cursor.col;
-        // If not on a digit, scan forward to the next one on this line.
+        let mut i = from_col;
         if i >= n || !chars[i].is_ascii_digit() {
             while i < n && !chars[i].is_ascii_digit() {
                 i += 1;
             }
         }
         if i >= n {
-            self.message = "No number under cursor".into();
-            return;
+            return None;
         }
-        // Expand to the full digit run.
         let mut start = i;
         while start > 0 && chars[start - 1].is_ascii_digit() {
             start -= 1;
@@ -3391,24 +3405,54 @@ impl Editor {
         while end < n && chars[end].is_ascii_digit() {
             end += 1;
         }
-        // Include an immediately-preceding minus sign.
         let span_start = if start > 0 && chars[start - 1] == '-' {
             start - 1
         } else {
             start
         };
         let numstr: String = chars[span_start..end].iter().collect();
-        let Ok(val) = numstr.parse::<i64>() else {
-            return;
-        };
-        let newval = val + delta as i64 * count as i64;
-        let newstr = newval.to_string();
+        let val = numstr.parse::<i64>().ok()?;
+        let newstr = (val + delta as i64 * count as i64).to_string();
         let before: String = chars[..span_start].iter().collect();
         let after: String = chars[end..].iter().collect();
-        self.checkpoint();
-        self.buffer
-            .set_line(self.cursor.row, format!("{before}{newstr}{after}"));
-        self.cursor.col = span_start + newstr.chars().count().saturating_sub(1);
+        let end_col = span_start + newstr.chars().count().saturating_sub(1);
+        Some((format!("{before}{newstr}{after}"), end_col))
+    }
+
+    fn modify_number(&mut self, delta: isize, count: usize) {
+        match self.compute_number_bump(self.cursor.row, delta, count, self.cursor.col) {
+            Some((new, col)) => {
+                self.checkpoint();
+                self.buffer.set_line(self.cursor.row, new);
+                self.cursor.col = col;
+                self.clamp_cursor(false);
+            }
+            None => self.message = "No number under cursor".into(),
+        }
+    }
+
+    /// Visual `Ctrl-a`/`Ctrl-x`: bump the first number on every selected line by
+    /// `delta * count`, under one undo step, then return to Normal.
+    fn modify_number_visual(&mut self, delta: isize, count: usize) {
+        let Some((start, end)) = self.selection() else {
+            self.mode = Mode::Normal;
+            return;
+        };
+        let mut edits: Vec<(usize, String)> = Vec::new();
+        for row in start.row..=end.row {
+            if let Some((new, _)) = self.compute_number_bump(row, delta, count, 0) {
+                edits.push((row, new));
+            }
+        }
+        if !edits.is_empty() {
+            self.checkpoint();
+            for (row, new) in edits {
+                self.buffer.set_line(row, new);
+            }
+        }
+        self.cursor = Position::new(start.row, 0);
+        self.move_first_nonblank();
+        self.mode = Mode::Normal;
         self.clamp_cursor(false);
     }
 
