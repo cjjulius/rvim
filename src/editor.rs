@@ -100,6 +100,8 @@ pub struct Editor {
     pub view_cols: usize,
     /// `:set scrolloff` — minimum lines of context kept above/below the cursor.
     pub scrolloff: usize,
+    /// `:set sidescrolloff` — minimum columns of context kept left/right.
+    pub sidescrolloff: usize,
 
     line_kind: LineKind,
     /// Ex-command and search history for Up/Down recall on the command line.
@@ -244,6 +246,7 @@ impl Editor {
             view_rows: 24,
             view_cols: 80,
             scrolloff: 0,
+            sidescrolloff: 0,
             line_kind: LineKind::Ex,
             cmd_history: Vec::new(),
             search_history: Vec::new(),
@@ -1028,10 +1031,16 @@ impl Editor {
         if bottom_margin >= self.top + self.view_rows {
             self.top = bottom_margin + 1 - self.view_rows;
         }
-        if self.cursor.col < self.left {
-            self.left = self.cursor.col;
-        } else if self.cursor.col >= self.left + self.view_cols {
-            self.left = self.cursor.col + 1 - self.view_cols;
+        // Horizontal: keep `sidescrolloff` columns of context left/right of the
+        // cursor, capped to half the window width.
+        let siso = self.sidescrolloff.min(self.view_cols.saturating_sub(1) / 2);
+        let left_margin = self.cursor.col.saturating_sub(siso);
+        if left_margin < self.left {
+            self.left = left_margin;
+        }
+        let right_margin = self.cursor.col + siso;
+        if right_margin >= self.left + self.view_cols {
+            self.left = right_margin + 1 - self.view_cols;
         }
     }
 

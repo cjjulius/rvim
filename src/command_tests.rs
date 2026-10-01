@@ -178,6 +178,12 @@
     }
 
     #[test]
+    fn set_sidescrolloff() {
+        assert_eq!(parse("set sidescrolloff=5"), ExCommand::SetSideScrollOff(5));
+        assert_eq!(parse("set siso=3"), ExCommand::SetSideScrollOff(3));
+    }
+
+    #[test]
     fn set_textwidth() {
         assert_eq!(parse("set textwidth=40"), ExCommand::SetTextWidth(40));
         assert_eq!(parse("set tw=72"), ExCommand::SetTextWidth(72));

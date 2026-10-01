@@ -191,7 +191,7 @@ quits without saving (like `:q!`).
 `:set relativenumber|norelativenumber` · `:set ft=<lang>` · `:set mouse|nomouse` ·
 `:set autoindent` · `:set expandtab|noexpandtab` · `:set shiftwidth=N` ·
 `:set tabstop=N` · `:set scrolloff=N` (keep N lines of context around the cursor) ·
-`:set textwidth=N` (wrap column for `gq`) ·
+`:set textwidth=N` (wrap column for `gq`) · `:set sidescrolloff=N` (horizontal context) ·
 `:set ignorecase|noignorecase` · `:set smartcase|nosmartcase` · `:set incsearch|noincsearch` ·
 `:set list|nolist` (show whitespace) · `:set wrapscan|nowrapscan` · `:set cursorline|nocursorline` ·
 `:noh` / `:set hlsearch|nohlsearch` · `:[range]sort[!] [u][n][i]` (reverse / unique / numeric / ignore-case; range-aware) ·
@@ -390,7 +390,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **377 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **379 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
