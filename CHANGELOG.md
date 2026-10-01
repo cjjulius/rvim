@@ -5,6 +5,12 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Motions & text objects
+- Sentence motions `(` / `)` move backward / forward by sentence (counted,
+  across lines), bounded by `.`/`!`/`?` punctuation and blank lines.
+- Sentence text objects `is` / `as` (e.g. `das`, `cis`) select the sentence
+  under the cursor, with `as` keeping the trailing whitespace.
+
 ### Marks
 - The `` `[ `` / `` `] `` (and linewise `'[` / `']`) marks are now set to the
   start and end of the last changed, yanked, or put text — operator `d`/`c`/`y`

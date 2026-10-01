@@ -885,7 +885,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          MOTIONS\n\
          \th j k l  arrows    move left/down/up/right\n\
          \tw / b / e / ge     word forward / back / end / prev-end (W/B/E/gE = WORD)\n\
-         \t{{ / }}             paragraph back / forward\n\
+         \t{{ / }}             paragraph back / forward   ( / )  sentence back / fwd\n\
          \t[[ ]] [] ][         section back/fwd (open brace), close-brace variants\n\
          \t[( [{{ ]) ]}}        jump to unmatched enclosing bracket (counted)\n\
          \tf/F/t/T <c>        find char on line   ; ,  repeat / reverse\n\
@@ -906,7 +906,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t~                  toggle case        s / S  subst char / line\n\
          \tgI / gp / gP       insert at col 0 / paste leaving cursor after\n\
          \td/y/c + motion     e.g. dw d$ d0 de dj dG yw y$ cc  (dd/yy/cc)\n\
-         \td/y/c + i/a + obj   text objects: diw daW dip ci( yi\" da{{ ...\n\
+         \td/y/c + i/a + obj   text objects: diw daW dip das ci( yi\" da{{ ...\n\
          \tdgg / dG           delete to top / bottom of file\n\
          \tgu / gU / g~ + mot  lower / upper / toggle case (guw gUiw guu)\n\
          \tg? + mot            ROT13 (g?w g?ip g??, or on a visual selection)\n\

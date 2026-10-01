@@ -2369,6 +2369,8 @@ impl Editor {
                 self.cursor.row = self.paragraph_backward();
                 self.cursor.col = 0;
             }
+            KeyCode::Char(')') => self.sentence_motion(true, count),
+            KeyCode::Char('(') => self.sentence_motion(false, count),
             KeyCode::Char('[') => {
                 self.pending_bracket = Some('[');
                 self.pending_bracket_count = count;
@@ -3078,6 +3080,106 @@ impl Editor {
         r
     }
 
+    /// Flatten the whole buffer to a char vector with a parallel position map.
+    /// A line break between two lines is a `'\n'` char mapped to the end of the
+    /// upper line. Used by the sentence motions.
+    fn flatten(&self) -> (Vec<char>, Vec<Position>) {
+        let n = self.buffer.line_count();
+        let mut flat = Vec::new();
+        let mut map = Vec::new();
+        for row in 0..n {
+            let line = self.buffer.line(row).unwrap_or("");
+            for (col, ch) in line.chars().enumerate() {
+                flat.push(ch);
+                map.push(Position::new(row, col));
+            }
+            if row + 1 < n {
+                flat.push('\n');
+                map.push(Position::new(row, line.chars().count()));
+            }
+        }
+        (flat, map)
+    }
+
+    /// Offsets in `flat` where a sentence begins: the start, the first non-blank
+    /// after `.`/`!`/`?` (plus any closing `)]"'`) followed by whitespace, and
+    /// blank lines (paragraph boundaries).
+    fn sentence_starts(flat: &[char]) -> Vec<usize> {
+        let n = flat.len();
+        let is_ws = |c: char| c == ' ' || c == '\t' || c == '\n';
+        let mut starts = vec![0usize];
+        let mut i = 0;
+        while i < n {
+            let c = flat[i];
+            if matches!(c, '.' | '!' | '?') {
+                let mut j = i + 1;
+                while j < n && matches!(flat[j], ')' | ']' | '"' | '\'') {
+                    j += 1;
+                }
+                if j < n && is_ws(flat[j]) {
+                    while j < n && is_ws(flat[j]) {
+                        j += 1;
+                    }
+                    if j < n {
+                        starts.push(j);
+                    }
+                    i = j;
+                    continue;
+                }
+            }
+            // A blank line (consecutive newlines) is a paragraph boundary.
+            if c == '\n' && i + 1 < n && flat[i + 1] == '\n' {
+                let mut j = i + 1;
+                while j < n && flat[j] == '\n' {
+                    starts.push(j);
+                    j += 1;
+                }
+                if j < n {
+                    starts.push(j);
+                }
+                i = j;
+                continue;
+            }
+            i += 1;
+        }
+        starts.sort_unstable();
+        starts.dedup();
+        starts
+    }
+
+    /// `)` / `(` — move forward / backward by `count` sentences.
+    fn sentence_motion(&mut self, forward: bool, count: usize) {
+        let (flat, map) = self.flatten();
+        if flat.is_empty() {
+            return;
+        }
+        let starts = Self::sentence_starts(&flat);
+        let cur = map.iter().position(|&p| p == self.cursor).unwrap_or(0);
+        let target = if forward {
+            let first = starts.partition_point(|&s| s <= cur); // first start > cur
+            let idx = first + count.max(1) - 1;
+            if idx < starts.len() {
+                starts[idx]
+            } else {
+                flat.len() // past the last sentence -> end of buffer
+            }
+        } else {
+            let here = starts.partition_point(|&s| s <= cur); // count of starts <= cur
+            let cur_idx = here.saturating_sub(1);
+            let cur_is_start = here > 0 && starts[cur_idx] == cur;
+            let steps = if cur_is_start { count.max(1) } else { count.max(1) - 1 };
+            starts[cur_idx.saturating_sub(steps)]
+        };
+        let pos = if target >= map.len() {
+            *map.last().unwrap()
+        } else {
+            map[target]
+        };
+        self.cursor = pos;
+        self.clamp_cursor(false);
+        self.scroll_into_view();
+    }
+
     /// Section motion: `]]`/`[[` jump to the next/previous line whose first
     /// character (column 0) is `{` (an *open*-brace boundary); `][`/`[]` do the
     /// same for `}` (a *close*-brace boundary). This matches vim's default C-style
@@ -3344,6 +3446,42 @@ impl Editor {
                 }
             }
             return Some(OpTarget::Chars(start, end));
+        }
+
+        // Sentence object (`s`), scoped to the current line. Sentences break at
+        // `.`/`!`/`?` + optional closing `)]"'` + whitespace. `is` excludes the
+        // trailing whitespace; `as` keeps it.
+        if obj == 's' {
+            let is_ws = |c: char| c == ' ' || c == '\t';
+            let mut starts = vec![0usize];
+            let mut i = 0;
+            while i < chars.len() {
+                if matches!(chars[i], '.' | '!' | '?') {
+                    let mut j = i + 1;
+                    while j < chars.len() && matches!(chars[j], ')' | ']' | '"' | '\'') {
+                        j += 1;
+                    }
+                    if j < chars.len() && is_ws(chars[j]) {
+                        while j < chars.len() && is_ws(chars[j]) {
+                            j += 1;
+                        }
+                        if j < chars.len() {
+                            starts.push(j);
+                        }
+                        i = j;
+                        continue;
+                    }
+                }
+                i += 1;
+            }
+            let s = starts.iter().rev().find(|&&st| st <= col).copied().unwrap_or(0);
+            let mut e = starts.iter().find(|&&st| st > col).copied().unwrap_or(chars.len());
+            if !around {
+                while e > s && chars[e - 1].is_whitespace() {
+                    e -= 1;
+                }
+            }
+            return Some(OpTarget::Chars(s, e));
         }
 
         // Pair / quote objects.

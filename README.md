@@ -68,7 +68,8 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   Visual-Block (`Ctrl-v`), Command.
 - **Motions:** `h j k l`, arrows, `w`/`b`/`e`/`ge` (word) and `W`/`B`/`E`/`gE` (WORD),
   `0`/`^`/`$`/`g_` (line ends), `|` (column), `+`/`-`/`Enter` (line first
-  non-blank), `{`/`}` (paragraph), `[[`/`]]`/`[]`/`][` (section — brace in
+  non-blank), `{`/`}` (paragraph), `(`/`)` (sentence, counted),
+  `[[`/`]]`/`[]`/`][` (section — brace in
   column 0), `[(`/`[{`/`])`/`]}` (unmatched enclosing bracket, counted),
   `gg`/`G`/`<n>gg`/`<n>G`,
   `f`/`F`/`t`/`T`+`;`/`,` (find char on line), `%` (matching bracket),
@@ -91,8 +92,9 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   `5j`, `3dd`, `d3w`, `2d3w` (multiplied), `3p`, `3rx`, `<n>gg`, and counted
   inserts (`3ihi<Esc>` → `hihihi`, `3o`, `3a`).
 - **Text objects:** `d`/`y`/`c` + `i`/`a` + object — `iw`/`aw` (word),
-  `iW`/`aW` (WORD), `ip`/`ap` (paragraph), `i(` `i{` `i[` `i<` and `i"` `i'`
-  `` i` `` (inner), `a(` … (around). E.g. `diw`, `ci(`, `yi"`, `dap`.
+  `iW`/`aW` (WORD), `ip`/`ap` (paragraph), `is`/`as` (sentence),
+  `i(` `i{` `i[` `i<` and `i"` `i'`
+  `` i` `` (inner), `a(` … (around). E.g. `diw`, `ci(`, `yi"`, `dap`, `das`.
 - **Case operators:** `gu`/`gU`/`g~` (lower/upper/toggle) and `g?` (ROT13) over
   a motion, a text object, or doubled for the whole line — `guw`, `gUiw`, `g~$`,
   `guu`, `g?w`, `g?ip`, `g??`; `g?` also works on a visual selection.
@@ -420,7 +422,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **432 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **437 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
