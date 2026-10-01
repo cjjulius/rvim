@@ -2835,18 +2835,22 @@ impl Editor {
                 let (s, e) = (s.min(len), e.min(len));
                 let (s, e) = (s.min(e), s.max(e));
                 let text: String = chars[s..e].iter().collect();
+                let row = self.cursor.row;
                 if is_delete {
                     self.checkpoint();
                     let kept: String = chars[..s].iter().chain(&chars[e..]).collect();
                     self.buffer.set_line(self.cursor.row, kept);
                     self.store_delete(text, false);
                     self.cursor.col = s;
+                    self.set_change_marks(Position::new(row, s), Position::new(row, s));
                     if is_change {
                         self.mode = Mode::Insert;
                     }
                 } else {
                     self.store_yank(text, false);
                     self.cursor.col = s;
+                    let end = if e > s { e - 1 } else { s };
+                    self.set_change_marks(Position::new(row, s), Position::new(row, end));
                 }
             }
             OpTarget::Lines(a, b) => {
@@ -2876,9 +2880,17 @@ impl Editor {
                         self.cursor.row = a.min(self.buffer.line_count().saturating_sub(1));
                         self.move_first_nonblank();
                     }
+                    let m = self.cursor.row;
+                    self.set_change_marks(Position::new(m, 0), Position::new(m, 0));
                 } else {
+                    let end_col = self
+                        .buffer
+                        .line(b)
+                        .map(|l| l.chars().count().saturating_sub(1))
+                        .unwrap_or(0);
                     self.store_yank(text, true);
                     self.cursor.row = a;
+                    self.set_change_marks(Position::new(a, 0), Position::new(b, end_col));
                 }
             }
         }
@@ -4527,6 +4539,17 @@ impl Editor {
             let linewise = self.mode == Mode::VisualLine;
             let text = self.extract_range(start, end, linewise);
             self.store_yank(text, linewise);
+            let end_mark = if linewise {
+                let col = self
+                    .buffer
+                    .line(end.row)
+                    .map(|l| l.chars().count().saturating_sub(1))
+                    .unwrap_or(0);
+                Position::new(end.row, col)
+            } else {
+                end
+            };
+            self.set_change_marks(start, end_mark);
         }
         self.mode = Mode::Normal;
     }
@@ -4568,6 +4591,7 @@ impl Editor {
             } else {
                 start
             };
+            self.set_change_marks(self.cursor, self.cursor);
         }
         self.mode = Mode::Normal;
         self.clamp_cursor(false);

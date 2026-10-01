@@ -928,7 +928,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tgn / gN            select next / prev match (cgn + . to repeat)\n\
          \t&  / g&            repeat last :s on current line / whole file\n\
          \tm<x> `<x> '<x>     set mark / jump exact / jump line   `` prev pos\n\
-         \t`[ `]              start / end of the last put (`. last change)\n\
+         \t`[ `]              start / end of the last change / yank / put\n\
          \tCtrl-o / Ctrl-i    jump list: older / newer position\n\
          \tg; / g,            change list: older / newer edit position\n\
          \tCtrl-g / ga        file info / character code under cursor\n\
