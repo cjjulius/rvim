@@ -3,6 +3,13 @@
 All notable changes to rvim are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Motions
+- `[(` `[{` `])` `]}` jump to the (counted) unmatched enclosing bracket — the
+  open bracket searching backward, the close searching forward, with inner
+  balanced pairs skipped.
+
 ## [0.2.0] — 2026-10-01
 
 A large round of vim-parity, UI, and robustness work on top of the 0.1

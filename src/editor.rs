@@ -1926,6 +1926,12 @@ impl Editor {
                 (']', KeyCode::Char(']')) => self.section_motion(true, true, n),
                 ('[', KeyCode::Char(']')) => self.section_motion(false, false, n),
                 (']', KeyCode::Char('[')) => self.section_motion(true, false, n),
+                // Unmatched-bracket motions: `[(` / `[{` jump back to the
+                // enclosing open bracket; `])` / `]}` forward to the close.
+                ('[', KeyCode::Char('(')) => self.unmatched_bracket('(', ')', false, n),
+                ('[', KeyCode::Char('{')) => self.unmatched_bracket('{', '}', false, n),
+                (']', KeyCode::Char(')')) => self.unmatched_bracket('(', ')', true, n),
+                (']', KeyCode::Char('}')) => self.unmatched_bracket('{', '}', true, n),
                 _ => {}
             }
             return Action::None;
@@ -3294,6 +3300,59 @@ impl Editor {
             self.scan_bracket(self.cursor.row, bcol, bch, OPEN[idx], false)
         } else {
             None
+        }
+    }
+
+    /// `[(` / `[{` / `])` / `]}` — jump to the `count`-th *unmatched* bracket of
+    /// the given kind. Searching backward (`forward == false`) finds the
+    /// enclosing `open_ch`; searching forward finds the enclosing `close_ch`.
+    /// Nesting is tracked so inner balanced pairs are skipped.
+    fn unmatched_bracket(&mut self, open_ch: char, close_ch: char, forward: bool, count: usize) {
+        let mut depth = 0i32;
+        let mut remaining = count.max(1);
+        let mut row = self.cursor.row;
+        // Start one step away from the cursor so the char under it is skipped.
+        let mut col: isize = self.cursor.col as isize + if forward { 1 } else { -1 };
+        loop {
+            let line: Vec<char> = match self.buffer.line(row) {
+                Some(l) => l.chars().collect(),
+                None => return,
+            };
+            while col >= 0 && (col as usize) < line.len() {
+                let c = line[col as usize];
+                // The "inner" bracket deepens nesting; the "target" bracket pops
+                // it, and once balance is zero it is the unmatched one we want.
+                let (inner, target) = if forward { (open_ch, close_ch) } else { (close_ch, open_ch) };
+                if c == inner {
+                    depth += 1;
+                } else if c == target {
+                    if depth == 0 {
+                        remaining -= 1;
+                        if remaining == 0 {
+                            self.record_jump();
+                            self.cursor = Position::new(row, col as usize);
+                            self.scroll_into_view();
+                            return;
+                        }
+                    } else {
+                        depth -= 1;
+                    }
+                }
+                col += if forward { 1 } else { -1 };
+            }
+            if forward {
+                row += 1;
+                if row >= self.buffer.line_count() {
+                    return;
+                }
+                col = 0;
+            } else {
+                if row == 0 {
+                    return;
+                }
+                row -= 1;
+                col = self.buffer.line(row).map(|l| l.chars().count()).unwrap_or(0) as isize - 1;
+            }
         }
     }
 
