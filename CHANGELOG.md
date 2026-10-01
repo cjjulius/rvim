@@ -10,6 +10,9 @@ All notable changes to rvim are recorded here. Versions follow
   literals in addition to decimal, preserving the prefix, digit width, and hex
   letter case. Fixes the previous behavior of bumping the leading `0` of a `0x`
   literal as if it were decimal.
+- `g Ctrl-a` / `g Ctrl-x` over a visual selection build an incrementing
+  sequence — the 1st changed line steps by `count`, the 2nd by `2·count`, and so
+  on — so a column of equal numbers becomes 1, 2, 3, …
 
 ### Command line
 - `Tab` completion: completes the ex-command name, or the option name after
