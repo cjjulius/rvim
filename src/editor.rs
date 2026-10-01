@@ -180,6 +180,11 @@ pub struct Editor {
     /// Applied to every row on Esc.
     block_insert: Option<(usize, usize, usize, bool)>,
     pending_find: Option<char>,
+    /// The count that preceded a pending `f`/`F`/`t`/`T` (e.g. `3fx`).
+    pending_find_count: usize,
+    /// Operator awaiting an `f`/`F`/`t`/`T` target char: (op, find cmd, count),
+    /// for `dfx`, `ct)`, `2dTx`, …
+    pending_op_find: Option<(char, char, usize)>,
     /// Pending `[` / `]` prefix for section motions (`[[`, `]]`, `[]`, `][`),
     /// with the count that preceded it.
     pending_bracket: Option<char>,
@@ -311,6 +316,8 @@ impl Editor {
             completion: None,
             block_insert: None,
             pending_find: None,
+            pending_find_count: 1,
+            pending_op_find: None,
             pending_bracket: None,
             pending_bracket_count: 1,
             pending_z_quit: false,
@@ -1333,6 +1340,7 @@ impl Editor {
             && self.pending_format_obj.is_none()
             && !self.pending_replace
             && self.pending_find.is_none()
+            && self.pending_op_find.is_none()
             && self.pending_bracket.is_none()
             && !self.pending_z_quit
             && self.pending_mark.is_none()
@@ -2096,11 +2104,28 @@ impl Editor {
         // Pending `f`/`F`/`t`/`T` find-char target.
         if let Some(cmd) = self.pending_find.take() {
             if let KeyCode::Char(c) = key.code {
-                self.do_find(cmd, c);
+                self.do_find(cmd, c, self.pending_find_count);
                 self.last_find = Some((cmd, c));
             }
             self.clamp_cursor(false);
             self.scroll_into_view();
+            return Action::None;
+        }
+
+        // Target char after an operator + `f`/`F`/`t`/`T` (e.g. `dfx`, `ct)`).
+        if let Some((op, fc, cnt)) = self.pending_op_find.take() {
+            if let KeyCode::Char(target) = key.code {
+                if let Some(col) = self.find_col(fc, target, cnt) {
+                    let cur = self.cursor.col;
+                    // f/t are forward+inclusive; F/T are backward.
+                    let (s, e) = if fc == 'f' || fc == 't' {
+                        (cur, col + 1)
+                    } else {
+                        (col, cur)
+                    };
+                    self.apply_op(op, OpTarget::Chars(s, e));
+                }
+            }
             return Action::None;
         }
 
@@ -2354,6 +2379,18 @@ impl Editor {
                 self.pending_op_gg = Some(op);
                 return Action::None;
             }
+            // `f`/`F`/`t`/`T` after d/y/c awaits the target char (e.g. dfx, ct)).
+            if matches!(op, 'd' | 'y' | 'c')
+                && matches!(
+                    code,
+                    KeyCode::Char('f') | KeyCode::Char('F') | KeyCode::Char('t') | KeyCode::Char('T')
+                )
+            {
+                if let KeyCode::Char(fc) = code {
+                    self.pending_op_find = Some((op, fc, op_count.saturating_mul(count)));
+                }
+                return Action::None;
+            }
             self.apply_operator(op, code, op_count.saturating_mul(count));
             return Action::None;
         }
@@ -2388,12 +2425,24 @@ impl Editor {
             KeyCode::Char('B') => self.move_word_backward(count, true),
             KeyCode::Char('e') => self.move_word_end(count, false),
             KeyCode::Char('E') => self.move_word_end(count, true),
-            KeyCode::Char('f') => self.pending_find = Some('f'),
-            KeyCode::Char('F') => self.pending_find = Some('F'),
-            KeyCode::Char('t') => self.pending_find = Some('t'),
-            KeyCode::Char('T') => self.pending_find = Some('T'),
-            KeyCode::Char(';') => self.repeat_find(false),
-            KeyCode::Char(',') => self.repeat_find(true),
+            KeyCode::Char('f') => {
+                self.pending_find = Some('f');
+                self.pending_find_count = count;
+            }
+            KeyCode::Char('F') => {
+                self.pending_find = Some('F');
+                self.pending_find_count = count;
+            }
+            KeyCode::Char('t') => {
+                self.pending_find = Some('t');
+                self.pending_find_count = count;
+            }
+            KeyCode::Char('T') => {
+                self.pending_find = Some('T');
+                self.pending_find_count = count;
+            }
+            KeyCode::Char(';') => self.repeat_find(false, count),
+            KeyCode::Char(',') => self.repeat_find(true, count),
             KeyCode::Char('%') => {
                 if had_count {
                     // `{count}%` — jump to the line at `count` percent of the file.
@@ -3963,35 +4012,45 @@ impl Editor {
         }
     }
 
-    fn do_find(&mut self, cmd: char, target: char) {
+    /// The column the cursor lands on for `f`/`F`/`t`/`T` to `target`, honoring
+    /// `count` (e.g. `3fx` → the 3rd `x`). `None` if there aren't enough.
+    fn find_col(&self, cmd: char, target: char, count: usize) -> Option<usize> {
         let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
         let col = self.cursor.col;
+        let n = count.max(1);
         match cmd {
-            'f' => {
-                if let Some(i) = (col + 1..chars.len()).find(|&i| chars[i] == target) {
-                    self.cursor.col = i;
-                }
+            'f' | 't' => {
+                let start = (col + 1).min(chars.len());
+                let at = chars[start..]
+                    .iter()
+                    .enumerate()
+                    .filter(|&(_, &ch)| ch == target)
+                    .nth(n - 1)
+                    .map(|(i, _)| start + i);
+                at.map(|i| if cmd == 't' { i.saturating_sub(1) } else { i })
             }
-            'F' => {
-                if let Some(i) = (0..col).rev().find(|&i| chars[i] == target) {
-                    self.cursor.col = i;
-                }
+            'F' | 'T' => {
+                let end = col.min(chars.len());
+                let at = chars[..end]
+                    .iter()
+                    .enumerate()
+                    .rev()
+                    .filter(|&(_, &ch)| ch == target)
+                    .nth(n - 1)
+                    .map(|(i, _)| i);
+                at.map(|i| if cmd == 'T' { i + 1 } else { i })
             }
-            't' => {
-                if let Some(i) = (col + 1..chars.len()).find(|&i| chars[i] == target) {
-                    self.cursor.col = i.saturating_sub(1);
-                }
-            }
-            'T' => {
-                if let Some(i) = (0..col).rev().find(|&i| chars[i] == target) {
-                    self.cursor.col = i + 1;
-                }
-            }
-            _ => {}
+            _ => None,
         }
     }
 
-    fn repeat_find(&mut self, reverse: bool) {
+    fn do_find(&mut self, cmd: char, target: char, count: usize) {
+        if let Some(i) = self.find_col(cmd, target, count) {
+            self.cursor.col = i;
+        }
+    }
+
+    fn repeat_find(&mut self, reverse: bool, count: usize) {
         let Some((cmd, target)) = self.last_find else {
             self.message = "No previous f/t search".into();
             return;
@@ -4007,7 +4066,7 @@ impl Editor {
         } else {
             cmd
         };
-        self.do_find(effective, target);
+        self.do_find(effective, target, count);
         self.clamp_cursor(false);
     }
 

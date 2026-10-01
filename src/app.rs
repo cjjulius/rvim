@@ -912,7 +912,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t{{ / }}             paragraph back / forward   ( / )  sentence back / fwd\n\
          \t[[ ]] [] ][         section back/fwd (open brace), close-brace variants\n\
          \t[( [{{ ]) ]}}        jump to unmatched enclosing bracket (counted)\n\
-         \tf/F/t/T <c>        find char on line   ; ,  repeat / reverse\n\
+         \tf/F/t/T <c>        find char (counted; op: dfx ct)); ; , repeat/rev\n\
          \t%                  jump to matching bracket () [] {{}}   <n>%  n% of file\n\
          \td% / y% / c%       operate from cursor to the matching bracket\n\
          \t0 / ^ / $ / g_      line start / first-nonblank / end / last-nonblank\n\
