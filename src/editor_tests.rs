@@ -2062,6 +2062,29 @@
     }
 
     #[test]
+    fn put_register_inserts_lines_below() {
+        let mut ed = ed_with("a\nb\nc");
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y')); // yank "a" linewise into the unnamed register
+        ed.cursor = Position::new(2, 0); // on "c"
+        ed.put_register(LineAddr::Current, None);
+        assert_eq!(ed.buffer.line(3), Some("a"));
+        assert_eq!(ed.buffer.line_count(), 4);
+        assert_eq!(ed.cursor.row, 3);
+    }
+
+    #[test]
+    fn put_register_at_top_with_zero() {
+        let mut ed = ed_with("a\nb");
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y')); // yank "a"
+        ed.put_register(LineAddr::Num(0), None);
+        assert_eq!(ed.buffer.line(0), Some("a"));
+        assert_eq!(ed.buffer.line(1), Some("a"));
+        assert_eq!(ed.buffer.line(2), Some("b"));
+    }
+
+    #[test]
     fn join_lines_collapses_range() {
         let mut ed = ed_with("foo\n  bar\n  baz\nkeep");
         // :1,3j -> join the first three lines with single spaces
