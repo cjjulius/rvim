@@ -125,6 +125,8 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   from other words in the buffer, cycling forward / backward through the matches.
 - **One-shot normal (`Ctrl-o`):** in insert mode, `Ctrl-o` runs a single
   Normal-mode command (e.g. `Ctrl-o dd`, `Ctrl-o 0`) and returns to insert.
+- **Copy adjacent char:** in insert mode, `Ctrl-e` / `Ctrl-y` insert the character
+  directly below / above the cursor.
 - **Reflow:** `gq{motion}` / `gqq` (and `gw`) rewrap lines to `:set textwidth=N`
   (default 79), preserving the first line's indent — great for comments and prose.
   Works on a visual selection too.
@@ -396,7 +398,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **389 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **392 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

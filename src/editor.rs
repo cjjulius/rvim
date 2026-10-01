@@ -1500,6 +1500,9 @@ impl Editor {
                     self.mode = Mode::Normal;
                     self.insert_oneshot = 1;
                 }
+                // Copy the character directly below (Ctrl-e) / above (Ctrl-y).
+                KeyCode::Char('e') => self.insert_char_from_adjacent(1),
+                KeyCode::Char('y') => self.insert_char_from_adjacent(-1),
                 _ => {}
             }
             self.scroll_into_view();
@@ -1659,6 +1662,25 @@ impl Editor {
     /// `Ctrl-n` (forward) / `Ctrl-p` (backward) keyword completion. On the first
     /// press it finds the word prefix before the cursor, gathers matching words
     /// from the buffer, and inserts the first/last one; subsequent presses cycle.
+    /// Insert the character at the cursor's column on the line `delta` rows away
+    /// (+1 = below for `Ctrl-e`, -1 = above for `Ctrl-y`). No-op if there's no
+    /// such line or column.
+    fn insert_char_from_adjacent(&mut self, delta: isize) {
+        let row = self.cursor.row as isize + delta;
+        if row < 0 {
+            return;
+        }
+        let Some(line) = self.buffer.line(row as usize) else {
+            return;
+        };
+        let Some(c) = line.chars().nth(self.cursor.col) else {
+            return;
+        };
+        self.buffer.insert_char(self.cursor, c);
+        self.cursor.col += 1;
+        self.cur_insert.push(c);
+    }
+
     fn insert_completion(&mut self, forward: bool) {
         if let Some(comp) = self.completion.as_ref() {
             let n = comp.candidates.len();
