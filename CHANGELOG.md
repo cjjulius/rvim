@@ -9,6 +9,8 @@ All notable changes to rvim are recorded here. Versions follow
 - Uppercase register names append: `"Ayy` / `"Ad$` adds to register `a` instead
   of replacing it (linewise appends on a new line, charwise concatenates), and
   `"A` reads resolve to `"a`.
+- Macros follow the same rule: `qA` appends to macro register `a` (rather than
+  overwriting), and `@A` plays `@a`.
 
 ### Internal
 - Consolidated the duplicated "operator target → row range" logic (used by `gc`,

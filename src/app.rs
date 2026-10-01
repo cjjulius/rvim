@@ -940,6 +940,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tgq{{motion}} / gqq / gqip   reflow lines/paragraph to textwidth (gw too)\n\
          \tgi  `.  `^         resume insert / last change / last insert\n\
          \tq<x> q  @<x>  @@   record macro / stop / replay / repeat   @: last :cmd\n\
+         \t  (qX appends to macro register x)\n\
          \n\
          COMMANDS\n\
          \t(command line) Up/Down  recall previous commands / searches\n\

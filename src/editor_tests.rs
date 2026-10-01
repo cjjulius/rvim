@@ -710,6 +710,42 @@
     }
 
     #[test]
+    fn macro_uppercase_appends() {
+        let mut ed = ed_with("abcdef");
+        // Record `x` into register a.
+        ed.handle_key(key('q'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('x')); // delete 'a'
+        ed.handle_key(key('q'));
+        assert_eq!(ed.buffer.line(0), Some("bcdef"));
+        // Append another `x` via qA (records into the same register a).
+        ed.handle_key(key('q'));
+        ed.handle_key(key('A'));
+        assert_eq!(ed.recording_register(), Some('a'));
+        ed.handle_key(key('x')); // delete 'b'
+        ed.handle_key(key('q'));
+        assert_eq!(ed.buffer.line(0), Some("cdef"));
+        // Register a now holds two x's; replaying deletes two chars.
+        ed.handle_key(key('@'));
+        ed.handle_key(key('a'));
+        assert_eq!(ed.buffer.line(0), Some("ef"));
+    }
+
+    #[test]
+    fn macro_uppercase_play_reads_lowercase() {
+        let mut ed = ed_with("abc\nabc");
+        ed.handle_key(key('q'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('x')); // delete first char
+        ed.handle_key(key('q'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('0'));
+        ed.handle_key(key('@'));
+        ed.handle_key(key('A')); // @A resolves to register a
+        assert_eq!(ed.buffer.line(1), Some("bc"));
+    }
+
+    #[test]
     fn macro_records_insert_sequence() {
         let mut ed = ed_with("x\ny");
         ed.handle_key(key('q'));

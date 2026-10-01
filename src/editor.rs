@@ -580,15 +580,26 @@ impl Editor {
     }
 
     fn start_recording(&mut self, reg: char) {
-        self.recording = Some(reg);
-        self.macros.insert(reg, Vec::new());
-        self.message = format!("recording @{reg}");
+        // An uppercase register name appends to the lowercase macro register;
+        // a lowercase name records fresh.
+        let target = reg.to_ascii_lowercase();
+        if reg.is_ascii_uppercase() {
+            self.macros.entry(target).or_default();
+        } else {
+            self.macros.insert(target, Vec::new());
+        }
+        self.recording = Some(target);
+        self.message = format!("recording @{target}");
     }
 
     /// Replay macro register `reg` (or the last one for `@@`). Ex-commands
     /// inside a macro are not executed during replay.
     fn play_macro(&mut self, reg: char) {
-        let target = if reg == '@' { self.last_macro } else { Some(reg) };
+        let target = if reg == '@' {
+            self.last_macro
+        } else {
+            Some(reg.to_ascii_lowercase())
+        };
         let Some(target) = target else {
             self.message = "No previously played macro".into();
             return;
