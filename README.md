@@ -300,6 +300,7 @@ src/
 ├── buffer.rs      text storage + edit primitives + undo/redo
 ├── mode.rs        the modal state enum
 ├── command.rs     ex-command parser (`:...`)
+├── command_tests.rs  ex-command parser unit tests (kept separate)
 ├── config.rs      ~/.rvimrc loading + parsing
 ├── menu.rs        Alt-activated menu bar: data tree + navigation state
 ├── pattern.rs     regex compilation (literal fallback) for search & :s
