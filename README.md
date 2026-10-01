@@ -63,7 +63,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 ### Modal editing (vim-style)
 - **Modes:** Normal, Insert, Visual, Visual-Line, Command.
 - **Motions:** `h j k l`, arrows, `w`/`b`/`e` (word) and `W`/`B`/`E` (WORD),
-  `0`/`^`/`$`, `{`/`}` (paragraph), `gg`/`G`/`<n>gg`/`<n>G`,
+  `0`/`^`/`$`/`g_` (line ends), `|` (column), `+`/`-`/`Enter` (line first
+  non-blank), `{`/`}` (paragraph), `gg`/`G`/`<n>gg`/`<n>G`,
   `f`/`F`/`t`/`T`+`;`/`,` (find char on line), `%` (matching bracket),
   `H`/`M`/`L` (top/middle/bottom of screen), `Ctrl-d`/`Ctrl-u` (half-page).
 - **Scrolling:** `zz`/`zt`/`zb` (center/top/bottom the current line),
@@ -296,7 +297,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **233 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **237 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

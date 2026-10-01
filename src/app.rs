@@ -555,7 +555,8 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t{{ / }}             paragraph back / forward\n\
          \tf/F/t/T <c>        find char on line   ; ,  repeat / reverse\n\
          \t%                  jump to matching bracket () [] {{}}\n\
-         \t0 / ^ / $          line start / first non-blank / line end\n\
+         \t0 / ^ / $ / g_      line start / first-nonblank / end / last-nonblank\n\
+         \t+ / - / _  |        line first-nonblank down/up/down   | = column\n\
          \tgg / G             top / bottom (or <n>G, :<n>)\n\
          \tH / M / L          top / middle / bottom of screen\n\
          \tzz / zt / zb       center / top / bottom current line\n\
