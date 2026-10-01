@@ -279,7 +279,9 @@ correctly colored even when scrolled.
 - **Command preview (showcmd)** — the partially-typed command (count, operator,
   text-object prefix) appears at the bottom-right as you type, so you can see
   exactly what rvim is waiting for — e.g. `2d` while `2dw` is mid-entry. It clears
-  the instant the command completes or is cancelled.
+  the instant the command completes or is cancelled. In visual mode the same
+  corner shows the selection size — column or line count, or `rows x cols` for a
+  block — so you always know how much is selected.
 
 ### Mouse support
 `:set mouse` enables click-to-position and scroll-wheel paging;
@@ -352,7 +354,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **320 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **324 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

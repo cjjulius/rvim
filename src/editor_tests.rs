@@ -2062,6 +2062,41 @@
     }
 
     #[test]
+    fn visual_size_char_counts_columns_then_lines() {
+        let mut ed = ed_with("hello world\nsecond\nthird");
+        ed.handle_key(key('v'));
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // cols 0..2 on one line
+        assert_eq!(ed.visual_size().as_deref(), Some("3"));
+        ed.handle_key(key('j')); // now spans two lines -> line count
+        assert_eq!(ed.visual_size().as_deref(), Some("2"));
+    }
+
+    #[test]
+    fn visual_size_linewise_counts_lines() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.handle_key(key('V'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('j'));
+        assert_eq!(ed.visual_size().as_deref(), Some("3"));
+    }
+
+    #[test]
+    fn visual_size_block_is_rows_by_cols() {
+        let mut ed = ed_with("abcd\nefgh\nijkl");
+        ed.handle_key(ctrl('v'));
+        ed.handle_key(key('l'));
+        ed.handle_key(key('j'));
+        assert_eq!(ed.visual_size().as_deref(), Some("2x2"));
+    }
+
+    #[test]
+    fn visual_size_none_in_normal_mode() {
+        let ed = ed_with("x");
+        assert_eq!(ed.visual_size(), None);
+    }
+
+    #[test]
     fn insert_completion_completes_prefix() {
         let mut ed = ed_with("function\nfun");
         ed.cursor = Position::new(1, 3); // end of "fun"
