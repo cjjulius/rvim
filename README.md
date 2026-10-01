@@ -123,7 +123,8 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
 - **Info:** `Ctrl-g` shows the file name, modified flag, line count and position;
   `ga` shows the character under the cursor as decimal / hex / octal.
 - **Numbers:** `Ctrl-a` / `Ctrl-x` increment / decrement the number under (or
-  next on) the line, with a count (`10Ctrl-a`); handles negatives.
+  next on) the line, with a count (`10Ctrl-a`); handles negatives. In visual
+  mode they bump the first number on every selected line at once.
 - **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history).
 - **Visual mode:** `v`/`V` then `d`/`x`, `y`, `c`/`s`, `>`/`<` (indent),
   `r<c>` (replace every selected char with `c`), and `u`/`U`/`~`
@@ -376,7 +377,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **360 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **362 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
