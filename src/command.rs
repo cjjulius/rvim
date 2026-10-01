@@ -116,6 +116,8 @@ pub enum ExCommand {
     YankLines(SubRange),
     /// `:[range]>` / `:[range]<` — shift the range right/left by `times` steps.
     ShiftLines { range: SubRange, dedent: bool, times: usize },
+    /// `:[range]j[oin][!]` — join the range's lines (`!` keeps whitespace, like `gJ`).
+    JoinLines { range: SubRange, raw: bool },
     /// `:ls` / `:buffers` — list open buffers.
     BufferList,
     /// `:bn` / `:bnext`
@@ -405,9 +407,11 @@ fn parse_line_op(trimmed: &str) -> Option<ExCommand> {
         return None;
     }
     let range = parse_range(range_str)?;
+    let bang = rest.starts_with('!');
     match word.as_str() {
         "d" | "delete" | "de" | "del" => Some(ExCommand::DeleteLines(range)),
         "y" | "yank" | "ya" => Some(ExCommand::YankLines(range)),
+        "j" | "join" => Some(ExCommand::JoinLines { range, raw: bang }),
         _ => None,
     }
 }
@@ -589,6 +593,17 @@ mod tests {
         // Longer d-/y-words must not be swallowed by :d / :y.
         assert!(matches!(parse("diffsplit"), ExCommand::Passthrough { .. }));
         assert_eq!(parse("bd"), ExCommand::BufferDelete);
+        assert_eq!(
+            parse("1,3j"),
+            ExCommand::JoinLines {
+                range: SubRange::Range(LineAddr::Num(1), LineAddr::Num(3)),
+                raw: false
+            }
+        );
+        assert_eq!(
+            parse("join!"),
+            ExCommand::JoinLines { range: SubRange::CurrentLine, raw: true }
+        );
     }
 
     #[test]
