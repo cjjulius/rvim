@@ -93,6 +93,9 @@ pub struct Editor {
     pending_comment: bool,
     pending_replace: bool,
     pending_replace_count: usize,
+    /// Replace-mode overtype history: `Some(orig)` for an overwritten char,
+    /// `None` for one appended past EOL — used to restore on Backspace.
+    replace_stack: Vec<Option<char>>,
     pending_find: Option<char>,
     last_find: Option<(char, char)>,
     marks: HashMap<char, Position>,
@@ -174,6 +177,7 @@ impl Editor {
             pending_comment: false,
             pending_replace: false,
             pending_replace_count: 1,
+            replace_stack: Vec::new(),
             pending_find: None,
             last_find: None,
             marks: HashMap::new(),
@@ -679,6 +683,10 @@ impl Editor {
                     self.handle_insert(key);
                     Action::None
                 }
+                Mode::Replace => {
+                    self.handle_replace(key);
+                    Action::None
+                }
                 _ => self.handle_normal(key),
             }
         };
@@ -821,6 +829,61 @@ impl Editor {
                     self.buffer.insert_char(self.cursor, '\t');
                     self.cursor.col += 1;
                 }
+            }
+            KeyCode::Left => self.move_left(1),
+            KeyCode::Right => self.move_right(1, true),
+            KeyCode::Up => self.move_up(1),
+            KeyCode::Down => self.move_down(1),
+            _ => {}
+        }
+        self.scroll_into_view();
+    }
+
+    fn handle_replace(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Esc => {
+                self.mode = Mode::Normal;
+                if self.cursor.col > 0 {
+                    self.cursor.col -= 1;
+                }
+                self.clamp_cursor(false);
+            }
+            KeyCode::Char(c) => {
+                if self.cursor.col < self.cur_len() {
+                    // Overwrite the character, remembering the original.
+                    let orig = self
+                        .buffer
+                        .line(self.cursor.row)
+                        .and_then(|l| l.chars().nth(self.cursor.col));
+                    self.replace_stack.push(orig);
+                    self.buffer.replace_char(self.cursor, c);
+                } else {
+                    // Past end of line: append (record as an insertion).
+                    self.replace_stack.push(None);
+                    self.buffer.insert_char(self.cursor, c);
+                }
+                self.cursor.col += 1;
+            }
+            KeyCode::Backspace => {
+                if let Some(entry) = self.replace_stack.pop() {
+                    if self.cursor.col > 0 {
+                        self.cursor.col -= 1;
+                    }
+                    match entry {
+                        Some(orig) => self.buffer.replace_char(self.cursor, orig),
+                        None => {
+                            self.buffer.delete_char(self.cursor);
+                        }
+                    }
+                } else if self.cursor.col > 0 {
+                    self.cursor.col -= 1;
+                }
+            }
+            KeyCode::Enter => {
+                self.buffer.split_line(self.cursor);
+                self.cursor.row += 1;
+                self.cursor.col = 0;
+                self.replace_stack.clear();
             }
             KeyCode::Left => self.move_left(1),
             KeyCode::Right => self.move_right(1, true),
@@ -1254,6 +1317,11 @@ impl Editor {
             KeyCode::Char('A') => {
                 self.move_line_end_exclusive();
                 self.enter_insert_here();
+            }
+            KeyCode::Char('R') => {
+                self.checkpoint();
+                self.replace_stack.clear();
+                self.mode = Mode::Replace;
             }
             KeyCode::Char('o') => {
                 if self.mode.is_visual() {
@@ -2691,7 +2759,7 @@ impl Editor {
             self.cursor.row = rows.saturating_sub(1);
         }
         let len = self.cur_len();
-        let max = if allow_eol || self.mode == Mode::Insert {
+        let max = if allow_eol || self.mode == Mode::Insert || self.mode == Mode::Replace {
             len
         } else {
             len.saturating_sub(1)
@@ -3340,6 +3408,40 @@ mod tests {
 
     fn ctrl(c: char) -> KeyEvent {
         KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL)
+    }
+
+    #[test]
+    fn replace_mode_overtypes() {
+        let mut ed = ed_with("hello");
+        ed.handle_key(key('R'));
+        assert_eq!(ed.mode, Mode::Replace);
+        ed.handle_key(key('J'));
+        ed.handle_key(key('A'));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("JAllo"));
+    }
+
+    #[test]
+    fn replace_mode_appends_past_eol() {
+        let mut ed = ed_with("ab");
+        ed.handle_key(key('$')); // on 'b' (col 1)
+        ed.handle_key(key('R'));
+        ed.handle_key(key('X')); // overwrite 'b' -> "aX"
+        ed.handle_key(key('Y')); // past EOL -> append
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("aXY"));
+    }
+
+    #[test]
+    fn replace_mode_backspace_restores_original() {
+        let mut ed = ed_with("cat");
+        ed.handle_key(key('R'));
+        ed.handle_key(key('X')); // c->X "Xat"
+        ed.handle_key(key('Y')); // a->Y "XYt"
+        ed.handle_key(special(KeyCode::Backspace)); // restore 'a' -> "Xat"
+        ed.handle_key(special(KeyCode::Backspace)); // restore 'c' -> "cat"
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("cat"));
     }
 
     #[test]

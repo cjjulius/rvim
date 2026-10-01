@@ -10,6 +10,8 @@ pub enum Mode {
     Normal,
     /// Text entry.
     Insert,
+    /// Overtype entry (`R`): typing overwrites existing characters.
+    Replace,
     /// Character-wise selection.
     Visual,
     /// Line-wise selection.
@@ -24,6 +26,7 @@ impl Mode {
         match self {
             Mode::Normal => "NORMAL",
             Mode::Insert => "INSERT",
+            Mode::Replace => "REPLACE",
             Mode::Visual => "VISUAL",
             Mode::VisualLine => "V-LINE",
             Mode::Command => "COMMAND",

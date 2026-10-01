@@ -541,6 +541,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \n\
          MODES\n\
          \ti / a / I / A      insert (before/after/line-start/line-end)\n\
+         \tR                  replace (overtype) mode\n\
          \to / O              open line below / above\n\
          \t  (insert) C-w/C-u delete word-before / to line-start\n\
          \tv / V              visual / visual-line\n\
