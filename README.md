@@ -95,6 +95,8 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   `iW`/`aW` (WORD), `ip`/`ap` (paragraph), `is`/`as` (sentence),
   `i(` `i{` `i[` `i<` and `i"` `i'`
   `` i` `` (inner), `a(` … (around). E.g. `diw`, `ci(`, `yi"`, `dap`, `das`.
+  Bracket objects (`i(`/`i{`/`i[`/`i<` and their `a` forms) span multiple lines,
+  so `ci{` / `da(` work on a block or argument list across rows.
 - **Case operators:** `gu`/`gU`/`g~` (lower/upper/toggle) and `g?` (ROT13) over
   a motion, a text object, or doubled for the whole line — `guw`, `gUiw`, `g~$`,
   `guu`, `g?w`, `g?ip`, `g??`; `g?` also works on a visual selection.
@@ -422,7 +424,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **437 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **442 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

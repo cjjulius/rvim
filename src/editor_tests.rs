@@ -544,6 +544,63 @@
     }
 
     #[test]
+    fn text_object_di_brace_multiline() {
+        let mut ed = ed_with("fn f() {\n    body;\n}");
+        ed.cursor = Position::new(1, 4); // inside the braces
+        ed.handle_key(key('d'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('{')); // delete the inner line
+        assert_eq!(ed.buffer.line(0), Some("fn f() {"));
+        assert_eq!(ed.buffer.line(1), Some(""));
+        assert_eq!(ed.buffer.line(2), Some("}"));
+        assert_eq!(ed.buffer.line_count(), 3);
+    }
+
+    #[test]
+    fn text_object_da_paren_multiline_joins() {
+        let mut ed = ed_with("foo(\n  a,\n  b\n)bar");
+        ed.cursor = Position::new(1, 2); // inside the parens
+        ed.handle_key(key('d'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('(')); // delete "(...)" across lines
+        assert_eq!(ed.buffer.line(0), Some("foobar"));
+        assert_eq!(ed.buffer.line_count(), 1);
+    }
+
+    #[test]
+    fn text_object_ci_paren_multiline_enters_insert() {
+        let mut ed = ed_with("call(\n  x\n)");
+        ed.cursor = Position::new(1, 2);
+        ed.handle_key(key('c'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('(')); // change inner across lines
+        assert_eq!(ed.mode, Mode::Insert);
+        assert_eq!(ed.buffer.line(1), Some(""));
+    }
+
+    #[test]
+    fn text_object_single_line_paren_unchanged() {
+        // The single-line fast path must still work exactly as before.
+        let mut ed = ed_with("foo(bar)baz");
+        ed.cursor = Position::new(0, 5);
+        ed.handle_key(key('d'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('('));
+        assert_eq!(ed.buffer.line(0), Some("foo()baz"));
+    }
+
+    #[test]
+    fn case_op_upper_inner_brace_multiline() {
+        let mut ed = ed_with("{\nabc\n}");
+        ed.cursor = Position::new(1, 1);
+        ed.handle_key(key('g'));
+        ed.handle_key(key('U'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('{')); // uppercase the inner line
+        assert_eq!(ed.buffer.line(1), Some("ABC"));
+    }
+
+    #[test]
     fn dot_repeats_x() {
         let mut ed = ed_with("abcdef");
         ed.handle_key(key('x')); // delete 'a' -> "bcdef"
