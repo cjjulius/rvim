@@ -741,6 +741,12 @@ impl Editor {
         (subs, lines_changed)
     }
 
+    /// Resolve a range to an inclusive `(start_row, end_row)` pair (public wrapper
+    /// for `:normal` over a range).
+    pub fn range_rows(&self, range: SubRange) -> (usize, usize) {
+        self.resolve_range(range)
+    }
+
     fn resolve_range(&self, range: SubRange) -> (usize, usize) {
         let last = self.buffer.line_count().saturating_sub(1);
         match range {

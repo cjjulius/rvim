@@ -84,6 +84,24 @@
     }
 
     #[test]
+    fn normal_command_appends_to_each_line() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("a\nb\nc");
+        app.run_ex("%normal A;");
+        assert_eq!(app.editor.buffer.line(0), Some("a;"));
+        assert_eq!(app.editor.buffer.line(1), Some("b;"));
+        assert_eq!(app.editor.buffer.line(2), Some("c;"));
+    }
+
+    #[test]
+    fn normal_command_runs_once_without_range() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("hello");
+        app.run_ex("normal x"); // delete the first character
+        assert_eq!(app.editor.buffer.line(0), Some("ello"));
+    }
+
+    #[test]
     fn set_multiple_options_in_one_command() {
         let mut app = App::new();
         app.editor.show_line_numbers = false;

@@ -348,6 +348,26 @@
     }
 
     #[test]
+    fn normal_command_parses() {
+        match parse("normal A;") {
+            ExCommand::Normal { range, keys } => {
+                assert_eq!(range, None);
+                assert_eq!(keys, "A;");
+            }
+            other => panic!("expected normal, got {other:?}"),
+        }
+        match parse("%normal I#") {
+            ExCommand::Normal { range, keys } => {
+                assert_eq!(range, Some(SubRange::WholeFile));
+                assert_eq!(keys, "I#");
+            }
+            other => panic!("expected normal, got {other:?}"),
+        }
+        // `normalize` is not `:normal`.
+        assert!(!matches!(parse("normalize"), ExCommand::Normal { .. }));
+    }
+
+    #[test]
     fn global_commands() {
         assert_eq!(
             parse("g/foo/d"),

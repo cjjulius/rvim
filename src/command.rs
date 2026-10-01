@@ -137,6 +137,9 @@ pub enum ExCommand {
     /// `:[addr]pu[t] [reg]` — put a register's text as lines after `dest`
     /// (`register` is `None` for the unnamed register).
     PutRegister { dest: LineAddr, register: Option<char> },
+    /// `:[range]norm[al] {keys}` — run `keys` as Normal-mode input, once at the
+    /// cursor (`range` is `None`) or on every line of the range.
+    Normal { range: Option<SubRange>, keys: String },
     /// `:ls` / `:buffers` — list open buffers.
     BufferList,
     /// `:bn` / `:bnext`
@@ -190,6 +193,11 @@ pub fn parse(input: &str) -> ExCommand {
     // Sort, with an optional leading range (`sort`, `%sort n`, `'<,'>sort u`).
     if let Some(s) = parse_sort(trimmed) {
         return s;
+    }
+
+    // `:[range]normal {keys}` — run keys as Normal-mode input.
+    if let Some(n) = parse_normal(trimmed) {
+        return n;
     }
 
     // Pure line number → goto.
@@ -483,6 +491,42 @@ fn parse_sort(trimmed: &str) -> Option<ExCommand> {
         numeric: flags.contains('n'),
         ignorecase: flags.contains('i'),
     })
+}
+
+/// Parse `:[range]norm[al][!] {keys}`. The keys are taken verbatim after exactly
+/// one space. Returns `None` (so the caller falls through) unless the word is
+/// present and properly terminated.
+fn parse_normal(trimmed: &str) -> Option<ExCommand> {
+    let i = range_prefix_len(trimmed);
+    let range_str = &trimmed[..i];
+    let after = &trimmed[i..];
+    let base = if after.starts_with("normal") {
+        6
+    } else if after.starts_with("norm") {
+        4
+    } else {
+        return None;
+    };
+    let mut rest = &after[base..];
+    if let Some(r) = rest.strip_prefix('!') {
+        rest = r; // `:normal!` ignores mappings (we have none, so same behavior)
+    }
+    // The keys follow after exactly one space; anything else (e.g. `normalize`)
+    // isn't this command.
+    let keys = match rest.strip_prefix(' ') {
+        Some(k) => k.to_string(),
+        None if rest.is_empty() => return None, // nothing to run
+        None => return None,
+    };
+    if keys.is_empty() {
+        return None;
+    }
+    let range = if range_str.is_empty() {
+        None
+    } else {
+        Some(parse_range(range_str)?)
+    };
+    Some(ExCommand::Normal { range, keys })
 }
 
 /// Parse `:[addr]pu[t] [reg]`. Returns `None` (so the caller falls through)
