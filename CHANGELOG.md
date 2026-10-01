@@ -15,6 +15,8 @@ All notable changes to rvim are recorded here. Versions follow
   that covers several rows (via a new charwise `OpTarget::Span`).
 - `%` is now an operator motion: `d%` / `y%` / `c%` act from the cursor to the
   matching bracket, inclusive and across lines.
+- The `>` / `<` indent operators accept motions and text objects — `>ip`, `>i{`
+  (multi-line), `<ap` — not just the doubled `>>` / `<<` form.
 
 ### Marks
 - The `` `[ `` / `` `] `` (and linewise `'[` / `']`) marks are now set to the

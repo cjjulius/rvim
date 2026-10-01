@@ -84,7 +84,8 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
 - **Editing:** `i a I A o O`, `gI` (insert at column 0), `x`/`X`, `r<c>` (with
   count), `~` (toggle case), `s`/`S`, `D`/`C`, `Y` (yank line), `p`/`P`,
   `gp`/`gP` (paste, cursor after), `J`/`gJ` (join with/without space; counted),
-  `>>`/`<<` (indent, honoring `shiftwidth`), counts (e.g. `5j`).
+  `>>`/`<<` (indent, honoring `shiftwidth`) — also as an operator over a motion
+  or text object (`>ip`, `>i{`, `<ap`), counts (e.g. `5j`).
 - **Operators + motions:** `d`, `y`, `c` compose with motions — `dw`/`dW`/`yw`,
   `d$`/`y$`, `d0`, `de`/`dE`, `dj`/`dk`, `dG`/`dgg` (to EOF/BOF), `d}` and the
   doubled `dd`/`yy`/`cc`. `cw`/`cW` act like `ce`/`cE` (vim's special case).
@@ -425,7 +426,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **446 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **449 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
