@@ -2253,6 +2253,42 @@
     }
 
     #[test]
+    fn visual_r_replaces_selected_chars() {
+        let mut ed = ed_with("hello");
+        ed.handle_key(key('v'));
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // select h, e, l
+        ed.handle_key(key('r'));
+        ed.handle_key(key('x'));
+        assert_eq!(ed.buffer.line(0), Some("xxxlo"));
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn visual_line_r_replaces_whole_lines() {
+        let mut ed = ed_with("ab\ncd");
+        ed.handle_key(key('V'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('r'));
+        ed.handle_key(key('-'));
+        assert_eq!(ed.buffer.line(0), Some("--"));
+        assert_eq!(ed.buffer.line(1), Some("--"));
+    }
+
+    #[test]
+    fn visual_block_r_replaces_rectangle() {
+        let mut ed = ed_with("abc\ndef\nghi");
+        ed.handle_key(ctrl('v'));
+        ed.handle_key(key('l'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('r'));
+        ed.handle_key(key('0'));
+        assert_eq!(ed.buffer.line(0), Some("00c"));
+        assert_eq!(ed.buffer.line(1), Some("00f"));
+        assert_eq!(ed.buffer.line(2), Some("ghi")); // outside the block
+    }
+
+    #[test]
     fn visual_paste_replaces_charwise_selection() {
         let mut ed = ed_with("foo bar");
         ed.register = Register { text: "XYZ".into(), linewise: false };

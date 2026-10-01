@@ -1642,6 +1642,15 @@ impl Editor {
         // Pending `r<char>` replace (`<n>r<char>` replaces n chars).
         if self.pending_replace {
             self.pending_replace = false;
+            // In visual mode, `r<c>` replaces every selected character with `c`.
+            if self.mode.is_visual() {
+                if let KeyCode::Char(c) = key.code {
+                    self.replace_selection(c);
+                } else {
+                    self.mode = Mode::Normal; // Esc / other cancels
+                }
+                return Action::None;
+            }
             let n = self.pending_replace_count.max(1);
             if let KeyCode::Char(c) = key.code {
                 // Only act if the whole run fits on the line (vim behavior).
@@ -3552,6 +3561,47 @@ impl Editor {
 
     /// Apply a case transform to the current visual selection, then return to
     /// Normal mode.
+    /// Visual `r<c>`: replace every character in the selection with `c`,
+    /// respecting charwise / linewise / block shapes, then return to Normal.
+    fn replace_selection(&mut self, c: char) {
+        let Some((start, end)) = self.selection() else {
+            self.mode = Mode::Normal;
+            return;
+        };
+        let block = self.block_rect();
+        let linewise = self.mode == Mode::VisualLine;
+        self.checkpoint();
+        if let Some((rmin, rmax, cmin, cmax)) = block {
+            for row in rmin..=rmax {
+                let len = self.buffer.line(row).map(|l| l.chars().count()).unwrap_or(0);
+                for col in cmin..(cmax + 1).min(len) {
+                    self.buffer.replace_char(Position::new(row, col), c);
+                }
+            }
+        } else {
+            for row in start.row..=end.row {
+                let len = self.buffer.line(row).map(|l| l.chars().count()).unwrap_or(0);
+                let (c0, c1) = if linewise {
+                    (0, len)
+                } else if start.row == end.row {
+                    (start.col.min(len), (end.col + 1).min(len))
+                } else if row == start.row {
+                    (start.col.min(len), len)
+                } else if row == end.row {
+                    (0, (end.col + 1).min(len))
+                } else {
+                    (0, len)
+                };
+                for col in c0..c1 {
+                    self.buffer.replace_char(Position::new(row, col), c);
+                }
+            }
+        }
+        self.cursor = Position::new(start.row, if linewise { 0 } else { start.col });
+        self.mode = Mode::Normal;
+        self.clamp_cursor(false);
+    }
+
     fn transform_selection(&mut self, op: CaseOp) {
         let Some((start, end)) = self.selection() else {
             return;
