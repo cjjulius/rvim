@@ -573,7 +573,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tD / C              delete / change to end of line\n\
          \t>> / <<            indent / dedent (also in visual mode)\n\
          \tyy / p / P         yank line / paste after / before\n\
-         \t\"a yy / \"a p       use named register a (any a-z)\n\
+         \t\"a yy / \"a p       named registers a-z; auto: \"0 yank \"1-9 del \"- small\n\
          \tJ / gJ             join lines (with / without space)\n\
          \tu / Ctrl-r          undo / redo\n\
          \t.                  repeat last change\n\

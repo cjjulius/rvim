@@ -1399,13 +1399,13 @@ impl Editor {
                     self.checkpoint();
                     let kept: String = chars[..s].iter().chain(&chars[e..]).collect();
                     self.buffer.set_line(self.cursor.row, kept);
-                    self.store_register(text, false);
+                    self.store_delete(text, false);
                     self.cursor.col = s;
                     if is_change {
                         self.mode = Mode::Insert;
                     }
                 } else {
-                    self.store_register(text, false);
+                    self.store_yank(text, false);
                     self.cursor.col = s;
                 }
             }
@@ -1426,7 +1426,7 @@ impl Editor {
                         }
                         self.buffer.delete_line(a);
                     }
-                    self.store_register(text, true);
+                    self.store_delete(text, true);
                     if is_change {
                         let at = a.min(self.buffer.line_count());
                         self.buffer.insert_line(at, "");
@@ -1437,7 +1437,7 @@ impl Editor {
                         self.move_first_nonblank();
                     }
                 } else {
-                    self.store_register(text, true);
+                    self.store_yank(text, true);
                     self.cursor.row = a;
                 }
             }
@@ -2036,7 +2036,7 @@ impl Editor {
             .nth(self.cursor.col)
             .map(|(i, _)| i)
             .unwrap_or(line.len());
-        self.store_register(line[byte..].to_string(), false);
+        self.store_delete(line[byte..].to_string(), false);
         self.buffer.set_line(self.cursor.row, line[..byte].to_string());
         self.mode = Mode::Insert;
     }
@@ -2056,7 +2056,7 @@ impl Editor {
                 removed.push(c);
             }
         }
-        self.store_register(removed, false);
+        self.store_delete(removed, false);
         self.mode = Mode::Insert;
     }
 
@@ -2191,7 +2191,7 @@ impl Editor {
                 removed.push(c);
             }
         }
-        self.store_register(removed, false);
+        self.store_delete(removed, false);
         self.clamp_cursor(false);
     }
 
@@ -2211,7 +2211,7 @@ impl Editor {
         }
         // Collected in reverse; restore left-to-right order.
         let removed: String = removed.chars().rev().collect();
-        self.store_register(removed, false);
+        self.store_delete(removed, false);
         self.clamp_cursor(false);
     }
 
@@ -2224,17 +2224,42 @@ impl Editor {
             .map(|(i, _)| i)
             .unwrap_or(line.len());
         let kept = line[..byte].to_string();
-        self.store_register(line[byte..].to_string(), false);
+        self.store_delete(line[byte..].to_string(), false);
         self.buffer.set_line(self.cursor.row, kept);
         self.clamp_cursor(false);
     }
 
-    /// Store text into the unnamed register, and into a named register too if
-    /// one is pending (`"a…`). Clears the pending register.
-    fn store_register(&mut self, text: String, linewise: bool) {
+    /// Store yanked text: unnamed register + the yank register `"0` (or the
+    /// pending named register if one was given, e.g. `"ayy`).
+    fn store_yank(&mut self, text: String, linewise: bool) {
         let reg = Register { text, linewise };
         if let Some(name) = self.pending_register.take() {
             self.registers.insert(name, reg.clone());
+        } else {
+            self.registers.insert('0', reg.clone());
+        }
+        self.register = reg;
+    }
+
+    /// Store deleted/changed text: unnamed register plus either a pending named
+    /// register, the numbered ring `"1`–`"9` (line-wise / multi-line deletes), or
+    /// the small-delete register `"-` (within-line deletes). Mirrors vim.
+    fn store_delete(&mut self, text: String, linewise: bool) {
+        let reg = Register { text, linewise };
+        if let Some(name) = self.pending_register.take() {
+            self.registers.insert(name, reg.clone());
+        } else if linewise || reg.text.contains('\n') {
+            // Shift "1 -> "2 ... "8 -> "9, then store into "1.
+            for d in (1..9).rev() {
+                let from = char::from_digit(d, 10).unwrap();
+                let to = char::from_digit(d + 1, 10).unwrap();
+                if let Some(r) = self.registers.get(&from).cloned() {
+                    self.registers.insert(to, r);
+                }
+            }
+            self.registers.insert('1', reg.clone());
+        } else {
+            self.registers.insert('-', reg.clone());
         }
         self.register = reg;
     }
@@ -2357,7 +2382,7 @@ impl Editor {
         if let Some((start, end)) = self.selection() {
             let linewise = self.mode == Mode::VisualLine;
             let text = self.extract_range(start, end, linewise);
-            self.store_register(text, linewise);
+            self.store_yank(text, linewise);
         }
         self.mode = Mode::Normal;
     }
@@ -2367,7 +2392,7 @@ impl Editor {
             let linewise = self.mode == Mode::VisualLine;
             self.checkpoint();
             let text = self.extract_range(start, end, linewise);
-            self.store_register(text, linewise);
+            self.store_delete(text, linewise);
             self.delete_range(start, end, linewise);
             self.cursor = if linewise {
                 Position::new(start.row.min(self.buffer.line_count().saturating_sub(1)), 0)
@@ -3232,6 +3257,50 @@ mod tests {
 
     fn ctrl(c: char) -> KeyEvent {
         KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL)
+    }
+
+    #[test]
+    fn yank_register_zero() {
+        let mut ed = ed_with("yanked\ndeleted\ntarget");
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y')); // yank "yanked" -> "0 and unnamed
+        ed.handle_key(key('j'));
+        ed.handle_key(key('d'));
+        ed.handle_key(key('d')); // delete "deleted" -> "1 and unnamed
+        // Unnamed now holds the delete; "0 still holds the yank.
+        ed.handle_key(key('"'));
+        ed.handle_key(key('0'));
+        ed.handle_key(key('p')); // paste "0 (the yank)
+        assert_eq!(ed.buffer.line(2), Some("yanked"));
+    }
+
+    #[test]
+    fn numbered_delete_registers_shift() {
+        let mut ed = ed_with("one\ntwo\nthree\nfour");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('d')); // delete "one" -> "1
+        ed.handle_key(key('d'));
+        ed.handle_key(key('d')); // delete "two" -> "1, "one" shifts to "2
+        // "1 == most recent delete ("two"), "2 == older ("one").
+        ed.handle_key(key('"'));
+        ed.handle_key(key('1'));
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(1), Some("two"));
+        ed.handle_key(key('"'));
+        ed.handle_key(key('2'));
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(2), Some("one"));
+    }
+
+    #[test]
+    fn small_delete_register_dash() {
+        let mut ed = ed_with("abcdef");
+        ed.handle_key(key('x')); // delete 'a' (small) -> "-
+        ed.handle_key(key('$'));
+        ed.handle_key(key('"'));
+        ed.handle_key(key('-'));
+        ed.handle_key(key('p')); // paste small-delete register
+        assert_eq!(ed.buffer.line(0), Some("bcdefa"));
     }
 
     #[test]
