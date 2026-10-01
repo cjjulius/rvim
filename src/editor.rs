@@ -355,6 +355,47 @@ impl Editor {
         self.hlsearch = true;
     }
 
+    /// Execute a `:g`/`:v` global command: run `command` on every line matching
+    /// (or, when `invert`, not matching) `pattern`. Supports `d`/`delete` and a
+    /// `:s` substitution. Returns the number of lines/substitutions affected.
+    pub fn global(&mut self, pattern: &str, invert: bool, command: &str) -> usize {
+        let Some(re) = pattern::build(pattern) else {
+            return 0;
+        };
+        let n = self.buffer.line_count();
+        let matches: Vec<usize> = (0..n)
+            .filter(|&i| re.is_match(self.buffer.line(i).unwrap_or("")) != invert)
+            .collect();
+        if matches.is_empty() {
+            return 0;
+        }
+        let cmd = command.trim();
+        if cmd == "d" || cmd == "delete" {
+            self.checkpoint();
+            for &row in matches.iter().rev() {
+                if self.buffer.line_count() == 1 {
+                    self.buffer.set_line(0, "");
+                } else {
+                    self.buffer.delete_line(row);
+                }
+            }
+            self.cursor.row = self.cursor.row.min(self.buffer.line_count().saturating_sub(1));
+            self.clamp_cursor(false);
+            return matches.len();
+        }
+        if let crate::command::ExCommand::Substitute(spec) = crate::command::parse(cmd) {
+            // Lines aren't deleted, so the indices stay valid as we go.
+            let mut count = 0;
+            for &row in &matches {
+                let mut s = spec.clone();
+                s.range = SubRange::Range(LineAddr::Num(row + 1), LineAddr::Num(row + 1));
+                count += self.substitute(&s).0;
+            }
+            return count;
+        }
+        0
+    }
+
     /// `&` — repeat the last `:s` on the current line.
     fn repeat_substitute(&mut self) {
         let Some(mut spec) = self.last_subst.clone() else {
@@ -4646,6 +4687,35 @@ mod tests {
         let (subs, _) = ed.substitute(&spec);
         assert_eq!(subs, 2);
         assert_eq!(ed.buffer.line(0), Some("item# and item#"));
+    }
+
+    #[test]
+    fn global_delete_matching_lines() {
+        let mut ed = ed_with("keep\nDROP me\nkeep\nDROP again");
+        let affected = ed.global("DROP", false, "d");
+        assert_eq!(affected, 2);
+        assert_eq!(ed.buffer.line(0), Some("keep"));
+        assert_eq!(ed.buffer.line(1), Some("keep"));
+        assert_eq!(ed.buffer.line_count(), 2);
+    }
+
+    #[test]
+    fn global_invert_delete() {
+        let mut ed = ed_with("a\nkeep1\nb\nkeep2");
+        ed.global("keep", true, "d"); // delete non-matching
+        assert_eq!(ed.buffer.line(0), Some("keep1"));
+        assert_eq!(ed.buffer.line(1), Some("keep2"));
+        assert_eq!(ed.buffer.line_count(), 2);
+    }
+
+    #[test]
+    fn global_substitute_on_matching_lines() {
+        let mut ed = ed_with("foo 1\nbar 1\nfoo 1");
+        let n = ed.global("foo", false, "s/1/9/");
+        assert_eq!(n, 2);
+        assert_eq!(ed.buffer.line(0), Some("foo 9"));
+        assert_eq!(ed.buffer.line(1), Some("bar 1")); // not matched by g
+        assert_eq!(ed.buffer.line(2), Some("foo 9"));
     }
 
     #[test]

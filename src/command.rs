@@ -76,6 +76,13 @@ pub enum ExCommand {
     Substitute(SubstituteSpec),
     /// `:source <file>` — run ex-commands from a file.
     Source(String),
+    /// `:g/re/cmd`, `:g!/re/cmd`, `:v/re/cmd` — run `command` on lines matching
+    /// (or, when `invert`, not matching) `pattern`.
+    Global {
+        pattern: String,
+        invert: bool,
+        command: String,
+    },
     /// `:noh` / `:set hlsearch|nohlsearch` — toggle search-match highlighting.
     ToggleHlSearch(bool),
     /// `:sort` / `:sort!` / `:sort u` — sort buffer lines.
@@ -101,6 +108,11 @@ pub fn parse(input: &str) -> ExCommand {
     let trimmed = input.trim();
     if trimmed.is_empty() {
         return ExCommand::Empty;
+    }
+
+    // Global command (`g/re/cmd`, `v/re/cmd`).
+    if let Some(g) = parse_global(trimmed) {
+        return g;
     }
 
     // Substitution, possibly with a leading range (`s/`, `%s/`, `1,5s/`).
@@ -168,6 +180,45 @@ pub fn parse(input: &str) -> ExCommand {
             args: rest.to_string(),
         },
     }
+}
+
+/// Try to parse a `:g`/`:v` global command.
+#[allow(clippy::question_mark)]
+fn parse_global(trimmed: &str) -> Option<ExCommand> {
+    let (invert, after) = if let Some(r) = trimmed.strip_prefix("global!") {
+        (true, r)
+    } else if let Some(r) = trimmed.strip_prefix("g!") {
+        (true, r)
+    } else if let Some(r) = trimmed.strip_prefix("vglobal") {
+        (true, r)
+    } else if let Some(r) = trimmed.strip_prefix("global") {
+        (false, r)
+    } else if let Some(r) = trimmed.strip_prefix('v') {
+        (true, r)
+    } else if let Some(r) = trimmed.strip_prefix('g') {
+        (false, r)
+    } else {
+        return None;
+    };
+    // The delimiter follows immediately and must be non-alphanumeric (rejects
+    // `version`, `goto`, …).
+    let delim = after.chars().next()?;
+    if delim.is_alphanumeric() || delim.is_whitespace() {
+        return None;
+    }
+    let rest = &after[delim.len_utf8()..];
+    let (pattern, command) = match rest.find(delim) {
+        Some(i) => (rest[..i].to_string(), rest[i + delim.len_utf8()..].to_string()),
+        None => (rest.to_string(), String::new()),
+    };
+    if pattern.is_empty() {
+        return None;
+    }
+    Some(ExCommand::Global {
+        pattern,
+        invert,
+        command: command.trim().to_string(),
+    })
 }
 
 /// Try to parse a substitute command. Returns `None` if `trimmed` isn't a
@@ -422,6 +473,32 @@ mod tests {
                 ignorecase: false,
             })
         );
+    }
+
+    #[test]
+    fn global_commands() {
+        assert_eq!(
+            parse("g/foo/d"),
+            ExCommand::Global { pattern: "foo".into(), invert: false, command: "d".into() }
+        );
+        assert_eq!(
+            parse("v/foo/d"),
+            ExCommand::Global { pattern: "foo".into(), invert: true, command: "d".into() }
+        );
+        assert_eq!(
+            parse("g!/bar/d"),
+            ExCommand::Global { pattern: "bar".into(), invert: true, command: "d".into() }
+        );
+        assert_eq!(
+            parse("g/x/s/a/b/g"),
+            ExCommand::Global { pattern: "x".into(), invert: false, command: "s/a/b/g".into() }
+        );
+    }
+
+    #[test]
+    fn global_does_not_hijack_other_commands() {
+        assert!(!matches!(parse("version"), ExCommand::Global { .. }));
+        assert!(!matches!(parse("wq"), ExCommand::Global { .. }));
     }
 
     #[test]

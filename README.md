@@ -117,6 +117,15 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
   cursor (whole word) forward/back; `g*`/`g#` do so as a substring. All matches
   are highlighted — clear with `:noh` (`:set hlsearch`/`nohlsearch`).
 
+### Global command (`:g` / `:v`)
+Run a command on every line matching a pattern:
+
+| Command             | Effect                                             |
+|---------------------|----------------------------------------------------|
+| `:g/re/d`           | delete all lines matching `re`                      |
+| `:v/re/d` (`:g!/re/d`) | delete all lines *not* matching `re`            |
+| `:g/re/s/a/b/g`     | run the substitution on matching lines only         |
+
 ### Multiple buffers
 Open several files and switch between them:
 
@@ -306,7 +315,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **259 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **264 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
