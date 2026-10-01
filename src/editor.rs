@@ -75,6 +75,7 @@ pub struct Editor {
     visual_anchor: Position,
     last_search: String,
     search_re: Option<Regex>,
+    last_subst: Option<SubstituteSpec>,
     pending_count: Option<usize>,
     pending_op: Option<char>,
     pending_op_count: Option<usize>,
@@ -159,6 +160,7 @@ impl Editor {
             visual_anchor: Position::default(),
             last_search: String::new(),
             search_re: None,
+            last_subst: None,
             pending_count: None,
             pending_op: None,
             pending_op_count: None,
@@ -328,6 +330,16 @@ impl Editor {
         self.hlsearch = true;
     }
 
+    /// `&` — repeat the last `:s` on the current line.
+    fn repeat_substitute(&mut self) {
+        let Some(mut spec) = self.last_subst.clone() else {
+            self.message = "No previous substitute".into();
+            return;
+        };
+        spec.range = SubRange::CurrentLine;
+        self.substitute(&spec);
+    }
+
     /// The register currently being recorded into, if any (for the status line).
     pub fn recording_register(&self) -> Option<char> {
         self.recording
@@ -462,6 +474,10 @@ impl Editor {
         let Some(re) = pattern::build(&spec.pattern) else {
             return (0, 0);
         };
+        // Remember for `&` (repeat last substitution).
+        self.last_subst = Some(spec.clone());
+        // vim-style replacement (`\1`, `&`) -> regex crate syntax.
+        let replacement = pattern::vim_replacement(&spec.replacement);
         let (start, end) = self.resolve_range(spec.range);
 
         // First pass: compute new lines without mutating, so we only push an
@@ -478,9 +494,9 @@ impl Editor {
                 continue;
             }
             let (new, c) = if spec.global {
-                (re.replace_all(line, spec.replacement.as_str()).into_owned(), matches)
+                (re.replace_all(line, replacement.as_str()).into_owned(), matches)
             } else {
-                (re.replace(line, spec.replacement.as_str()).into_owned(), 1)
+                (re.replace(line, replacement.as_str()).into_owned(), 1)
             };
             subs += c;
             edits.push((row, new));
@@ -1236,6 +1252,7 @@ impl Editor {
             KeyCode::Char('V') => self.toggle_visual(Mode::VisualLine),
             KeyCode::Char('n') => self.search_repeat(true),
             KeyCode::Char('N') => self.search_repeat(false),
+            KeyCode::Char('&') => self.repeat_substitute(),
             KeyCode::Char('*') => self.search_word(true, true),
             KeyCode::Char('#') => self.search_word(false, true),
             KeyCode::Char(':') => {
@@ -3845,17 +3862,34 @@ mod tests {
     }
 
     #[test]
-    fn substitute_regex_capture_group() {
+    fn substitute_vim_capture_group() {
+        // vim-style backrefs: \1 \2 \3
         let mut ed = ed_with("2026-09-30");
         let spec = SubstituteSpec {
             range: SubRange::CurrentLine,
             pattern: r"(\d+)-(\d+)-(\d+)".into(),
-            replacement: "$3/$2/$1".into(),
+            replacement: r"\3/\2/\1".into(),
             global: false,
         };
         let (subs, _) = ed.substitute(&spec);
         assert_eq!(subs, 1);
         assert_eq!(ed.buffer.line(0), Some("30/09/2026"));
+    }
+
+    #[test]
+    fn repeat_substitute_with_ampersand() {
+        let mut ed = ed_with("foo foo\nfoo foo");
+        let spec = SubstituteSpec {
+            range: SubRange::CurrentLine,
+            pattern: "foo".into(),
+            replacement: "bar".into(),
+            global: true,
+        };
+        ed.substitute(&spec); // line 0 -> "bar bar"
+        assert_eq!(ed.buffer.line(0), Some("bar bar"));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('&')); // repeat on line 1
+        assert_eq!(ed.buffer.line(1), Some("bar bar"));
     }
 
     #[test]
