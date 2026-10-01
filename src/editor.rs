@@ -120,6 +120,9 @@ pub struct Editor {
     /// with the count that preceded it.
     pending_bracket: Option<char>,
     pending_bracket_count: usize,
+    /// `Z` was pressed, awaiting the second key for `ZZ` (write & quit) or
+    /// `ZQ` (quit without saving).
+    pending_z_quit: bool,
     last_find: Option<(char, char)>,
     marks: HashMap<char, Position>,
     pending_mark: Option<PendingMark>,
@@ -215,6 +218,7 @@ impl Editor {
             pending_find: None,
             pending_bracket: None,
             pending_bracket_count: 1,
+            pending_z_quit: false,
             last_find: None,
             marks: HashMap::new(),
             pending_mark: None,
@@ -819,6 +823,7 @@ impl Editor {
             && !self.pending_replace
             && self.pending_find.is_none()
             && self.pending_bracket.is_none()
+            && !self.pending_z_quit
             && self.pending_mark.is_none()
             && !self.expect_register
             && self.expect_macro.is_none()
@@ -1252,6 +1257,16 @@ impl Editor {
             return Action::None;
         }
 
+        // Second key after `Z` -> `ZZ` (write & quit) or `ZQ` (quit, no save).
+        if self.pending_z_quit {
+            self.pending_z_quit = false;
+            return match key.code {
+                KeyCode::Char('Z') => Action::RunEx("x".into()),
+                KeyCode::Char('Q') => Action::RunEx("q!".into()),
+                _ => Action::None,
+            };
+        }
+
         // Motion / doubled after `gc` (comment toggle).
         if self.pending_comment {
             self.pending_comment = false;
@@ -1639,6 +1654,7 @@ impl Editor {
                 self.replace_stack.clear();
                 self.mode = Mode::Replace;
             }
+            KeyCode::Char('Z') if !self.mode.is_visual() => self.pending_z_quit = true,
             KeyCode::Char('o') => {
                 if self.mode.is_visual() {
                     // Swap the cursor and the anchor (move to the other end).
@@ -3550,6 +3566,28 @@ mod tests {
         let action = ed.handle_key(special(KeyCode::Enter));
         assert_eq!(action, Action::RunEx("wq".into()));
         assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn zz_writes_and_quits() {
+        let mut ed = ed_with("hi");
+        assert_eq!(ed.handle_key(key('Z')), Action::None); // first Z: pending
+        assert_eq!(ed.handle_key(key('Z')), Action::RunEx("x".into()));
+    }
+
+    #[test]
+    fn zq_quits_without_saving() {
+        let mut ed = ed_with("hi");
+        assert_eq!(ed.handle_key(key('Z')), Action::None);
+        assert_eq!(ed.handle_key(key('Q')), Action::RunEx("q!".into()));
+    }
+
+    #[test]
+    fn z_then_other_key_cancels() {
+        let mut ed = ed_with("hi");
+        ed.handle_key(key('Z'));
+        assert_eq!(ed.handle_key(key('x')), Action::None); // not a quit; Z aborted
+        assert!(!ed.pending_z_quit);
     }
 
     #[test]

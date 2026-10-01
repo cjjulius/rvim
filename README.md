@@ -144,7 +144,8 @@ When more than one buffer is open, a **tab bar** appears across the top of the
 screen listing every buffer (active one highlighted, `+` marks unsaved changes).
 
 `:q` refuses to quit while any open buffer has unsaved changes (use `:q!` to
-override).
+override). In Normal mode, `ZZ` writes the buffer and quits (like `:x`) and `ZQ`
+quits without saving (like `:q!`).
 
 > Tip: new to the command line? Press **Alt** (or **F10**) to open the menu bar
 > and browse every command with its shortcut — see *Menu bar* below.
@@ -324,7 +325,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **273 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **276 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
