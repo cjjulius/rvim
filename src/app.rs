@@ -865,6 +865,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tgg / G             top / bottom (or <n>G, :<n>)\n\
          \tH / M / L          top / middle / bottom of screen\n\
          \tzz / zt / zb       center / top / bottom current line\n\
+         \tz. / z<CR> / z-    same, then move to first non-blank\n\
          \tCtrl-d / Ctrl-u    half-page down / up\n\
          \tCtrl-f / Ctrl-b    full-page forward / back (counted)\n\
          \tCtrl-e / Ctrl-y    scroll one line down / up\n\

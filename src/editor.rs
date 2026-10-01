@@ -2405,6 +2405,19 @@ impl Editor {
                 KeyCode::Char('z') => self.center_line(),
                 KeyCode::Char('t') => self.line_to_top(),
                 KeyCode::Char('b') => self.line_to_bottom(),
+                // The `.`/`<CR>`/`-` variants also move to the first non-blank.
+                KeyCode::Char('.') => {
+                    self.center_line();
+                    self.move_first_nonblank();
+                }
+                KeyCode::Enter => {
+                    self.line_to_top();
+                    self.move_first_nonblank();
+                }
+                KeyCode::Char('-') => {
+                    self.line_to_bottom();
+                    self.move_first_nonblank();
+                }
                 _ => {}
             },
             '>' | '<' => {
