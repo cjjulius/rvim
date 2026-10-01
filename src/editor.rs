@@ -2618,6 +2618,23 @@ impl Editor {
 
     /// Find the bracket matching the one at (or next on the line after) the
     /// cursor. Matches `()`, `[]`, `{}` with nesting, scanning across lines.
+    /// For matchparen highlighting: if the cursor sits exactly on a bracket,
+    /// return the position of its match (not the next bracket on the line, unlike
+    /// `%`). `None` when the cursor isn't on a bracket or the pair is unbalanced.
+    pub fn match_highlight(&self) -> Option<Position> {
+        const OPEN: [char; 3] = ['(', '[', '{'];
+        const CLOSE: [char; 3] = [')', ']', '}'];
+        let line: Vec<char> = self.buffer.line(self.cursor.row)?.chars().collect();
+        let bch = *line.get(self.cursor.col)?;
+        if let Some(idx) = OPEN.iter().position(|&c| c == bch) {
+            self.scan_bracket(self.cursor.row, self.cursor.col, bch, CLOSE[idx], true)
+        } else if let Some(idx) = CLOSE.iter().position(|&c| c == bch) {
+            self.scan_bracket(self.cursor.row, self.cursor.col, bch, OPEN[idx], false)
+        } else {
+            None
+        }
+    }
+
     fn matching_bracket(&self) -> Option<Position> {
         const OPEN: [char; 3] = ['(', '[', '{'];
         const CLOSE: [char; 3] = [')', ']', '}'];
