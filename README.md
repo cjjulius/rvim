@@ -160,6 +160,7 @@ Open several files and switch between them:
 | `:ls` / `:buffers`   | list open buffers (active marked `%`, `+` = unsaved) |
 | `:bn` / `:bp`        | next / previous buffer                    |
 | `:b <n>`             | switch to buffer number `n`               |
+| `Ctrl-^` / `:b#`     | switch to the alternate (last) buffer     |
 | `:bd`                | close the current buffer                  |
 
 When more than one buffer is open, a **tab bar** appears across the top of the
@@ -173,7 +174,7 @@ quits without saving (like `:q!`).
 > and browse every command with its shortcut — see *Menu bar* below.
 
 ### Command line (ex commands)
-`:w [file]` · `:q` · `:q!` · `:wq` · `:x` · `:qa`/`:wa`/`:wqa` (all buffers) · `:e <file>` · `:ls` · `:bn`/`:bp`/`:b <n>`/`:bd` · `:<n>` (goto line) ·
+`:w [file]` · `:q` · `:q!` · `:wq` · `:x` · `:qa`/`:wa`/`:wqa` (all buffers) · `:e <file>` · `:ls` · `:bn`/`:bp`/`:b <n>`/`:bd` · `Ctrl-^`/`:b#` (alternate buffer) · `:<n>` (goto line) ·
 `:s/pat/rep/[g]` (search & replace) · `:theme <name>` · `:set number|nonumber` ·
 `:set relativenumber|norelativenumber` · `:set ft=<lang>` · `:set mouse|nomouse` ·
 `:set autoindent` · `:set expandtab|noexpandtab` · `:set shiftwidth=N` ·
@@ -370,7 +371,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **343 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **345 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

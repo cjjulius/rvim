@@ -139,6 +139,8 @@ pub enum ExCommand {
     Buffer(usize),
     /// `:bd` / `:bdelete`
     BufferDelete,
+    /// `:b#` / `:e#` — switch to the alternate buffer.
+    BufferAlternate,
     /// Anything unrecognized — offered to plugins as (name, args).
     Passthrough { name: String, args: String },
     /// Empty input.
@@ -230,6 +232,10 @@ pub fn parse(input: &str) -> ExCommand {
         "bn" | "bnext" => ExCommand::BufferNext,
         "bp" | "bprev" | "bprevious" => ExCommand::BufferPrev,
         "bd" | "bdelete" => ExCommand::BufferDelete,
+        "b#" | "e#" => ExCommand::BufferAlternate,
+        "b" | "bu" | "buf" | "buffer" if arg.as_deref() == Some("#") => {
+            ExCommand::BufferAlternate
+        }
         "b" | "bu" | "buf" | "buffer" => match arg.as_deref().and_then(|a| a.trim().parse::<usize>().ok()) {
             Some(n) => ExCommand::Buffer(n),
             None => ExCommand::Passthrough {

@@ -271,6 +271,9 @@
         assert_eq!(parse("bn"), ExCommand::BufferNext);
         assert_eq!(parse("bprev"), ExCommand::BufferPrev);
         assert_eq!(parse("bd"), ExCommand::BufferDelete);
+        assert_eq!(parse("b#"), ExCommand::BufferAlternate);
+        assert_eq!(parse("e#"), ExCommand::BufferAlternate);
+        assert_eq!(parse("b #"), ExCommand::BufferAlternate);
         assert_eq!(parse("b 3"), ExCommand::Buffer(3));
         assert_eq!(parse("buffer 2"), ExCommand::Buffer(2));
     }

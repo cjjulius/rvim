@@ -30,6 +30,9 @@ pub struct App {
     /// buffer every frame when the view hasn't changed (e.g. cursor moving
     /// on-screen).
     block_memo: Option<(u64, Language, usize, bool)>,
+    /// Path of the buffer most recently switched away from (vim's alternate file,
+    /// reachable with `Ctrl-^` / `:b#`).
+    alternate: Option<String>,
 }
 
 impl App {
@@ -44,6 +47,31 @@ impl App {
             quit: false,
             want_mouse: false,
             block_memo: None,
+            alternate: None,
+        }
+    }
+
+    /// Record the current buffer as the alternate (called before switching away).
+    fn remember_alternate(&mut self) {
+        self.alternate = self.editor.buffer.path().map(|p| p.display().to_string());
+    }
+
+    /// `Ctrl-^` / `:b#` — switch to the alternate buffer (the last one left).
+    fn switch_alternate(&mut self) {
+        let Some(alt) = self.alternate.clone() else {
+            self.editor.message = "E23: No alternate file".into();
+            return;
+        };
+        let pos = self.others.iter().position(|e| {
+            e.buffer.path().map(|p| p.display().to_string()).as_deref() == Some(alt.as_str())
+        });
+        match pos {
+            Some(i) => {
+                self.remember_alternate();
+                std::mem::swap(&mut self.editor, &mut self.others[i]);
+                self.editor.message = format!("\"{alt}\"");
+            }
+            None => self.editor.message = format!("E23: alternate buffer not open: {alt}"),
         }
     }
 
@@ -107,6 +135,7 @@ impl App {
             .iter()
             .position(|e| e.buffer.path().map(|p| p.display().to_string()).as_deref() == Some(path))
         {
+            self.remember_alternate();
             std::mem::swap(&mut self.editor, &mut self.others[i]);
             self.editor.message = format!("\"{path}\" (buffer switched)");
             return;
@@ -115,6 +144,7 @@ impl App {
             Ok(mut ed) => {
                 self.inherit_prefs(&mut ed);
                 let lines = ed.buffer.line_count();
+                self.remember_alternate();
                 let old = std::mem::replace(&mut self.editor, ed);
                 if old.buffer.path().is_some() || old.buffer.is_dirty() {
                     self.others.push(old);
@@ -157,6 +187,7 @@ impl App {
             self.editor.message = "only one buffer".into();
             return;
         }
+        self.remember_alternate();
         let next = self.others.remove(0);
         let old = std::mem::replace(&mut self.editor, next);
         self.others.push(old);
@@ -166,6 +197,7 @@ impl App {
     /// `:bp` — rotate to the previous buffer.
     fn buffer_prev(&mut self) {
         if let Some(prev) = self.others.pop() {
+            self.remember_alternate();
             let old = std::mem::replace(&mut self.editor, prev);
             self.others.insert(0, old);
             self.editor.message = format!("\"{}\"", Self::buffer_name(&self.editor));
@@ -181,6 +213,7 @@ impl App {
         }
         let idx = n.wrapping_sub(2);
         if idx < self.others.len() {
+            self.remember_alternate();
             std::mem::swap(&mut self.editor, &mut self.others[idx]);
             self.editor.message = format!("\"{}\"", Self::buffer_name(&self.editor));
         } else {
@@ -308,6 +341,16 @@ impl App {
                         if let KeyCode::Char(c) = key.code {
                             self.editor.menu_open_initial(c);
                         }
+                        continue;
+                    }
+                    // Ctrl-^ (often reported as Ctrl-6) switches to the alternate
+                    // buffer — an app-level concern, so handle it before the editor.
+                    if self.editor.mode == Mode::Normal
+                        && key.modifiers.contains(KeyModifiers::CONTROL)
+                        && matches!(key.code, KeyCode::Char('^') | KeyCode::Char('6'))
+                    {
+                        self.editor.message.clear();
+                        self.switch_alternate();
                         continue;
                     }
                     // Fresh action clears the previous message.
@@ -450,6 +493,7 @@ impl App {
             ExCommand::BufferPrev => self.buffer_prev(),
             ExCommand::Buffer(n) => self.buffer_goto(n),
             ExCommand::BufferDelete => self.buffer_delete(),
+            ExCommand::BufferAlternate => self.switch_alternate(),
             ExCommand::SetTheme(arg) => match arg {
                 Some(name) => {
                     if self.themes.set_current(&name) {
@@ -785,6 +829,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:e <file>          open file     :r <file>  read file below cursor\n\
          \t:e / :e!            reload current file (! discards changes)\n\
          \t:ls :bn :bp :b<n>  list / next / prev / goto buffer   :bd close\n\
+         \tCtrl-^ / :b#       switch to the alternate (last) buffer\n\
          \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///)\n\
          \t:theme <name>      themes: {themes}\n\
          \t:set number|nonumber   :set relativenumber|nornu\n\
