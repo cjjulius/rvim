@@ -568,6 +568,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \th j k l  arrows    move left/down/up/right\n\
          \tw / b / e / ge     word forward / back / end / prev-end (W/B/E/gE = WORD)\n\
          \t{{ / }}             paragraph back / forward\n\
+         \t[[ ]] [] ][         section back/fwd (open brace), close-brace variants\n\
          \tf/F/t/T <c>        find char on line   ; ,  repeat / reverse\n\
          \t%                  jump to matching bracket () [] {{}}\n\
          \t0 / ^ / $ / g_      line start / first-nonblank / end / last-nonblank\n\

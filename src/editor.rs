@@ -116,6 +116,10 @@ pub struct Editor {
     /// Applied to every row on Esc.
     block_insert: Option<(usize, usize, usize, bool)>,
     pending_find: Option<char>,
+    /// Pending `[` / `]` prefix for section motions (`[[`, `]]`, `[]`, `][`),
+    /// with the count that preceded it.
+    pending_bracket: Option<char>,
+    pending_bracket_count: usize,
     last_find: Option<(char, char)>,
     marks: HashMap<char, Position>,
     pending_mark: Option<PendingMark>,
@@ -209,6 +213,8 @@ impl Editor {
             insert_pending_reg: false,
             block_insert: None,
             pending_find: None,
+            pending_bracket: None,
+            pending_bracket_count: 1,
             last_find: None,
             marks: HashMap::new(),
             pending_mark: None,
@@ -794,6 +800,7 @@ impl Editor {
             && !self.pending_comment
             && !self.pending_replace
             && self.pending_find.is_none()
+            && self.pending_bracket.is_none()
             && self.pending_mark.is_none()
             && !self.expect_register
             && self.expect_macro.is_none()
@@ -1214,6 +1221,19 @@ impl Editor {
             return Action::None;
         }
 
+        // Second bracket after `[` / `]` -> section motion (`[[ ]] [] ][`).
+        if let Some(first) = self.pending_bracket.take() {
+            let n = self.pending_bracket_count;
+            match (first, key.code) {
+                ('[', KeyCode::Char('[')) => self.section_motion(false, true, n),
+                (']', KeyCode::Char(']')) => self.section_motion(true, true, n),
+                ('[', KeyCode::Char(']')) => self.section_motion(false, false, n),
+                (']', KeyCode::Char('[')) => self.section_motion(true, false, n),
+                _ => {}
+            }
+            return Action::None;
+        }
+
         // Motion / doubled after `gc` (comment toggle).
         if self.pending_comment {
             self.pending_comment = false;
@@ -1433,6 +1453,14 @@ impl Editor {
             KeyCode::Char('{') => {
                 self.cursor.row = self.paragraph_backward();
                 self.cursor.col = 0;
+            }
+            KeyCode::Char('[') => {
+                self.pending_bracket = Some('[');
+                self.pending_bracket_count = count;
+            }
+            KeyCode::Char(']') => {
+                self.pending_bracket = Some(']');
+                self.pending_bracket_count = count;
             }
             KeyCode::Char('"') => self.expect_register = true,
             KeyCode::Char('m') => self.pending_mark = Some(PendingMark::Set),
@@ -1991,6 +2019,44 @@ impl Editor {
             r -= 1;
         }
         r
+    }
+
+    /// Section motion: `]]`/`[[` jump to the next/previous line whose first
+    /// character (column 0) is `{` (an *open*-brace boundary); `][`/`[]` do the
+    /// same for `}` (a *close*-brace boundary). This matches vim's default C-style
+    /// `sections` navigation (a brace in the first column), so the skill transfers
+    /// directly. A jump is recorded so `Ctrl-o` returns. Lands on column 0 of the
+    /// boundary line, or the first/last line when no further boundary exists.
+    fn section_motion(&mut self, forward: bool, open: bool, count: usize) {
+        let marker = if open { '{' } else { '}' };
+        let last = self.buffer.line_count().saturating_sub(1);
+        self.record_jump();
+        let starts_with = |row: usize| -> bool {
+            self.buffer.line(row).and_then(|l| l.chars().next()) == Some(marker)
+        };
+        let mut row = self.cursor.row;
+        for _ in 0..count.max(1) {
+            if forward {
+                let mut r = row + 1;
+                while r <= last && !starts_with(r) {
+                    r += 1;
+                }
+                row = r.min(last);
+            } else {
+                if row == 0 {
+                    break;
+                }
+                let mut r = row - 1;
+                while r > 0 && !starts_with(r) {
+                    r -= 1;
+                }
+                row = r;
+            }
+        }
+        self.cursor.row = row;
+        self.cursor.col = 0;
+        self.clamp_cursor(false);
+        self.scroll_into_view();
     }
 
     /// The column `count` word-starts forward on the current line (bounded to EOL).
@@ -4401,6 +4467,47 @@ mod tests {
         assert_eq!(ed.cursor.row, 5);
         ed.handle_key(key('{')); // back to blank (row 2)
         assert_eq!(ed.cursor.row, 2);
+    }
+
+    #[test]
+    fn section_motion_open_and_close_braces() {
+        // Allman-style braces in column 0 are vim's default section boundaries.
+        // fn a()          row 0
+        // {               row 1  (open boundary)
+        //     body        row 2
+        // }               row 3  (close boundary)
+        // fn b()          row 4
+        // {               row 5  (open boundary)
+        //     body        row 6
+        // }               row 7  (close boundary)
+        let mut ed = ed_with("fn a()\n{\n    body\n}\nfn b()\n{\n    body\n}");
+        ed.handle_key(key(']'));
+        ed.handle_key(key(']')); // ]] -> next open-brace line (row 1)
+        assert_eq!(ed.cursor.row, 1);
+        assert_eq!(ed.cursor.col, 0);
+        ed.handle_key(key(']'));
+        ed.handle_key(key(']')); // ]] -> next open-brace line (row 5)
+        assert_eq!(ed.cursor.row, 5);
+        ed.handle_key(key('['));
+        ed.handle_key(key('[')); // [[ -> previous open-brace line (row 1)
+        assert_eq!(ed.cursor.row, 1);
+        ed.handle_key(key(']'));
+        ed.handle_key(key('[')); // ][ -> next close-brace line (row 3)
+        assert_eq!(ed.cursor.row, 3);
+        ed.handle_key(key('['));
+        ed.handle_key(key(']')); // [] -> previous close-brace line (none above -> row 0)
+        assert_eq!(ed.cursor.row, 0);
+    }
+
+    #[test]
+    fn section_motion_counts_and_records_jump() {
+        let mut ed = ed_with("{\na\n{\nb\n{\nc");
+        ed.handle_key(key('2'));
+        ed.handle_key(key(']'));
+        ed.handle_key(key(']')); // 2]] -> skip to the third open brace (row 4)
+        assert_eq!(ed.cursor.row, 4);
+        ed.handle_key(ctrl('o')); // jump back to the start
+        assert_eq!(ed.cursor.row, 0);
     }
 
     #[test]
