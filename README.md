@@ -223,7 +223,9 @@ Several `:set` options can be combined in one command, e.g.
 
 On the command line, `Up`/`Down` recall previous commands (`:` history) or
 searches (`/`/`?` history), and `Ctrl-w`/`Ctrl-u` delete the previous word / the
-whole line.
+whole line. `Tab` completes the command name (`:sor`→`:sort`) — or, after
+`:set `, the option name (`:set nu`→`:set number`) — and repeated `Tab` /
+`Shift-Tab` cycle forward / backward through the matches.
 
 **Search & replace** (`:s`) supports ranges and the `g` (global) flag:
 
@@ -409,7 +411,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **406 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **410 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

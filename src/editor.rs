@@ -109,6 +109,8 @@ pub struct Editor {
     search_history: Vec<String>,
     hist_idx: Option<usize>,
     hist_saved: String,
+    /// Active command-line Tab-completion cycle, if any.
+    cmd_comp: Option<CmdComp>,
     register: Register,
     registers: HashMap<char, Register>,
     pending_register: Option<char>,
@@ -266,6 +268,7 @@ impl Editor {
             search_history: Vec::new(),
             hist_idx: None,
             hist_saved: String::new(),
+            cmd_comp: None,
             register: Register::default(),
             registers: HashMap::new(),
             pending_register: None,
@@ -1325,6 +1328,13 @@ impl Editor {
     }
 
     fn handle_cmdline(&mut self, key: KeyEvent) -> Action {
+        // Tab / Shift-Tab cycle through command-line completions.
+        if matches!(key.code, KeyCode::Tab | KeyCode::BackTab) {
+            self.cmdline_complete(key.code == KeyCode::BackTab);
+            return Action::None;
+        }
+        // Any other key ends an in-progress completion cycle.
+        self.cmd_comp = None;
         // Command-line control shortcuts (so Ctrl-combos don't insert a letter).
         if key.modifiers.contains(KeyModifiers::CONTROL) {
             match key.code {
@@ -1403,6 +1413,95 @@ impl Editor {
             }
             _ => Action::None,
         }
+    }
+
+    /// Ex-command names offered for `:`-line Tab completion.
+    const EX_COMMANDS: &'static [&'static str] = &[
+        "autoindent", "bdelete", "bnext", "bprevious", "buffer", "buffers",
+        "colorscheme", "copy", "cursorline", "delete", "edit", "expandtab",
+        "files", "global", "help", "hlsearch", "ignorecase", "incsearch",
+        "join", "jumps", "list", "marks", "move", "nohlsearch", "normal",
+        "number", "put", "quit", "quitall", "read", "registers",
+        "relativenumber", "set", "smartcase", "sort", "source", "substitute",
+        "theme", "version", "vglobal", "wall", "wq", "wqall", "write", "yank",
+    ];
+
+    /// `:set` option names offered for Tab completion (toggles, their `no`
+    /// variants, and value options by bare name).
+    const SET_OPTIONS: &'static [&'static str] = &[
+        "autoindent", "colorcolumn", "cursorline", "expandtab", "filetype",
+        "hlsearch", "ignorecase", "incsearch", "list", "noautoindent",
+        "nocursorline", "noexpandtab", "nohlsearch", "noignorecase",
+        "noincsearch", "nolist", "nonumber", "norelativenumber", "nosmartcase",
+        "nowrapscan", "number", "relativenumber", "scrolloff", "shiftwidth",
+        "sidescrolloff", "smartcase", "tabstop", "textwidth", "wrapscan",
+    ];
+
+    /// Tab completion on the `:` command line. Completes the first word against
+    /// ex-command names, or the last word against option names after `:set`.
+    /// Repeated Tab (or Shift-Tab) cycles through the matches.
+    fn cmdline_complete(&mut self, backward: bool) {
+        if self.line_kind != LineKind::Ex {
+            return;
+        }
+        // Continue an active cycle if the line still matches what we produced.
+        if let Some(comp) = &self.cmd_comp {
+            let expected = format!("{}{}", comp.base, comp.matches[comp.idx]);
+            if self.cmdline == expected {
+                let n = comp.matches.len();
+                let idx = if backward {
+                    (comp.idx + n - 1) % n
+                } else {
+                    (comp.idx + 1) % n
+                };
+                let next = format!("{}{}", comp.base, comp.matches[idx]);
+                if let Some(c) = self.cmd_comp.as_mut() {
+                    c.idx = idx;
+                }
+                self.cmdline = next;
+                return;
+            }
+            self.cmd_comp = None;
+        }
+
+        // Start a fresh completion: work out the base (text kept verbatim) and
+        // the stem (the partial word being completed) plus its candidate set.
+        let indent = self.cmdline.len() - self.cmdline.trim_start().len();
+        let body = &self.cmdline[indent..];
+        let first_space = body.find(' ');
+        let (base, stem, candidates): (String, String, Vec<&str>) = match first_space {
+            None => {
+                // First word -> command names (letters only; skip ranges, etc.).
+                if !body.is_empty() && !body.chars().all(|c| c.is_ascii_alphabetic()) {
+                    return;
+                }
+                (self.cmdline[..indent].to_string(), body.to_string(), Self::EX_COMMANDS.to_vec())
+            }
+            Some(_) => {
+                let cmd = &body[..first_space.unwrap()];
+                if cmd != "set" && cmd != "se" {
+                    return; // only :set argument completion is supported
+                }
+                let last = self.cmdline.rfind(' ').unwrap();
+                let stem = self.cmdline[last + 1..].to_string();
+                if stem.contains('=') {
+                    return; // completing a value, not an option name
+                }
+                (self.cmdline[..=last].to_string(), stem, Self::SET_OPTIONS.to_vec())
+            }
+        };
+
+        let matches: Vec<String> = candidates
+            .iter()
+            .filter(|c| c.starts_with(stem.as_str()))
+            .map(|c| c.to_string())
+            .collect();
+        if matches.is_empty() {
+            return;
+        }
+        let idx = if backward { matches.len() - 1 } else { 0 };
+        self.cmdline = format!("{}{}", base, matches[idx]);
+        self.cmd_comp = Some(CmdComp { base, matches, idx });
     }
 
     /// `Ctrl-w` on the command line: delete the trailing whitespace and word.
@@ -4762,6 +4861,16 @@ enum CaseOp {
     Upper,
     Toggle,
     Rot13,
+}
+
+/// An in-progress command-line Tab-completion cycle.
+struct CmdComp {
+    /// The command-line text preceding the completed word (kept verbatim).
+    base: String,
+    /// Candidate completions that match the stem, in display order.
+    matches: Vec<String>,
+    /// Index of the currently shown candidate within `matches`.
+    idx: usize,
 }
 
 impl CaseOp {
