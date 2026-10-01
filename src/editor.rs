@@ -160,6 +160,9 @@ pub struct Editor {
     insert_replaying: bool,
     /// After insert-mode `Ctrl-r`: the next key names the register to paste.
     insert_pending_reg: bool,
+    /// Insert-mode `Ctrl-k` digraph entry: `None` = inactive, `Some(None)` =
+    /// awaiting the first char, `Some(Some(c))` = have first char, awaiting second.
+    insert_digraph: Option<Option<char>>,
     /// Insert-mode `Ctrl-o` one-shot: 0 = off, 1 = armed (set on Ctrl-o),
     /// 2 = active (running the single Normal command; return to insert at rest).
     insert_oneshot: u8,
@@ -295,6 +298,7 @@ impl Editor {
             insert_keys: Vec::new(),
             insert_replaying: false,
             insert_pending_reg: false,
+            insert_digraph: None,
             insert_oneshot: 0,
             cur_insert: String::new(),
             last_insert_text: String::new(),
@@ -1486,12 +1490,37 @@ impl Editor {
             self.scroll_into_view();
             return;
         }
+        // Digraph entry after Ctrl-k: collect two characters, then insert the
+        // composed character. A non-char key (e.g. Esc) cancels.
+        if let Some(pending) = self.insert_digraph {
+            match pending {
+                None => {
+                    self.insert_digraph = match key.code {
+                        KeyCode::Char(c) => Some(Some(c)),
+                        _ => None,
+                    };
+                }
+                Some(first) => {
+                    self.insert_digraph = None;
+                    if let KeyCode::Char(second) = key.code {
+                        if let Some(ch) = Self::digraph(first, second) {
+                            self.buffer.insert_char(self.cursor, ch);
+                            self.cursor.col += 1;
+                            self.cur_insert.push(ch);
+                        }
+                    }
+                }
+            }
+            self.scroll_into_view();
+            return;
+        }
         // Insert-mode control shortcuts.
         if key.modifiers.contains(KeyModifiers::CONTROL) {
             match key.code {
                 KeyCode::Char('w') => self.insert_delete_word_before(),
                 KeyCode::Char('u') => self.insert_delete_to_line_start(),
                 KeyCode::Char('r') => self.insert_pending_reg = true,
+                KeyCode::Char('k') => self.insert_digraph = Some(None),
                 KeyCode::Char('t') => self.insert_indent(true),
                 KeyCode::Char('d') => self.insert_indent(false),
                 KeyCode::Char('n') => self.insert_completion(true),
@@ -3301,6 +3330,59 @@ impl Editor {
         } else {
             None
         }
+    }
+
+    /// Compose a digraph (vim `Ctrl-k` + two chars) into a single character.
+    /// Covers the common accented letters, ligatures, and symbols using vim's
+    /// digraph names. Like vim, the two characters may be given in either order.
+    fn digraph(a: char, b: char) -> Option<char> {
+        fn lookup(x: char, y: char) -> Option<char> {
+            Some(match (x, y) {
+                // Grave accent
+                ('a', '`') => 'à', ('e', '`') => 'è', ('i', '`') => 'ì',
+                ('o', '`') => 'ò', ('u', '`') => 'ù',
+                ('A', '`') => 'À', ('E', '`') => 'È', ('I', '`') => 'Ì',
+                ('O', '`') => 'Ò', ('U', '`') => 'Ù',
+                // Acute accent
+                ('a', '\'') => 'á', ('e', '\'') => 'é', ('i', '\'') => 'í',
+                ('o', '\'') => 'ó', ('u', '\'') => 'ú', ('y', '\'') => 'ý',
+                ('A', '\'') => 'Á', ('E', '\'') => 'É', ('I', '\'') => 'Í',
+                ('O', '\'') => 'Ó', ('U', '\'') => 'Ú', ('Y', '\'') => 'Ý',
+                // Circumflex
+                ('a', '^') => 'â', ('e', '^') => 'ê', ('i', '^') => 'î',
+                ('o', '^') => 'ô', ('u', '^') => 'û',
+                ('A', '^') => 'Â', ('E', '^') => 'Ê', ('I', '^') => 'Î',
+                ('O', '^') => 'Ô', ('U', '^') => 'Û',
+                // Diaeresis / umlaut
+                ('a', ':') => 'ä', ('e', ':') => 'ë', ('i', ':') => 'ï',
+                ('o', ':') => 'ö', ('u', ':') => 'ü', ('y', ':') => 'ÿ',
+                ('A', ':') => 'Ä', ('E', ':') => 'Ë', ('I', ':') => 'Ï',
+                ('O', ':') => 'Ö', ('U', ':') => 'Ü',
+                // Tilde
+                ('a', '~') => 'ã', ('o', '~') => 'õ', ('n', '~') => 'ñ',
+                ('A', '~') => 'Ã', ('O', '~') => 'Õ', ('N', '~') => 'Ñ',
+                // Cedilla, ring, ligatures, and other letters
+                ('c', ',') => 'ç', ('C', ',') => 'Ç',
+                ('a', 'a') => 'å', ('A', 'A') => 'Å',
+                ('a', 'e') => 'æ', ('A', 'E') => 'Æ', ('s', 's') => 'ß',
+                ('o', '/') => 'ø', ('O', '/') => 'Ø',
+                // Currency and trademarks
+                ('E', 'u') => '€', ('P', 'o') => '£', ('Y', 'e') => '¥',
+                ('c', 't') => '¢', ('C', 'o') => '©', ('R', 'g') => '®',
+                ('T', 'M') => '™',
+                // Math and misc symbols
+                ('+', '-') => '±', ('D', 'G') => '°', ('M', 'y') => 'µ',
+                ('1', '2') => '½', ('1', '4') => '¼', ('3', '4') => '¾',
+                ('*', 'X') => '×', ('-', ':') => '÷',
+                ('<', '<') => '«', ('>', '>') => '»',
+                ('S', 'E') => '§', ('!', 'I') => '¡', ('?', 'I') => '¿',
+                // Arrows
+                ('-', '>') => '→', ('<', '-') => '←',
+                ('-', '!') => '↑', ('-', 'v') => '↓',
+                _ => return None,
+            })
+        }
+        lookup(a, b).or_else(|| lookup(b, a))
     }
 
     /// `[(` / `[{` / `])` / `]}` — jump to the `count`-th *unmatched* bracket of

@@ -122,6 +122,11 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
 - **Insert mode:** autoindent on Enter (`:set autoindent`/`noai`), `Ctrl-w`
   (delete word before cursor), `Ctrl-u` (delete to line start), `Ctrl-r<reg>`
   (paste a register), `Ctrl-t`/`Ctrl-d` (indent/dedent line), `Tab`.
+- **Digraphs (`Ctrl-k`):** `Ctrl-k` plus two characters inserts a special
+  character — e.g. `Ctrl-k a:` → `ä`, `Ctrl-k e'` → `é`, `Ctrl-k n~` → `ñ`,
+  `Ctrl-k ->` → `→`, `Ctrl-k Eu` → `€`, `Ctrl-k +-` → `±`. The two keys may be
+  given in either order, matching vim; the covered set spans accented Latin
+  letters, common ligatures, currency, and a handful of math/arrow symbols.
 - **Keyword completion:** `Ctrl-n` / `Ctrl-p` complete the word before the cursor
   from other words in the buffer, cycling forward / backward through the matches.
 - **One-shot normal (`Ctrl-o`):** in insert mode, `Ctrl-o` runs a single
@@ -403,7 +408,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **397 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **402 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
