@@ -7,6 +7,7 @@
 //! - [`config`]   — startup `~/.rvimrc` loading + `:source`.
 //! - [`mode`]     — the modal state machine (Normal / Insert / Visual / Command).
 //! - [`editor`]   — cursor, viewport and high-level editing operations.
+//! - [`menu`]     — the Alt-activated top menu bar (a command-line teaching aid).
 //! - [`command`]  — the `:` ex-command parser/dispatcher.
 //! - [`syntax`]   — language autodetection + pluggable highlighters.
 //! - [`theme`]    — color themes (matrix, retrowave, cobalt, …).
@@ -20,6 +21,7 @@ pub mod buffer;
 pub mod command;
 pub mod config;
 pub mod editor;
+pub mod menu;
 pub mod mode;
 pub mod pattern;
 pub mod plugin;

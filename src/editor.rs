@@ -7,6 +7,7 @@
 
 use crate::buffer::{Buffer, Position};
 use crate::command::{LineAddr, SubRange, SubstituteSpec};
+use crate::menu::{MenuOutcome, MenuState};
 use crate::mode::Mode;
 use crate::pattern;
 use std::collections::HashMap;
@@ -96,6 +97,8 @@ pub struct Editor {
     dot: Vec<KeyEvent>,
     dot_rev_at_rest: u64,
     dot_replaying: bool,
+    /// The Alt-activated menu bar, when open.
+    menu: Option<MenuState>,
 }
 
 /// Whether the key after `q` / `@` records into or replays a macro register.
@@ -164,7 +167,88 @@ impl Editor {
             dot: Vec::new(),
             dot_rev_at_rest: 0,
             dot_replaying: false,
+            menu: None,
         }
+    }
+
+    /// Open the menu bar (only from Normal mode).
+    pub fn open_menu(&mut self, menus: Vec<crate::menu::Menu>) {
+        if self.mode == Mode::Normal {
+            self.menu = Some(MenuState::new(menus));
+        }
+    }
+
+    /// Whether the menu bar is currently open.
+    pub fn is_menu_open(&self) -> bool {
+        self.menu.is_some()
+    }
+
+    /// The menu state, for rendering.
+    pub fn menu(&self) -> Option<&MenuState> {
+        self.menu.as_ref()
+    }
+
+    /// Jump the open menu to the top-level entry whose title starts with `ch`.
+    pub fn menu_open_initial(&mut self, ch: char) {
+        if let Some(menu) = self.menu.as_mut() {
+            menu.open_initial(ch);
+        }
+    }
+
+    /// Mouse: open top-level menu `index` (opening its dropdown).
+    pub fn menu_click_top(&mut self, index: usize) {
+        if let Some(menu) = self.menu.as_mut() {
+            if index < menu.menus.len() {
+                menu.top = index;
+                menu.stack = vec![0];
+            }
+        }
+    }
+
+    /// Close the menu bar.
+    pub fn close_menu(&mut self) {
+        self.menu = None;
+    }
+
+    fn handle_menu_key(&mut self, key: KeyEvent) -> Action {
+        let outcome = {
+            let menu = match self.menu.as_mut() {
+                Some(m) => m,
+                None => return Action::None,
+            };
+            match key.code {
+                KeyCode::Left | KeyCode::Char('h') => {
+                    menu.left();
+                    MenuOutcome::None
+                }
+                KeyCode::Right | KeyCode::Char('l') => {
+                    menu.right();
+                    MenuOutcome::None
+                }
+                KeyCode::Up | KeyCode::Char('k') => {
+                    menu.up();
+                    MenuOutcome::None
+                }
+                KeyCode::Down | KeyCode::Char('j') => {
+                    menu.down();
+                    MenuOutcome::None
+                }
+                KeyCode::Enter => menu.enter(),
+                KeyCode::Esc => menu.esc(),
+                _ => MenuOutcome::None,
+            }
+        };
+        match outcome {
+            MenuOutcome::Run(cmd) => {
+                self.menu = None;
+                self.mode = Mode::Command;
+                self.line_kind = LineKind::Ex;
+                self.cmdline = cmd;
+            }
+            MenuOutcome::Close => self.menu = None,
+            MenuOutcome::None => {}
+        }
+        Action::None
     }
 
     /// Load a file into a new editor, autodetecting the language.
@@ -432,6 +516,11 @@ impl Editor {
 
     /// Handle a key event. Returns an [`Action`] for the app.
     pub fn handle_key(&mut self, key: KeyEvent) -> Action {
+        // The menu bar is a modal overlay that captures all keys while open.
+        if self.menu.is_some() {
+            return self.handle_menu_key(key);
+        }
+
         // The key after `q`/`@` selects the macro register (never recorded).
         if let Some(mm) = self.expect_macro.take() {
             if let KeyCode::Char(c) = key.code {
@@ -3145,6 +3234,44 @@ mod tests {
         let (subs, _) = ed.substitute(&spec);
         assert_eq!(subs, 1);
         assert_eq!(ed.buffer.line(0), Some("a X) c"));
+    }
+
+    fn menu_ed() -> Editor {
+        let mut ed = ed_with("hello");
+        ed.open_menu(crate::menu::build_menus(&["matrix"], &["wordcount"]));
+        ed
+    }
+
+    #[test]
+    fn menu_open_select_pastes_into_command_line() {
+        let mut ed = menu_ed();
+        assert!(ed.is_menu_open());
+        ed.handle_key(special(KeyCode::Down)); // open File dropdown
+        ed.handle_key(special(KeyCode::Enter)); // select "Write" (w)
+        assert!(!ed.is_menu_open());
+        assert_eq!(ed.mode, Mode::Command);
+        assert_eq!(ed.cmdline, "w");
+    }
+
+    #[test]
+    fn menu_esc_backs_out_then_closes() {
+        let mut ed = menu_ed();
+        ed.handle_key(special(KeyCode::Down)); // dropdown open (depth 1)
+        ed.handle_key(special(KeyCode::Esc)); // back to bar only
+        assert!(ed.is_menu_open());
+        ed.handle_key(special(KeyCode::Esc)); // close
+        assert!(!ed.is_menu_open());
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn menu_submenu_selection() {
+        let mut ed = menu_ed();
+        ed.menu_open_initial('v'); // View menu, dropdown open at "Theme"
+        ed.handle_key(special(KeyCode::Enter)); // open Theme submenu
+        ed.handle_key(special(KeyCode::Enter)); // first theme
+        assert_eq!(ed.mode, Mode::Command);
+        assert_eq!(ed.cmdline, "theme matrix");
     }
 
     #[test]

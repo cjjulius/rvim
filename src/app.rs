@@ -9,7 +9,9 @@ use crate::syntax::{Language, Registry};
 use crate::terminal::TerminalGuard;
 use crate::theme::ThemeRegistry;
 use crate::ui::{self, Layout};
-use crossterm::event::{self, Event, KeyEventKind, MouseButton, MouseEventKind};
+use crossterm::event::{
+    self, Event, KeyCode, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind,
+};
 use std::io::{self, BufWriter};
 
 /// Top-level editor application.
@@ -233,6 +235,22 @@ impl App {
                     if key.kind == KeyEventKind::Release {
                         continue;
                     }
+                    // Alt+<key> (or F10) opens the menu bar from Normal mode.
+                    if !self.editor.is_menu_open()
+                        && self.editor.mode == Mode::Normal
+                        && (key.modifiers.contains(KeyModifiers::ALT)
+                            || key.code == KeyCode::F(10))
+                    {
+                        let menus = crate::menu::build_menus(
+                            &self.themes.names(),
+                            &self.plugins.all_commands(),
+                        );
+                        self.editor.open_menu(menus);
+                        if let KeyCode::Char(c) = key.code {
+                            self.editor.menu_open_initial(c);
+                        }
+                        continue;
+                    }
                     // Fresh action clears the previous message.
                     if self.editor.mode != Mode::Command {
                         self.editor.message.clear();
@@ -255,6 +273,31 @@ impl App {
     }
 
     fn handle_mouse(&mut self, m: event::MouseEvent, layout: &Layout) {
+        // While the menu is open, clicks drive the menu bar.
+        if self.editor.is_menu_open() {
+            if let MouseEventKind::Down(MouseButton::Left) = m.kind {
+                if m.row == 0 {
+                    let titles: Vec<String> = self
+                        .editor
+                        .menu()
+                        .map(|mn| mn.menus.iter().map(|x| x.title.clone()).collect())
+                        .unwrap_or_default();
+                    let positions = ui::menu_bar_positions(&titles);
+                    for (i, title) in titles.iter().enumerate() {
+                        let start = positions[i];
+                        let end = start + title.chars().count() as u16 + 2;
+                        if m.column >= start && m.column < end {
+                            self.editor.menu_click_top(i);
+                            break;
+                        }
+                    }
+                } else {
+                    // Clicking away from the bar dismisses the menu.
+                    self.editor.close_menu();
+                }
+            }
+            return;
+        }
         match m.kind {
             MouseEventKind::Down(MouseButton::Left) => {
                 if m.row >= layout.top_offset && m.row < layout.top_offset + layout.text_rows {
@@ -484,6 +527,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tv / V              visual / visual-line\n\
          \t  (visual) u/U/~   lower / upper / toggle case of selection\n\
          \tEsc                back to normal mode\n\
+         \tAlt / F10          open the top menu bar (command helper)\n\
          \n\
          MOTIONS\n\
          \th j k l  arrows    move left/down/up/right\n\

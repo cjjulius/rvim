@@ -4,6 +4,7 @@
 
 use crate::buffer::Position;
 use crate::editor::Editor;
+use crate::menu::{MenuAction, MenuItem, MenuState};
 use crate::mode::Mode;
 use crate::syntax::{Registry, Token, TokenKind};
 use crate::theme::Theme;
@@ -204,8 +205,11 @@ pub fn render(
     draw_status_line(out, editor, theme, &layout)?;
     draw_command_line(out, editor, theme, &layout)?;
 
-    // Place the real cursor.
-    if editor.mode == Mode::Command {
+    // The menu bar overlays everything and keeps the text cursor hidden.
+    if let Some(menu) = editor.menu() {
+        draw_menu(out, theme, &layout, menu)?;
+        queue!(out, Hide)?;
+    } else if editor.mode == Mode::Command {
         let x = 1 + editor.cmdline.chars().count() as u16; // after ':' or '/'
         queue!(out, MoveTo(x.min(layout.cols.saturating_sub(1)), layout.rows - 1), Show)?;
     } else {
@@ -458,9 +462,238 @@ fn draw_command_line(
     queue!(out, Print(content), ResetColor)
 }
 
+// ---- menu bar --------------------------------------------------------------
+
+/// The x column where each top-level menu title's segment begins.
+pub fn menu_bar_positions(titles: &[String]) -> Vec<u16> {
+    let mut x = 1u16;
+    let mut positions = Vec::with_capacity(titles.len());
+    for t in titles {
+        positions.push(x);
+        x += t.chars().count() as u16 + 3; // " title " + 1 gap
+    }
+    positions
+}
+
+fn item_right(item: &MenuItem) -> String {
+    match &item.action {
+        MenuAction::Submenu(_) => "▸".to_string(),
+        MenuAction::Command(_) => item.hint.clone(),
+    }
+}
+
+/// Lay out one dropdown row ` label …… right ` into exactly `inner_w` cells.
+pub fn compose_row(label: &str, right: &str, inner_w: usize) -> String {
+    let left = format!(" {label}");
+    let right = format!("{right} ");
+    let lw = left.chars().count();
+    let rw = right.chars().count();
+    if lw + rw <= inner_w {
+        format!("{left}{}{right}", " ".repeat(inner_w - lw - rw))
+    } else {
+        let mut s: String = format!("{left}{right}").chars().take(inner_w).collect();
+        let pad = inner_w.saturating_sub(s.chars().count());
+        s.push_str(&" ".repeat(pad));
+        s
+    }
+}
+
+fn draw_menu(
+    out: &mut impl Write,
+    theme: &Theme,
+    layout: &Layout,
+    menu: &MenuState,
+) -> io::Result<()> {
+    let cols = layout.cols;
+    let bar_bg = theme.status_bg;
+    let bar_fg = theme.status_fg;
+    let sel_bg = theme.mode_bg;
+    let sel_fg = theme.mode_fg;
+
+    // The bar across row 0.
+    let titles: Vec<String> = menu.menus.iter().map(|m| m.title.clone()).collect();
+    let positions = menu_bar_positions(&titles);
+    queue!(
+        out,
+        MoveTo(0, 0),
+        SetBackgroundColor(bar_bg),
+        SetForegroundColor(bar_fg),
+        Print(" ".repeat(cols as usize))
+    )?;
+    for (i, t) in titles.iter().enumerate() {
+        let x = positions[i];
+        if x >= cols {
+            break;
+        }
+        let seg: String = format!(" {t} ").chars().take((cols - x) as usize).collect();
+        let (fg, bg) = if i == menu.top {
+            (sel_fg, sel_bg)
+        } else {
+            (bar_fg, bar_bg)
+        };
+        queue!(
+            out,
+            MoveTo(x, 0),
+            SetForegroundColor(fg),
+            SetBackgroundColor(bg),
+            Print(seg)
+        )?;
+    }
+
+    // Cascading dropdowns.
+    let mut anchor_x = positions.get(menu.top).copied().unwrap_or(0);
+    let mut anchor_y = 1u16;
+    for level in 0..menu.depth() {
+        let items = match menu.items_at(level) {
+            Some(it) => it,
+            None => break,
+        };
+        let sel = menu.selected_at(level);
+        let (w, sel_y) = draw_dropdown(out, theme, layout, anchor_x, anchor_y, items, sel)?;
+        anchor_x = anchor_x.saturating_add(w).min(cols.saturating_sub(1));
+        anchor_y = sel_y; // next (sub)menu aligns to the selected row
+    }
+
+    queue!(out, ResetColor)
+}
+
+/// Draw a single bordered dropdown box. Returns `(width, screen_y_of_selected)`.
+#[allow(clippy::too_many_arguments)]
+fn draw_dropdown(
+    out: &mut impl Write,
+    theme: &Theme,
+    layout: &Layout,
+    x: u16,
+    y: u16,
+    items: &[MenuItem],
+    sel: usize,
+) -> io::Result<(u16, u16)> {
+    let cols = layout.cols;
+    let rows = layout.rows;
+    let bg = theme.status_bg;
+    let fg = theme.status_fg;
+    let sel_bg = theme.mode_bg;
+    let sel_fg = theme.mode_fg;
+
+    let content_w = items
+        .iter()
+        .map(|it| it.label.chars().count() + item_right(it).chars().count() + 3)
+        .max()
+        .unwrap_or(10)
+        .max(10);
+    let box_w = ((content_w as u16) + 2).min(cols.saturating_sub(x).max(4));
+    let inner_w = box_w.saturating_sub(2) as usize;
+
+    // Vertical room between this box's top and the status line.
+    let max_rows = rows.saturating_sub(2).saturating_sub(y) as usize;
+    if max_rows < 3 {
+        return Ok((box_w, y)); // no room to draw a usable box
+    }
+    let visible = (max_rows - 2).max(1);
+    let n = items.len();
+    let scroll = if n > visible {
+        sel.saturating_sub(visible - 1).min(n - visible)
+    } else {
+        0
+    };
+    let shown = visible.min(n);
+
+    // Top border (with a ▲ when scrolled up).
+    let top_fill = if scroll > 0 {
+        format!("─▲{}", "─".repeat(inner_w.saturating_sub(2)))
+    } else {
+        "─".repeat(inner_w)
+    };
+    queue!(
+        out,
+        MoveTo(x, y),
+        SetBackgroundColor(bg),
+        SetForegroundColor(fg),
+        Print(format!("┌{top_fill}┐"))
+    )?;
+
+    let mut sel_screen_y = y + 1;
+    for row in 0..shown {
+        let idx = scroll + row;
+        let item = &items[idx];
+        let yy = y + 1 + row as u16;
+        if idx == sel {
+            sel_screen_y = yy;
+        }
+        let body = compose_row(&item.label, &item_right(item), inner_w);
+        let (ifg, ibg) = if idx == sel { (sel_fg, sel_bg) } else { (fg, bg) };
+        queue!(
+            out,
+            MoveTo(x, yy),
+            SetForegroundColor(fg),
+            SetBackgroundColor(bg),
+            Print("│"),
+            SetForegroundColor(ifg),
+            SetBackgroundColor(ibg),
+            Print(body),
+            SetForegroundColor(fg),
+            SetBackgroundColor(bg),
+            Print("│")
+        )?;
+    }
+
+    // Bottom border (with a ▼ when more items are below).
+    let more_below = scroll + shown < n;
+    let bot_fill = if more_below {
+        format!("─▼{}", "─".repeat(inner_w.saturating_sub(2)))
+    } else {
+        "─".repeat(inner_w)
+    };
+    queue!(
+        out,
+        MoveTo(x, y + 1 + shown as u16),
+        SetForegroundColor(fg),
+        SetBackgroundColor(bg),
+        Print(format!("└{bot_fill}┘"))
+    )?;
+
+    Ok((box_w, sel_screen_y))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn draw_menu_renders_bar_and_dropdown() {
+        use crate::menu::{build_menus, MenuState};
+        let mut state = MenuState::new(build_menus(&["matrix"], &["wordcount"]));
+        state.stack = vec![0]; // open the File dropdown
+        let layout = Layout::compute(80, 24, 10, true, false);
+        let theme = crate::theme::matrix();
+        let mut buf: Vec<u8> = Vec::new();
+        draw_menu(&mut buf, &theme, &layout, &state).unwrap();
+        let out = String::from_utf8_lossy(&buf);
+        assert!(out.contains("File"));
+        assert!(out.contains("Write"));
+        assert!(out.contains('┌') && out.contains('┘')); // a box was drawn
+    }
+
+    #[test]
+    fn menu_bar_positions_account_for_titles() {
+        let titles = vec!["File".to_string(), "Edit".to_string()];
+        // "File" is 4 chars -> segment 6 + 1 gap = 7; next at 1+7 = 8.
+        assert_eq!(menu_bar_positions(&titles), vec![1, 8]);
+    }
+
+    #[test]
+    fn compose_row_right_aligns_hint() {
+        let row = compose_row("Write", "wq", 12);
+        assert_eq!(row.chars().count(), 12);
+        assert!(row.starts_with(" Write"));
+        assert!(row.ends_with("wq "));
+    }
+
+    #[test]
+    fn compose_row_truncates_when_too_narrow() {
+        let row = compose_row("A very long label", "x", 8);
+        assert_eq!(row.chars().count(), 8);
+    }
 
     #[test]
     fn gutter_width_scales_with_line_count() {

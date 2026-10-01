@@ -119,6 +119,9 @@ screen listing every buffer (active one highlighted, `+` marks unsaved changes).
 `:q` refuses to quit while any open buffer has unsaved changes (use `:q!` to
 override).
 
+> Tip: new to the command line? Press **Alt** (or **F10**) to open the menu bar
+> and browse every command with its shortcut — see *Menu bar* below.
+
 ### Command line (ex commands)
 `:w [file]` · `:q` · `:q!` · `:wq` · `:x` · `:e <file>` · `:ls` · `:bn`/`:bp`/`:b <n>`/`:bd` · `:<n>` (goto line) ·
 `:s/pat/rep/[g]` (search & replace) · `:theme <name>` · `:set number|nonumber` ·
@@ -140,6 +143,27 @@ Patterns are **regular expressions**, and the replacement supports capture
 groups (`$1`, `${name}`) — e.g. `:%s/(\w+)=(\w+)/$2=$1/g`. An invalid regex
 falls back to a literal match. A single undo (`u`) reverts an entire
 substitution.
+
+### Menu bar (press Alt, or F10)
+An auto-hiding menu bar lives at the top of the screen. It's a **teaching aid**
+for the command line, not a replacement: every item shows its command-line
+shortcut, and choosing one drops you into the `:` command line with that command
+pre-filled so you learn it by doing.
+
+- **Open:** `Alt`+a letter (e.g. `Alt`+`f` opens *File*) or `F10`. The letter
+  jumps straight to the matching menu.
+- **Navigate:** arrow keys or `h`/`j`/`k`/`l`; `Enter` opens a submenu or selects
+  an item; items marked `▸` open a cascading submenu with clear borders.
+- **Long lists scroll** (▲/▼ in the border) — e.g. *View ▸ Theme*,
+  *Language ▸ Set Filetype*.
+- **Esc** backs out one layer at a time; the last `Esc` hides the bar and returns
+  to the cursor.
+- **Mouse** (with `:set mouse`): click a top-level title to open it, click away to
+  dismiss.
+
+Menus are grouped logically — **File**, **Buffers**, **Edit**, **View**,
+**Language**, **Tools**, **Help** — and together list every command-line command
+rvim supports (e.g. `Write & Quit  wq`).
 
 ### Configuration (`~/.rvimrc`)
 On startup rvim runs the ex-commands in `~/.rvimrc` (or `$RVIMRC`, or
@@ -215,6 +239,7 @@ src/
 ├── mode.rs        the modal state enum
 ├── command.rs     ex-command parser (`:...`)
 ├── config.rs      ~/.rvimrc loading + parsing
+├── menu.rs        Alt-activated menu bar: data tree + navigation state
 ├── pattern.rs     regex compilation (literal fallback) for search & :s
 ├── terminal.rs    raw-mode / alt-screen RAII guard (cross-platform)
 ├── ui.rs          gutter + highlighted text + status/command lines
@@ -258,8 +283,8 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **183 tests** across buffer, editor, syntax, themes, commands,
-config, pattern, plugins, modes, and UI layout.
+Current suite: **198 tests** across buffer, editor, menu, syntax, themes,
+commands, config, pattern, plugins, modes, and UI layout.
 
 ---
 
