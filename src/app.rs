@@ -876,6 +876,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tyy / p / P         yank line / paste after / before\n\
          \t\"a yy / \"a p       named registers a-z; auto: \"0 yank \"1-9 del \"- small\n\
          \t\"_dd               black-hole register (delete, keep registers)\n\
+         \t\"%p                paste the current file name (% register)\n\
          \tJ / gJ             join lines (with / without space)\n\
          \tu / Ctrl-r          undo / redo\n\
          \t.  <n>.            repeat last change (n times)\n\

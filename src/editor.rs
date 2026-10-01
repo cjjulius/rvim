@@ -1631,6 +1631,15 @@ impl Editor {
     fn register_text(&self, name: char) -> Register {
         match name {
             '"' => self.register.clone(),
+            // `%` is the read-only current file-name register.
+            '%' => Register {
+                text: self
+                    .buffer
+                    .path()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_default(),
+                linewise: false,
+            },
             other => self.registers.get(&other).cloned().unwrap_or_default(),
         }
     }
@@ -3598,7 +3607,8 @@ impl Editor {
     /// unnamed register. Clears the pending register.
     fn active_register(&mut self) -> Register {
         if let Some(name) = self.pending_register.take() {
-            self.registers.get(&name).cloned().unwrap_or_default()
+            // Route through register_text so special registers (`%`) resolve.
+            self.register_text(name)
         } else {
             self.register.clone()
         }
