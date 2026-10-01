@@ -5,6 +5,12 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Numbers
+- `Ctrl-a` / `Ctrl-x` now recognize hexadecimal (`0x…`) and binary (`0b…`)
+  literals in addition to decimal, preserving the prefix, digit width, and hex
+  letter case. Fixes the previous behavior of bumping the leading `0` of a `0x`
+  literal as if it were decimal.
+
 ### Command line
 - `Tab` completion: completes the ex-command name, or the option name after
   `:set `, with repeated `Tab` / `Shift-Tab` cycling forward / backward through

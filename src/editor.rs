@@ -3921,35 +3921,98 @@ impl Editor {
     ) -> Option<(String, usize)> {
         let chars: Vec<char> = self.buffer.line(row).unwrap_or("").chars().collect();
         let n = chars.len();
-        let mut i = from_col;
-        if i >= n || !chars[i].is_ascii_digit() {
-            while i < n && !chars[i].is_ascii_digit() {
+        let amount = delta as i64 * count as i64;
+
+        // Tokenize the line into number tokens (hex `0x…`, binary `0b…`, decimal
+        // with an optional leading `-`), then act on the first one whose end is
+        // past the cursor — i.e. the number under or after the cursor.
+        // Token: (span_start, span_end, radix, prefix_len, negative).
+        let is_bin = |c: char| c == '0' || c == '1';
+        let mut i = 0usize;
+        let mut token: Option<(usize, usize, u32, usize, bool)> = None;
+        while i < n {
+            let c = chars[i];
+            if c == '0'
+                && i + 2 < n
+                && (chars[i + 1] == 'x' || chars[i + 1] == 'X')
+                && chars[i + 2].is_ascii_hexdigit()
+            {
+                let mut e = i + 2;
+                while e < n && chars[e].is_ascii_hexdigit() {
+                    e += 1;
+                }
+                if e > from_col {
+                    token = Some((i, e, 16, 2, false));
+                    break;
+                }
+                i = e;
+            } else if c == '0'
+                && i + 2 < n
+                && (chars[i + 1] == 'b' || chars[i + 1] == 'B')
+                && is_bin(chars[i + 2])
+            {
+                let mut e = i + 2;
+                while e < n && is_bin(chars[e]) {
+                    e += 1;
+                }
+                if e > from_col {
+                    token = Some((i, e, 2, 2, false));
+                    break;
+                }
+                i = e;
+            } else if c.is_ascii_digit() {
+                let mut e = i;
+                while e < n && chars[e].is_ascii_digit() {
+                    e += 1;
+                }
+                let negative = i > 0 && chars[i - 1] == '-';
+                let start = if negative { i - 1 } else { i };
+                if e > from_col {
+                    token = Some((start, e, 10, 0, negative));
+                    break;
+                }
+                i = e;
+            } else {
                 i += 1;
             }
         }
-        if i >= n {
-            return None;
-        }
-        let mut start = i;
-        while start > 0 && chars[start - 1].is_ascii_digit() {
-            start -= 1;
-        }
-        let mut end = i;
-        while end < n && chars[end].is_ascii_digit() {
-            end += 1;
-        }
-        let span_start = if start > 0 && chars[start - 1] == '-' {
-            start - 1
-        } else {
-            start
+
+        let (start, end, radix, prefix_len, _neg) = token?;
+        let digits_start = start + prefix_len;
+        let body: String = chars[digits_start..end].iter().collect();
+        let newtoken = match radix {
+            16 => {
+                let val = i64::from_str_radix(&body, 16).ok()?;
+                let newval = (val + amount).max(0);
+                let width = end - digits_start;
+                let digits = format!("{newval:0width$x}");
+                let digits = if body.chars().any(|c| c.is_ascii_uppercase()) {
+                    digits.to_uppercase()
+                } else {
+                    digits
+                };
+                let prefix: String = chars[start..digits_start].iter().collect();
+                format!("{prefix}{digits}")
+            }
+            2 => {
+                let val = i64::from_str_radix(&body, 2).ok()?;
+                let newval = (val + amount).max(0);
+                let width = end - digits_start;
+                let digits = format!("{newval:0width$b}");
+                let prefix: String = chars[start..digits_start].iter().collect();
+                format!("{prefix}{digits}")
+            }
+            _ => {
+                // Decimal: the span already includes any leading `-`.
+                let span: String = chars[start..end].iter().collect();
+                let val = span.parse::<i64>().ok()?;
+                (val + amount).to_string()
+            }
         };
-        let numstr: String = chars[span_start..end].iter().collect();
-        let val = numstr.parse::<i64>().ok()?;
-        let newstr = (val + delta as i64 * count as i64).to_string();
-        let before: String = chars[..span_start].iter().collect();
+        let before: String = chars[..start].iter().collect();
         let after: String = chars[end..].iter().collect();
-        let end_col = span_start + newstr.chars().count().saturating_sub(1);
-        Some((format!("{before}{newstr}{after}"), end_col))
+        let end_col = start + newtoken.chars().count().saturating_sub(1);
+        Some((format!("{before}{newtoken}{after}"), end_col))
     }
 
     fn modify_number(&mut self, delta: isize, count: usize) {

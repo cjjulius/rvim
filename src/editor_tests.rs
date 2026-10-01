@@ -1044,6 +1044,42 @@
     }
 
     #[test]
+    fn ctrl_a_increments_hex_preserving_width() {
+        let mut ed = ed_with("0x0f");
+        ed.handle_key(ctrl('a')); // 0x0f + 1 = 0x10 (width kept)
+        assert_eq!(ed.buffer.line(0), Some("0x10"));
+    }
+
+    #[test]
+    fn ctrl_a_hex_keeps_uppercase_digits() {
+        let mut ed = ed_with("0xFF");
+        ed.handle_key(ctrl('a')); // 0xFF + 1 = 0x100, uppercased
+        assert_eq!(ed.buffer.line(0), Some("0x100"));
+    }
+
+    #[test]
+    fn ctrl_a_does_not_touch_hex_prefix_zero() {
+        // The leading 0 of 0x1a must not be treated as a decimal number.
+        let mut ed = ed_with("0x1a");
+        ed.handle_key(ctrl('a')); // 0x1a + 1 = 0x1b
+        assert_eq!(ed.buffer.line(0), Some("0x1b"));
+    }
+
+    #[test]
+    fn ctrl_x_decrements_binary() {
+        let mut ed = ed_with("0b0101");
+        ed.handle_key(ctrl('x')); // 0b0101 - 1 = 0b0100 (width kept)
+        assert_eq!(ed.buffer.line(0), Some("0b0100"));
+    }
+
+    #[test]
+    fn ctrl_a_decimal_still_works_after_hex_support() {
+        let mut ed = ed_with("items: 9");
+        ed.handle_key(ctrl('a')); // plain decimal path unchanged
+        assert_eq!(ed.buffer.line(0), Some("items: 10"));
+    }
+
+    #[test]
     fn insert_ctrl_r_pastes_register() {
         let mut ed = ed_with("word\ntarget");
         ed.handle_key(key('y'));

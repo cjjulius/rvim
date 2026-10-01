@@ -919,7 +919,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tJ / gJ             join lines (with / without space)\n\
          \tu / Ctrl-r          undo / redo\n\
          \t.  <n>.            repeat last change (n times)\n\
-         \tCtrl-a / Ctrl-x    increment / decrement number\n\
+         \tCtrl-a / Ctrl-x    increment / decrement number (dec / 0x hex / 0b bin)\n\
          \n\
          SEARCH\n\
          \t/pat  ?pat         search fwd / back (regex)  n / N  next / prev\n\
