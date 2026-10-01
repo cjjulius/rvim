@@ -1554,6 +1554,8 @@ impl Editor {
                 KeyCode::Char('~') => self.pending_case = Some(CaseOp::Toggle),
                 KeyCode::Char('*') => self.search_word(true, false),
                 KeyCode::Char('#') => self.search_word(false, false),
+                KeyCode::Char('e') => self.move_word_end_back(count, false),
+                KeyCode::Char('E') => self.move_word_end_back(count, true),
                 KeyCode::Char('J') => {
                     self.checkpoint();
                     self.buffer.join_line_raw(self.cursor.row);
@@ -2416,6 +2418,41 @@ impl Editor {
         self.mode = Mode::Normal;
     }
 
+    /// `ge`/`gE` — move backward to the end of the previous word on this line.
+    fn move_word_end_back(&mut self, count: usize, big: bool) {
+        for _ in 0..count.max(1) {
+            let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+            let n = chars.len();
+            let mut i = self.cursor.col as isize - 1;
+            let mut landed = false;
+            while i >= 0 {
+                let c = chars[i as usize];
+                if !c.is_whitespace() {
+                    let k = i as usize;
+                    let is_end = k + 1 >= n
+                        || chars[k + 1].is_whitespace()
+                        || Self::class_of(chars[k + 1], big) != Self::class_of(c, big);
+                    if is_end {
+                        self.cursor.col = k;
+                        landed = true;
+                        break;
+                    }
+                }
+                i -= 1;
+            }
+            if !landed {
+                // Cross to the end of the previous line if possible.
+                if self.cursor.row > 0 {
+                    self.cursor.row -= 1;
+                    self.cursor.col = self.cur_len().saturating_sub(1);
+                } else {
+                    self.cursor.col = 0;
+                    break;
+                }
+            }
+        }
+    }
+
     fn move_word_backward(&mut self, count: usize, big: bool) {
         for _ in 0..count {
             if self.cursor.col == 0 {
@@ -2757,19 +2794,24 @@ impl Editor {
         }
     }
 
+    /// Remove columns `[cmin, cmax]` from each row in `[rmin, rmax]`.
+    fn remove_block_columns(&mut self, rmin: usize, rmax: usize, cmin: usize, cmax: usize) {
+        for r in rmin..=rmax {
+            let chars: Vec<char> = self.buffer.line(r).unwrap_or("").chars().collect();
+            let len = chars.len();
+            let s = cmin.min(len);
+            let e = (cmax + 1).min(len);
+            if s < e {
+                let kept: String = chars[..s].iter().chain(&chars[e..]).collect();
+                self.buffer.set_line(r, kept);
+            }
+        }
+    }
+
     fn block_delete(&mut self) {
         if let Some((rmin, rmax, cmin, cmax)) = self.block_rect() {
             self.checkpoint();
-            for r in rmin..=rmax {
-                let chars: Vec<char> = self.buffer.line(r).unwrap_or("").chars().collect();
-                let len = chars.len();
-                let s = cmin.min(len);
-                let e = (cmax + 1).min(len);
-                if s < e {
-                    let kept: String = chars[..s].iter().chain(&chars[e..]).collect();
-                    self.buffer.set_line(r, kept);
-                }
-            }
+            self.remove_block_columns(rmin, rmax, cmin, cmax);
             self.cursor = Position::new(rmin, cmin);
         }
         self.mode = Mode::Normal;
@@ -2782,16 +2824,7 @@ impl Editor {
             return;
         };
         self.checkpoint();
-        for r in rmin..=rmax {
-            let chars: Vec<char> = self.buffer.line(r).unwrap_or("").chars().collect();
-            let len = chars.len();
-            let s = cmin.min(len);
-            let e = (cmax + 1).min(len);
-            if s < e {
-                let kept: String = chars[..s].iter().chain(&chars[e..]).collect();
-                self.buffer.set_line(r, kept);
-            }
-        }
+        self.remove_block_columns(rmin, rmax, cmin, cmax);
         self.begin_insert_session();
         self.block_insert = Some((rmin, rmax, cmin, false));
         self.cursor = Position::new(rmin, cmin.min(self.buffer.line_len(rmin)));
@@ -3716,6 +3749,32 @@ mod tests {
 
     fn ctrl(c: char) -> KeyEvent {
         KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL)
+    }
+
+    #[test]
+    fn ge_moves_to_previous_word_end() {
+        let mut ed = ed_with("foo bar baz");
+        ed.cursor = Position::new(0, 9); // on 'a' of "baz"
+        ed.handle_key(key('g'));
+        ed.handle_key(key('e')); // end of "bar" -> col 6
+        assert_eq!(ed.cursor.col, 6);
+        ed.handle_key(key('g'));
+        ed.handle_key(key('e')); // end of "foo" -> col 2
+        assert_eq!(ed.cursor.col, 2);
+    }
+
+    #[test]
+    fn ge_stops_at_punctuation_but_big_e_spans() {
+        let mut ed = ed_with("foo.bar baz");
+        ed.cursor = Position::new(0, 8); // on 'b' of "baz"
+        ed.handle_key(key('g'));
+        ed.handle_key(key('e')); // small ge -> end of "bar" (col 6)
+        assert_eq!(ed.cursor.col, 6);
+        let mut ed2 = ed_with("foo.bar baz");
+        ed2.cursor = Position::new(0, 8);
+        ed2.handle_key(key('g'));
+        ed2.handle_key(key('E')); // big gE -> end of WORD "foo.bar" (col 6 too here)
+        assert_eq!(ed2.cursor.col, 6);
     }
 
     #[test]

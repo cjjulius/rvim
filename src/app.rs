@@ -554,7 +554,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \n\
          MOTIONS\n\
          \th j k l  arrows    move left/down/up/right\n\
-         \tw / b / e          word forward / back / end (W/B/E = WORD)\n\
+         \tw / b / e / ge     word forward / back / end / prev-end (W/B/E/gE = WORD)\n\
          \t{{ / }}             paragraph back / forward\n\
          \tf/F/t/T <c>        find char on line   ; ,  repeat / reverse\n\
          \t%                  jump to matching bracket () [] {{}}\n\
