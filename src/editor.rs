@@ -1956,7 +1956,35 @@ impl Editor {
                 text: self.last_insert_text.clone(),
                 linewise: false,
             },
-            other => self.registers.get(&other).cloned().unwrap_or_default(),
+            other => {
+                // An uppercase register name reads its lowercase register.
+                let key = other.to_ascii_lowercase();
+                self.registers.get(&key).cloned().unwrap_or_default()
+            }
+        }
+    }
+
+    /// Write `reg` into named register `name`. An uppercase name *appends* to the
+    /// lowercase register of the same letter (vim's append-register behavior);
+    /// any other name replaces.
+    fn write_named_register(&mut self, name: char, reg: Register) {
+        if name.is_ascii_uppercase() {
+            let lower = name.to_ascii_lowercase();
+            let combined = match self.registers.get(&lower) {
+                Some(existing) if !existing.text.is_empty() => {
+                    let linewise = existing.linewise || reg.linewise;
+                    let text = if linewise {
+                        format!("{}\n{}", existing.text, reg.text)
+                    } else {
+                        format!("{}{}", existing.text, reg.text)
+                    };
+                    Register { text, linewise }
+                }
+                _ => reg,
+            };
+            self.registers.insert(lower, combined);
+        } else {
+            self.registers.insert(name, reg);
         }
     }
 
@@ -2044,7 +2072,8 @@ impl Editor {
         if self.expect_register {
             self.expect_register = false;
             if let KeyCode::Char(c) = key.code {
-                self.pending_register = Some(c.to_ascii_lowercase());
+                // Keep the case: an uppercase name means "append" on write.
+                self.pending_register = Some(c);
             }
             return Action::None;
         }
@@ -4434,7 +4463,7 @@ impl Editor {
         }
         let reg = Register { text, linewise };
         if let Some(name) = self.pending_register.take() {
-            self.registers.insert(name, reg.clone());
+            self.write_named_register(name, reg.clone());
         } else {
             self.registers.insert('0', reg.clone());
         }
@@ -4452,7 +4481,7 @@ impl Editor {
         }
         let reg = Register { text, linewise };
         if let Some(name) = self.pending_register.take() {
-            self.registers.insert(name, reg.clone());
+            self.write_named_register(name, reg.clone());
         } else if linewise || reg.text.contains('\n') {
             // Shift "1 -> "2 ... "8 -> "9, then store into "1.
             for d in (1..9).rev() {
