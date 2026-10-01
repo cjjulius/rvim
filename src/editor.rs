@@ -1865,6 +1865,7 @@ impl Editor {
             }
         }
 
+        let had_count = self.pending_count.is_some();
         let count = self.pending_count.take().unwrap_or(1);
 
         // Operator-pending (d, y, c, g, z, >, <). The total count multiplies the
@@ -1926,7 +1927,10 @@ impl Editor {
             KeyCode::Char(';') => self.repeat_find(false),
             KeyCode::Char(',') => self.repeat_find(true),
             KeyCode::Char('%') => {
-                if let Some(p) = self.matching_bracket() {
+                if had_count {
+                    // `{count}%` — jump to the line at `count` percent of the file.
+                    self.goto_percent(count);
+                } else if let Some(p) = self.matching_bracket() {
                     self.cursor = p;
                 }
             }
@@ -2714,6 +2718,21 @@ impl Editor {
     // `count` defaulted to 1; treat 1 as "bare" for G (matches common use).
     fn pending_count_was_explicit(&self, count: usize) -> bool {
         count != 1
+    }
+
+    /// `{count}%` — jump to the line `count` percent of the way through the file
+    /// (vim's formula), landing on its first non-blank. Records a jump.
+    fn goto_percent(&mut self, pct: usize) {
+        let n = self.buffer.line_count();
+        if n == 0 {
+            return;
+        }
+        let pct = pct.min(100);
+        let line = (pct * n).div_ceil(100).clamp(1, n);
+        self.record_jump();
+        self.cursor.row = line - 1;
+        self.move_first_nonblank();
+        self.scroll_into_view();
     }
 
     fn char_class(c: char) -> u8 {
