@@ -113,7 +113,12 @@ pub enum ExCommand {
     /// `:set wrapscan` / `:set nowrapscan` — whether searches wrap around the file.
     ToggleWrapScan(bool),
     /// `:sort` / `:sort!` / `:sort u` — sort buffer lines.
-    Sort { reverse: bool, unique: bool },
+    Sort {
+        reverse: bool,
+        unique: bool,
+        numeric: bool,
+        ignorecase: bool,
+    },
     /// `:[range]m[ove] {addr}` — move the range's lines to after `dest`.
     MoveLines { range: SubRange, dest: LineAddr },
     /// `:[range]t`/`:[range]co[py] {addr}` — copy the range's lines to after `dest`.
@@ -245,8 +250,12 @@ pub fn parse(input: &str) -> ExCommand {
         },
         "sort" | "sort!" | "sor" | "sor!" => {
             let reverse = word.ends_with('!');
-            let unique = rest.contains('u');
-            ExCommand::Sort { reverse, unique }
+            ExCommand::Sort {
+                reverse,
+                unique: rest.contains('u'),
+                numeric: rest.contains('n'),
+                ignorecase: rest.contains('i'),
+            }
         }
         "help" | "h" => ExCommand::Help,
         "version" | "ver" => ExCommand::Version,
