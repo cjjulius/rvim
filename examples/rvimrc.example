@@ -9,3 +9,6 @@ set number
 
 " Enable mouse support (click to position, wheel to scroll)
 set mouse
+
+" Keep a few lines of context above/below the cursor when scrolling
+set scrolloff=3

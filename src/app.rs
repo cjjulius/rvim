@@ -399,6 +399,10 @@ impl App {
                 self.editor.tabstop = n;
                 self.editor.message = format!("tabstop={n}");
             }
+            ExCommand::SetScrollOff(n) => {
+                self.editor.scrolloff = n;
+                self.editor.message = format!("scrolloff={n}");
+            }
             ExCommand::SetFiletype(name) => match Language::from_name(&name) {
                 Some(lang) => {
                     self.editor.set_language(lang);
@@ -617,7 +621,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:theme <name>      themes: {themes}\n\
          \t:set number|nonumber   :set relativenumber|nornu\n\
          \t:set autoindent|noai   :set expandtab|noet\n\
-         \t:set shiftwidth=N  :set tabstop=N\n\
+         \t:set shiftwidth=N  :set tabstop=N  :set scrolloff=N\n\
          \t:set ft=<lang>     rust tsql pgsql trino snowflake z80 sql\n\
          \t:set mouse|nomouse toggle mouse support\n\
          \t:sort[!] [u]       sort lines (! reverse, u unique)\n\
