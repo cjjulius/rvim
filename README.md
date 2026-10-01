@@ -94,7 +94,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
   `"-` (last small delete). The unnamed register is used when none is given.
 - **Marks:** `m<letter>` sets a mark, `` `<letter> `` jumps to it (exact),
   `'<letter>` jumps to its line; `` `` `` / `''` return to the previous position
-  (also set by `G`, `gg`, and searches).
+  (also set by `G`, `gg`, and searches). Automatic marks: `` `. `` (last change),
+  `` `^ `` (last insert). `gi` resumes insert at the last insert position.
 - **Jump list:** `Ctrl-o` jumps to an older position, `Ctrl-i` (or `Tab`) to a
   newer one — populated by `G`, `gg`, searches and mark jumps.
 - **Macros:** `q<reg>` records keystrokes, `q` stops, `@<reg>` replays, `@@`
@@ -315,7 +316,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **264 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **266 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
