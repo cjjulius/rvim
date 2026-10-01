@@ -138,6 +138,8 @@ pub struct Editor {
     pub textwidth: usize,
     /// `:set list` — show tabs and trailing whitespace with markers.
     pub list: bool,
+    /// `:set cursorline` — highlight the line the cursor is on (default on).
+    pub cursorline: bool,
     pending_replace: bool,
     pending_replace_count: usize,
     /// Replace-mode overtype history: `Some(orig)` for an overwritten char,
@@ -268,6 +270,7 @@ impl Editor {
             pending_format: false,
             textwidth: 0,
             list: false,
+            cursorline: true,
             pending_replace: false,
             pending_replace_count: 1,
             replace_stack: Vec::new(),

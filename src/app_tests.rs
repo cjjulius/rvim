@@ -102,6 +102,16 @@
     }
 
     #[test]
+    fn cursorline_toggles() {
+        let mut app = App::new();
+        assert!(app.editor.cursorline); // on by default
+        app.run_ex("set nocursorline");
+        assert!(!app.editor.cursorline);
+        app.run_ex("set cursorline");
+        assert!(app.editor.cursorline);
+    }
+
+    #[test]
     fn set_multiple_options_in_one_command() {
         let mut app = App::new();
         app.editor.show_line_numbers = false;

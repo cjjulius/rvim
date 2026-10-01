@@ -114,6 +114,8 @@ pub enum ExCommand {
     ToggleList(bool),
     /// `:set wrapscan` / `:set nowrapscan` — whether searches wrap around the file.
     ToggleWrapScan(bool),
+    /// `:set cursorline` / `:set nocursorline` — highlight the cursor's line.
+    ToggleCursorLine(bool),
     /// `:sort` / `:sort!` / `:sort u` — sort buffer lines.
     Sort {
         range: SubRange,
@@ -591,6 +593,8 @@ fn parse_set(rest: &str) -> ExCommand {
         "nolist" => ExCommand::ToggleList(false),
         "wrapscan" | "ws" => ExCommand::ToggleWrapScan(true),
         "nowrapscan" | "nows" => ExCommand::ToggleWrapScan(false),
+        "cursorline" | "cul" => ExCommand::ToggleCursorLine(true),
+        "nocursorline" | "nocul" => ExCommand::ToggleCursorLine(false),
         _ => {
             if let Some(v) = opt
                 .strip_prefix("ft=")

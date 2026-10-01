@@ -190,6 +190,14 @@
     }
 
     #[test]
+    fn set_cursorline() {
+        assert_eq!(parse("set cursorline"), ExCommand::ToggleCursorLine(true));
+        assert_eq!(parse("set cul"), ExCommand::ToggleCursorLine(true));
+        assert_eq!(parse("set nocursorline"), ExCommand::ToggleCursorLine(false));
+        assert_eq!(parse("set nocul"), ExCommand::ToggleCursorLine(false));
+    }
+
+    #[test]
     fn set_wrapscan() {
         assert_eq!(parse("set wrapscan"), ExCommand::ToggleWrapScan(true));
         assert_eq!(parse("set ws"), ExCommand::ToggleWrapScan(true));
