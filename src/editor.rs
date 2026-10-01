@@ -2218,6 +2218,15 @@ impl Editor {
                 KeyCode::Char(';') => self.change_jump(true),
                 KeyCode::Char(',') => self.change_jump(false),
                 KeyCode::Char('a') => self.show_char_info(),
+                KeyCode::Char('I') => {
+                    // gI — insert at the very first column (before any indent).
+                    self.cursor.col = 0;
+                    self.enter_insert_here();
+                    self.insert_repeat = count;
+                    self.insert_entry = 'I';
+                }
+                KeyCode::Char('p') => self.paste_g(true),
+                KeyCode::Char('P') => self.paste_g(false),
                 KeyCode::Char('q') | KeyCode::Char('w') => {
                     // gq / gw — reflow. On a selection, format it now; otherwise
                     // wait for a motion.
@@ -3470,6 +3479,27 @@ impl Editor {
         }
         self.checkpoint();
         self.paste_text(&reg, after);
+    }
+
+    /// `gp` / `gP` — like `p`/`P`, but leave the cursor just after the pasted
+    /// text rather than on its last character / first line.
+    fn paste_g(&mut self, after: bool) {
+        let reg = self.active_register();
+        if reg.text.is_empty() && !reg.linewise {
+            return;
+        }
+        self.checkpoint();
+        self.paste_text(&reg, after);
+        if reg.linewise {
+            let added = reg.text.split('\n').count();
+            self.cursor.row =
+                (self.cursor.row + added).min(self.buffer.line_count().saturating_sub(1));
+            self.move_first_nonblank();
+        } else {
+            self.cursor.col += 1; // one past the last pasted character
+        }
+        self.clamp_cursor(true);
+        self.scroll_into_view();
     }
 
     /// Insert register `reg` at/after the cursor. Shared by `p`/`P` and visual

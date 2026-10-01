@@ -794,6 +794,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tx / X              delete char under / before   r<c>  replace\n\
          \tY                  yank line (= yy)\n\
          \t~                  toggle case        s / S  subst char / line\n\
+         \tgI / gp / gP       insert at col 0 / paste leaving cursor after\n\
          \td/y/c + motion     e.g. dw d$ d0 de dj dG yw y$ cc  (dd/yy/cc)\n\
          \td/y/c + i/a + obj   text objects: diw daW dip ci( yi\" da{{ ...\n\
          \tdgg / dG           delete to top / bottom of file\n\
