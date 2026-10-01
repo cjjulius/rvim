@@ -2157,9 +2157,20 @@ impl Editor {
 
         // Second `g` after an operator (e.g. `dgg` -> to top of file, line-wise).
         if let Some(op) = self.pending_op_gg.take() {
-            if key.code == KeyCode::Char('g') {
-                let target = OpTarget::Lines(0, self.cursor.row);
-                self.apply_op(op, target);
+            match key.code {
+                KeyCode::Char('g') => {
+                    let target = OpTarget::Lines(0, self.cursor.row);
+                    self.apply_op(op, target);
+                }
+                // `dgn` / `cgn` / `ygn` — operate on the next search match.
+                KeyCode::Char('n') | KeyCode::Char('N') => {
+                    let forward = key.code == KeyCode::Char('n');
+                    if let Some((row, sc, ec)) = self.next_match_range(forward) {
+                        self.cursor = Position::new(row, sc);
+                        self.apply_op(op, OpTarget::Chars(sc, ec));
+                    }
+                }
+                _ => {}
             }
             return Action::None;
         }
@@ -2678,6 +2689,8 @@ impl Editor {
                         self.pending_format = true;
                     }
                 }
+                KeyCode::Char('n') => self.select_next_match(true),
+                KeyCode::Char('N') => self.select_next_match(false),
                 KeyCode::Char('v') => {
                     // gv — reselect the last visual selection.
                     if let Some((s, e, m)) = self.last_visual {
@@ -4641,6 +4654,92 @@ impl Editor {
             return;
         }
         self.search_repeat(forward);
+    }
+
+    /// Find the search match the cursor is on, or the next/previous one, as a
+    /// `(row, start_col, end_col_exclusive)` span. Matches are single-line.
+    /// `gn` uses this; it wraps around the buffer.
+    fn next_match_range(&mut self, forward: bool) -> Option<(usize, usize, usize)> {
+        if self.last_search.is_empty() {
+            return None;
+        }
+        if self.search_re.is_none() {
+            let ic = self.effective_ignorecase(&self.last_search);
+            self.search_re = pattern::build_opts(&self.last_search, ic);
+        }
+        let re = self.search_re.clone()?;
+        let n = self.buffer.line_count();
+        if n == 0 {
+            return None;
+        }
+        let cur = self.cursor;
+        if forward {
+            for step in 0..=n {
+                let row = (cur.row + step) % n;
+                let line = self.buffer.line(row).unwrap_or("");
+                for m in re.find_iter(line) {
+                    if m.start() == m.end() {
+                        continue;
+                    }
+                    let sc = line[..m.start()].chars().count();
+                    let ec = line[..m.end()].chars().count();
+                    // On the cursor's own row, only a match reaching past the
+                    // cursor counts (so one already under the cursor is picked).
+                    if step != 0 || ec > cur.col {
+                        return Some((row, sc, ec));
+                    }
+                }
+            }
+        } else {
+            for step in 0..=n {
+                let row = (cur.row + n - (step % n)) % n;
+                let line = self.buffer.line(row).unwrap_or("");
+                let mut best: Option<(usize, usize)> = None;
+                for m in re.find_iter(line) {
+                    if m.start() == m.end() {
+                        continue;
+                    }
+                    let sc = line[..m.start()].chars().count();
+                    let ec = line[..m.end()].chars().count();
+                    let take = if step == 0 {
+                        sc <= cur.col
+                    } else if step == n {
+                        sc > cur.col
+                    } else {
+                        true
+                    };
+                    if take {
+                        best = Some((sc, ec)); // keep the rightmost match on the row
+                    }
+                }
+                if let Some((sc, ec)) = best {
+                    return Some((row, sc, ec));
+                }
+            }
+        }
+        None
+    }
+
+    /// `gn` / `gN` — visually select the match under or after/before the cursor.
+    fn select_next_match(&mut self, forward: bool) {
+        match self.next_match_range(forward) {
+            Some((row, sc, ec)) => {
+                self.record_jump();
+                self.hlsearch = true;
+                self.mode = Mode::Visual;
+                self.visual_anchor = Position::new(row, sc);
+                self.cursor = Position::new(row, ec.saturating_sub(1));
+                self.clamp_cursor(true);
+                self.scroll_into_view();
+            }
+            None => {
+                self.message = if self.last_search.is_empty() {
+                    "No previous search".into()
+                } else {
+                    format!("Pattern not found: {}", self.last_search)
+                };
+            }
+        }
     }
 
     fn search_repeat(&mut self, forward: bool) {
