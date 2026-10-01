@@ -861,6 +861,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t  (insert) C-w/C-u delete word-before / to line-start\n\
          \t  (insert) C-r<r>  paste register   C-t / C-d  indent / dedent\n\
          \t  (insert) C-n/C-p keyword completion (cycle matches in buffer)\n\
+         \t  (insert) C-o     run one Normal command, then resume insert\n\
          \tv / V / Ctrl-v     visual / visual-line / visual-block\n\
          \t  (v-block) d I A c  delete / insert / append / change rectangle\n\
          \t  (visual) J / gJ  join the selected lines (with / without space)\n\

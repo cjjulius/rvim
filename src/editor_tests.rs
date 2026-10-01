@@ -2579,6 +2579,30 @@
     }
 
     #[test]
+    fn insert_ctrl_o_runs_one_normal_command() {
+        let mut ed = ed_with("hello");
+        ed.handle_key(key('A')); // append at end of line
+        ed.handle_key(ctrl('o'));
+        assert_eq!(ed.mode, Mode::Normal); // one Normal command coming
+        ed.handle_key(key('0')); // move to column 0
+        assert_eq!(ed.mode, Mode::Insert); // back to insert
+        ed.handle_key(key('X'));
+        assert_eq!(ed.buffer.line(0), Some("Xhello"));
+    }
+
+    #[test]
+    fn insert_ctrl_o_multikey_command() {
+        let mut ed = ed_with("one\ntwo");
+        ed.handle_key(key('A'));
+        ed.handle_key(ctrl('o'));
+        ed.handle_key(key('d'));
+        assert_eq!(ed.mode, Mode::Normal); // mid-command
+        ed.handle_key(key('d')); // dd completes
+        assert_eq!(ed.mode, Mode::Insert);
+        assert_eq!(ed.buffer.line(0), Some("two"));
+    }
+
+    #[test]
     fn insert_completion_completes_prefix() {
         let mut ed = ed_with("function\nfun");
         ed.cursor = Position::new(1, 3); // end of "fun"
