@@ -2201,6 +2201,41 @@
     }
 
     #[test]
+    fn g_cap_i_inserts_at_column_zero() {
+        let mut ed = ed_with("    code");
+        ed.cursor = Position::new(0, 6);
+        ed.handle_key(key('g'));
+        ed.handle_key(key('I'));
+        assert_eq!(ed.cursor.col, 0);
+        assert_eq!(ed.mode, Mode::Insert);
+        ed.handle_key(key('X'));
+        assert_eq!(ed.buffer.line(0), Some("X    code"));
+    }
+
+    #[test]
+    fn gp_charwise_leaves_cursor_after_paste() {
+        let mut ed = ed_with("abc");
+        ed.register = Register { text: "XY".into(), linewise: false };
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('g'));
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(0), Some("aXYbc"));
+        assert_eq!(ed.cursor.col, 3); // one past the pasted "XY"
+    }
+
+    #[test]
+    fn gp_linewise_moves_below_block() {
+        let mut ed = ed_with("a\nb");
+        ed.register = Register { text: "X\nY".into(), linewise: true };
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('g'));
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(1), Some("X"));
+        assert_eq!(ed.buffer.line(2), Some("Y"));
+        assert_eq!(ed.cursor.row, 3); // the line after the pasted block
+    }
+
+    #[test]
     fn visual_paste_replaces_charwise_selection() {
         let mut ed = ed_with("foo bar");
         ed.register = Register { text: "XYZ".into(), linewise: false };

@@ -73,8 +73,9 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 - **Scrolling:** `zz`/`zt`/`zb` (center/top/bottom the current line),
   `Ctrl-f`/`Ctrl-b` (full page forward/back, 2-line overlap, counted),
   `Ctrl-e`/`Ctrl-y` (scroll one line).
-- **Editing:** `i a I A o O`, `x`/`X`, `r<c>` (with count), `~` (toggle case),
-  `s`/`S`, `D`/`C`, `Y` (yank line), `p`/`P`, `J`/`gJ` (join with/without space),
+- **Editing:** `i a I A o O`, `gI` (insert at column 0), `x`/`X`, `r<c>` (with
+  count), `~` (toggle case), `s`/`S`, `D`/`C`, `Y` (yank line), `p`/`P`,
+  `gp`/`gP` (paste, cursor after), `J`/`gJ` (join with/without space),
   `>>`/`<<` (indent, honoring `shiftwidth`), counts (e.g. `5j`).
 - **Operators + motions:** `d`, `y`, `c` compose with motions — `dw`/`dW`/`yw`,
   `d$`/`y$`, `d0`, `de`/`dE`, `dj`/`dk`, `dG`/`dgg` (to EOF/BOF), `d}` and the
@@ -372,7 +373,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **350 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **353 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
