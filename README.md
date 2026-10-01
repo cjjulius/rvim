@@ -314,6 +314,7 @@ src/
 ├── main.rs        CLI entry (arg parsing)
 ├── lib.rs         crate root / module wiring
 ├── app.rs         event loop + ex-command execution
+├── app_tests.rs   app / ex-command execution tests (kept separate)
 ├── editor.rs      cursor, viewport, motions, edit operations, search
 ├── editor_tests.rs  editor unit tests (kept out of editor.rs to keep it lean)
 ├── buffer.rs      text storage + edit primitives + undo/redo
