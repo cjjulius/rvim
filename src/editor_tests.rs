@@ -1273,6 +1273,61 @@
     }
 
     #[test]
+    fn unmatched_paren_motions_single_line() {
+        // foo(bar(baz), qux)
+        //    ^3     ^7      ^17   open at 3 & 7, close at 11 & 17
+        let mut ed = ed_with("foo(bar(baz), qux)");
+        ed.cursor = Position::new(0, 9); // inside the inner parens (the 'a' of baz)
+        ed.handle_key(key('['));
+        ed.handle_key(key('(')); // [( -> inner open paren
+        assert_eq!(ed.cursor.col, 7);
+        ed.cursor = Position::new(0, 9);
+        ed.handle_key(key('2'));
+        ed.handle_key(key('['));
+        ed.handle_key(key('(')); // 2[( -> outer open paren
+        assert_eq!(ed.cursor.col, 3);
+        ed.cursor = Position::new(0, 9);
+        ed.handle_key(key(']'));
+        ed.handle_key(key(')')); // ]) -> inner close paren
+        assert_eq!(ed.cursor.col, 11);
+        ed.cursor = Position::new(0, 9);
+        ed.handle_key(key('2'));
+        ed.handle_key(key(']'));
+        ed.handle_key(key(')')); // 2]) -> outer close paren
+        assert_eq!(ed.cursor.col, 17);
+    }
+
+    #[test]
+    fn unmatched_brace_motions_multi_line() {
+        // fn main() {   row 0, brace at col 10
+        //     if x {    row 1, brace at col 9
+        //         y;    row 2  (cursor here)
+        //     }         row 3, brace at col 4
+        // }             row 4, brace at col 0
+        let mut ed = ed_with("fn main() {\n    if x {\n        y;\n    }\n}");
+        ed.cursor = Position::new(2, 4);
+        ed.handle_key(key('['));
+        ed.handle_key(key('{')); // [{ -> enclosing open brace
+        assert_eq!(ed.cursor, Position::new(1, 9));
+        ed.cursor = Position::new(2, 4);
+        ed.handle_key(key('2'));
+        ed.handle_key(key('['));
+        ed.handle_key(key('{')); // 2[{ -> outer open brace, records a jump
+        assert_eq!(ed.cursor, Position::new(0, 10));
+        ed.handle_key(ctrl('o')); // jump back
+        assert_eq!(ed.cursor.row, 2);
+        ed.cursor = Position::new(2, 4);
+        ed.handle_key(key(']'));
+        ed.handle_key(key('}')); // ]} -> enclosing close brace
+        assert_eq!(ed.cursor, Position::new(3, 4));
+        ed.cursor = Position::new(2, 4);
+        ed.handle_key(key('2'));
+        ed.handle_key(key(']'));
+        ed.handle_key(key('}')); // 2]} -> outer close brace
+        assert_eq!(ed.cursor, Position::new(4, 0));
+    }
+
+    #[test]
     fn paragraph_text_object_dip() {
         let mut ed = ed_with("a\nb\n\nc");
         ed.handle_key(key('d'));
