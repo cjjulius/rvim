@@ -78,6 +78,9 @@ pub struct Editor {
     pub incsearch: bool,
     /// Whether searches wrap around the ends of the buffer (`:set wrapscan`).
     pub wrapscan: bool,
+    /// Direction of the last search, so `n` repeats it and `N` reverses it
+    /// (e.g. after `?foo`, `n` searches backward).
+    search_forward: bool,
     /// Cursor position when a search was started, for incsearch preview/restore.
     search_origin: Position,
     /// Search highlight state saved on search entry, restored if the search is
@@ -227,6 +230,7 @@ impl Editor {
             smartcase: false,
             incsearch: true,
             wrapscan: true,
+            search_forward: true,
             search_origin: Position::default(),
             saved_search_re: None,
             saved_last_search: String::new(),
@@ -1228,12 +1232,14 @@ impl Editor {
                         // Commit from the original position so the preview jump
                         // doesn't make the search skip to the next match.
                         self.cursor = self.search_origin;
+                        self.search_forward = true;
                         self.set_search(text);
                         self.search(true);
                         Action::None
                     }
                     LineKind::SearchBack => {
                         self.cursor = self.search_origin;
+                        self.search_forward = false;
                         self.set_search(text);
                         self.search(false);
                         Action::None
@@ -2207,8 +2213,9 @@ impl Editor {
             }
             KeyCode::Char('v') => self.toggle_visual(Mode::Visual),
             KeyCode::Char('V') => self.toggle_visual(Mode::VisualLine),
-            KeyCode::Char('n') => self.search_repeat(true),
-            KeyCode::Char('N') => self.search_repeat(false),
+            // `n` repeats in the last search's direction; `N` reverses it.
+            KeyCode::Char('n') => self.search_repeat(self.search_forward),
+            KeyCode::Char('N') => self.search_repeat(!self.search_forward),
             KeyCode::Char('&') => self.repeat_substitute(),
             KeyCode::Char('*') => self.search_word(true, true),
             KeyCode::Char('#') => self.search_word(false, true),
@@ -4026,6 +4033,7 @@ impl Editor {
             escaped
         };
         self.set_search(pat);
+        self.search_forward = forward;
         self.search_repeat(forward);
     }
 
