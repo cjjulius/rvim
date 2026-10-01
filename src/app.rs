@@ -292,8 +292,16 @@ impl App {
                         }
                     }
                 } else {
-                    // Clicking away from the bar dismisses the menu.
-                    self.editor.close_menu();
+                    // Hit-test the open dropdowns; click an item to act on it,
+                    // click empty space to dismiss.
+                    let hit = self.editor.menu().and_then(|menu| {
+                        let geom = ui::menu_geometry(menu, layout.cols, layout.rows);
+                        ui::menu_hit_test(&geom, m.column, m.row)
+                    });
+                    match hit {
+                        Some((level, idx)) => self.editor.menu_mouse_select(level, idx),
+                        None => self.editor.close_menu(),
+                    }
                 }
             }
             return;

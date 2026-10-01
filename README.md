@@ -158,8 +158,8 @@ pre-filled so you learn it by doing.
   *Language ▸ Set Filetype*.
 - **Esc** backs out one layer at a time; the last `Esc` hides the bar and returns
   to the cursor.
-- **Mouse** (with `:set mouse`): click a top-level title to open it, click away to
-  dismiss.
+- **Mouse** (with `:set mouse`): click a top-level title to open it, click a
+  dropdown item to open its submenu or run it, click empty space to dismiss.
 
 Menus are grouped logically — **File**, **Buffers**, **Edit**, **View**,
 **Language**, **Tools**, **Help** — and together list every command-line command
@@ -283,7 +283,7 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **198 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **201 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
