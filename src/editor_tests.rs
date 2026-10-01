@@ -2062,6 +2062,36 @@
     }
 
     #[test]
+    fn delete_lines_removes_range() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.delete_lines(SubRange::Range(LineAddr::Num(2), LineAddr::Num(3)));
+        assert_eq!(ed.buffer.line(0), Some("a"));
+        assert_eq!(ed.buffer.line(1), Some("d"));
+        assert_eq!(ed.buffer.line_count(), 2);
+    }
+
+    #[test]
+    fn yank_lines_then_paste() {
+        let mut ed = ed_with("a\nb\nc");
+        ed.yank_lines(SubRange::Range(LineAddr::Num(1), LineAddr::Num(2)));
+        ed.cursor = Position::new(2, 0); // on "c"
+        ed.handle_key(key('p')); // paste the two yanked lines below
+        assert_eq!(ed.buffer.line(3), Some("a"));
+        assert_eq!(ed.buffer.line(4), Some("b"));
+    }
+
+    #[test]
+    fn shift_lines_indents_range() {
+        let mut ed = ed_with("a\nb\nc");
+        ed.expandtab = true;
+        ed.shiftwidth = 2;
+        ed.shift_lines(SubRange::Range(LineAddr::Num(1), LineAddr::Num(2)), false, 1);
+        assert_eq!(ed.buffer.line(0), Some("  a"));
+        assert_eq!(ed.buffer.line(1), Some("  b"));
+        assert_eq!(ed.buffer.line(2), Some("c")); // untouched
+    }
+
+    #[test]
     fn copy_lines_duplicates_range_at_dest() {
         let mut ed = ed_with("a\nb\nc");
         // :1,2t$ -> copy lines 1-2 to after the last line

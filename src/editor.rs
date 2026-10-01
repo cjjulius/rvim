@@ -707,6 +707,40 @@ impl Editor {
         }
     }
 
+    /// `:[range]d[elete]` — delete the range's lines into the unnamed register.
+    pub fn delete_lines(&mut self, range: SubRange) {
+        let (a, b) = self.resolve_range(range);
+        self.apply_op('d', OpTarget::Lines(a, b));
+        self.message = format!("{} line(s) deleted", b - a + 1);
+    }
+
+    /// `:[range]y[ank]` — yank the range's lines into the unnamed register.
+    pub fn yank_lines(&mut self, range: SubRange) {
+        let (a, b) = self.resolve_range(range);
+        self.apply_op('y', OpTarget::Lines(a, b));
+        self.message = format!("{} line(s) yanked", b - a + 1);
+    }
+
+    /// `:[range]>` / `:[range]<` — shift the range right/left by `times`
+    /// shiftwidths. The cursor lands on the first shifted line.
+    pub fn shift_lines(&mut self, range: SubRange, dedent: bool, times: usize) {
+        let (a, b) = self.resolve_range(range);
+        self.checkpoint();
+        for _ in 0..times.max(1) {
+            for r in a..=b {
+                if dedent {
+                    self.dedent_line(r);
+                } else {
+                    self.indent_line(r);
+                }
+            }
+        }
+        self.cursor.row = a;
+        self.move_first_nonblank();
+        self.clamp_cursor(false);
+        self.scroll_into_view();
+    }
+
     /// `:[range]copy dest` — copy the range's lines to after `dest`. The cursor
     /// lands on the last copied line.
     pub fn copy_lines(&mut self, range: SubRange, dest: LineAddr) {

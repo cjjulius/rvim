@@ -469,6 +469,15 @@ impl App {
             ExCommand::CopyLines { range, dest } => {
                 self.editor.copy_lines(range, dest);
             }
+            ExCommand::DeleteLines(range) => {
+                self.editor.delete_lines(range);
+            }
+            ExCommand::YankLines(range) => {
+                self.editor.yank_lines(range);
+            }
+            ExCommand::ShiftLines { range, dedent, times } => {
+                self.editor.shift_lines(range, dedent, times);
+            }
             ExCommand::Sort { reverse, unique } => {
                 let before = self.editor.buffer.line_count();
                 self.editor.sort_buffer(reverse, unique);
@@ -698,6 +707,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set mouse|nomouse toggle mouse support\n\
          \t:sort[!] [u]       sort lines (! reverse, u unique)\n\
          \t:[range]m {{addr}}   move lines    :[range]t/co {{addr}}  copy lines\n\
+         \t:[range]d / y       delete / yank lines   :[range]> / <  shift lines\n\
          \t:noh               clear search highlight\n\
          \t:{{n}}               jump to line n\n\
          \tplugin commands:   {plugins}\n",

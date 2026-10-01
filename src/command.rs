@@ -106,6 +106,12 @@ pub enum ExCommand {
     MoveLines { range: SubRange, dest: LineAddr },
     /// `:[range]t`/`:[range]co[py] {addr}` — copy the range's lines to after `dest`.
     CopyLines { range: SubRange, dest: LineAddr },
+    /// `:[range]d[elete]` — delete the range's lines.
+    DeleteLines(SubRange),
+    /// `:[range]y[ank]` — yank the range's lines.
+    YankLines(SubRange),
+    /// `:[range]>` / `:[range]<` — shift the range right/left by `times` steps.
+    ShiftLines { range: SubRange, dedent: bool, times: usize },
     /// `:ls` / `:buffers` — list open buffers.
     BufferList,
     /// `:bn` / `:bnext`
@@ -142,6 +148,11 @@ pub fn parse(input: &str) -> ExCommand {
     // Line move/copy, possibly with a leading range (`m0`, `1,5t$`, `.co.`).
     if let Some(mc) = parse_move_copy(trimmed) {
         return mc;
+    }
+
+    // Line delete/yank/shift, possibly with a leading range (`1,5d`, `%y`, `>>`).
+    if let Some(op) = parse_line_op(trimmed) {
+        return op;
     }
 
     // Pure line number → goto.
@@ -346,6 +357,55 @@ fn parse_move_copy(trimmed: &str) -> Option<ExCommand> {
     }
 }
 
+/// Parse `:[range]{d|delete|y|yank}` and `:[range]{>|<}...`. Returns `None` (so
+/// the caller falls through) unless a recognized line operator is present.
+fn parse_line_op(trimmed: &str) -> Option<ExCommand> {
+    let bytes = trimmed.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        let c = bytes[i] as char;
+        if c.is_ascii_digit() || matches!(c, ',' | '%' | '.' | '$') {
+            i += 1;
+        } else {
+            break;
+        }
+    }
+    let range_str = &trimmed[..i];
+    let after = trimmed[i..].trim_start();
+    if after.is_empty() {
+        return None;
+    }
+    let first = after.chars().next()?;
+    // `>`/`<` shift, repeated for extra steps (`>>` = two).
+    if first == '>' || first == '<' {
+        let times = after.chars().take_while(|&c| c == first).count();
+        let rest = after[times..].trim();
+        if !rest.is_empty() {
+            return None;
+        }
+        let range = parse_range(range_str)?;
+        return Some(ExCommand::ShiftLines {
+            range,
+            dedent: first == '<',
+            times,
+        });
+    }
+    // `d`/`delete`/`y`/`yank`: the leading alphabetic run must be exactly one of
+    // these (so `diffsplit`, `yankring`, … fall through), trailing args ignored.
+    let word: String = after.chars().take_while(|c| c.is_ascii_alphabetic()).collect();
+    let rest = after[word.len()..].trim_start();
+    // Reject a trailing word character run masquerading as args.
+    if rest.chars().next().is_some_and(|c| c.is_ascii_alphabetic()) {
+        return None;
+    }
+    let range = parse_range(range_str)?;
+    match word.as_str() {
+        "d" | "delete" | "de" | "del" => Some(ExCommand::DeleteLines(range)),
+        "y" | "yank" | "ya" => Some(ExCommand::YankLines(range)),
+        _ => None,
+    }
+}
+
 fn parse_addr(s: &str) -> Option<LineAddr> {
     match s.trim() {
         "." => Some(LineAddr::Current),
@@ -460,6 +520,32 @@ mod tests {
         );
         // `colo`/`colorscheme` must still reach the theme command, not copy.
         assert_eq!(parse("colo"), ExCommand::SetTheme(None));
+    }
+
+    #[test]
+    fn line_op_variants() {
+        assert_eq!(parse("d"), ExCommand::DeleteLines(SubRange::CurrentLine));
+        assert_eq!(
+            parse("1,5d"),
+            ExCommand::DeleteLines(SubRange::Range(LineAddr::Num(1), LineAddr::Num(5)))
+        );
+        assert_eq!(parse("%y"), ExCommand::YankLines(SubRange::WholeFile));
+        assert_eq!(parse("delete"), ExCommand::DeleteLines(SubRange::CurrentLine));
+        assert_eq!(
+            parse(">>"),
+            ExCommand::ShiftLines { range: SubRange::CurrentLine, dedent: false, times: 2 }
+        );
+        assert_eq!(
+            parse("1,3<"),
+            ExCommand::ShiftLines {
+                range: SubRange::Range(LineAddr::Num(1), LineAddr::Num(3)),
+                dedent: true,
+                times: 1
+            }
+        );
+        // Longer d-/y-words must not be swallowed by :d / :y.
+        assert!(matches!(parse("diffsplit"), ExCommand::Passthrough { .. }));
+        assert_eq!(parse("bd"), ExCommand::BufferDelete);
     }
 
     #[test]
