@@ -544,6 +544,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tR                  replace (overtype) mode\n\
          \to / O              open line below / above\n\
          \t  (insert) C-w/C-u delete word-before / to line-start\n\
+         \t  (insert) C-r<r>  paste register   C-t / C-d  indent / dedent\n\
          \tv / V              visual / visual-line\n\
          \t  (visual) u/U/~   lower / upper / toggle case of selection\n\
          \t  (visual) o       swap selection end     gv  reselect last\n\
