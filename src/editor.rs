@@ -146,6 +146,8 @@ pub struct Editor {
     pub list: bool,
     /// `:set cursorline` — highlight the line the cursor is on (default on).
     pub cursorline: bool,
+    /// `:set cursorcolumn` — highlight the column the cursor is on (default off).
+    pub cursorcolumn: bool,
     /// `:set colorcolumn` — 1-based column to highlight as a guide (0 = off).
     pub colorcolumn: usize,
     pending_replace: bool,
@@ -292,6 +294,7 @@ impl Editor {
             textwidth: 0,
             list: false,
             cursorline: true,
+            cursorcolumn: false,
             colorcolumn: 0,
             pending_replace: false,
             pending_replace_count: 1,
@@ -1439,12 +1442,13 @@ impl Editor {
     /// `:set` option names offered for Tab completion (toggles, their `no`
     /// variants, and value options by bare name).
     const SET_OPTIONS: &'static [&'static str] = &[
-        "autoindent", "colorcolumn", "cursorline", "expandtab", "filetype",
-        "hlsearch", "ignorecase", "incsearch", "list", "noautoindent",
-        "nocursorline", "noexpandtab", "nohlsearch", "noignorecase",
-        "noincsearch", "nolist", "nonumber", "norelativenumber", "nosmartcase",
-        "nowrapscan", "number", "relativenumber", "scrolloff", "shiftwidth",
-        "sidescrolloff", "smartcase", "tabstop", "textwidth", "wrapscan",
+        "autoindent", "colorcolumn", "cursorcolumn", "cursorline", "expandtab",
+        "filetype", "hlsearch", "ignorecase", "incsearch", "list", "noautoindent",
+        "nocursorcolumn", "nocursorline", "noexpandtab", "nohlsearch",
+        "noignorecase", "noincsearch", "nolist", "nonumber", "norelativenumber",
+        "nosmartcase", "nowrapscan", "number", "relativenumber", "scrolloff",
+        "shiftwidth", "sidescrolloff", "smartcase", "tabstop", "textwidth",
+        "wrapscan",
     ];
 
     /// Tab completion on the `:` command line. Completes the first word against

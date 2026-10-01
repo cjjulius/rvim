@@ -111,6 +111,16 @@
     }
 
     #[test]
+    fn cursorcolumn_toggles() {
+        let mut app = App::new();
+        assert!(!app.editor.cursorcolumn);
+        app.run_ex("set cursorcolumn");
+        assert!(app.editor.cursorcolumn);
+        app.run_ex("set nocuc");
+        assert!(!app.editor.cursorcolumn);
+    }
+
+    #[test]
     fn cursorline_toggles() {
         let mut app = App::new();
         assert!(app.editor.cursorline); // on by default

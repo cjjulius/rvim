@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### UI
+- `:set cursorcolumn` (`cuc`) highlights the column the cursor is on down the
+  whole screen — a vertical companion to `cursorline` for tracking alignment.
+
 ### Motions & text objects
 - Sentence motions `(` / `)` move backward / forward by sentence (counted,
   across lines), bounded by `.`/`!`/`?` punctuation and blank lines.
