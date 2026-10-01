@@ -194,6 +194,9 @@ pre-filled so you learn it by doing.
   to the cursor.
 - **Mouse** (with `:set mouse`): click a top-level title to open it, click a
   dropdown item to open its submenu or run it, click empty space to dismiss.
+- **Flicker-free:** each frame (text area + menu overlay) is painted inside a
+  synchronized terminal update (DEC mode 2026), so the dropdown never flashes
+  over a half-drawn buffer on terminals that support it.
 
 Menus are grouped logically — **File**, **Buffers**, **Edit**, **View**,
 **Language**, **Tools**, **Help** — and together list every command-line command
@@ -321,7 +324,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **272 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **273 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
