@@ -712,6 +712,28 @@ impl Editor {
         }
     }
 
+    /// `:r[ead] file` — insert `text`'s lines just below the cursor line. The
+    /// cursor moves to the first inserted line. A trailing newline doesn't create
+    /// a spurious empty line.
+    pub fn read_lines_below(&mut self, text: &str) {
+        let body = text.strip_suffix('\n').unwrap_or(text);
+        let lines: Vec<&str> = body.split('\n').collect();
+        if lines.is_empty() {
+            return;
+        }
+        self.checkpoint();
+        let at = self.cursor.row + 1;
+        for (k, line) in lines.iter().enumerate() {
+            self.buffer.insert_line(at + k, *line);
+        }
+        self.cursor.row = at.min(self.buffer.line_count().saturating_sub(1));
+        self.cursor.col = 0;
+        self.move_first_nonblank();
+        self.clamp_cursor(false);
+        self.scroll_into_view();
+        self.message = format!("{} line(s) read", lines.len());
+    }
+
     /// `:[range]d[elete]` — delete the range's lines into the unnamed register.
     pub fn delete_lines(&mut self, range: SubRange) {
         let (a, b) = self.resolve_range(range);

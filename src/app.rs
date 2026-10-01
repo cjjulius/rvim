@@ -381,6 +381,10 @@ impl App {
                 }
             }
             ExCommand::Edit(path) => self.edit_file(&path),
+            ExCommand::ReadFile(path) => match std::fs::read_to_string(&path) {
+                Ok(text) => self.editor.read_lines_below(&text),
+                Err(e) => self.editor.message = format!("E484: can't open \"{path}\": {e}"),
+            },
             ExCommand::BufferList => self.buffer_list(),
             ExCommand::BufferNext => self.buffer_next(),
             ExCommand::BufferPrev => self.buffer_prev(),
@@ -694,7 +698,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:w [file]  :q  :q!  :wq  :x   write / quit variants\n\
          \t:qa  :wa  :wqa     quit / write / write-quit all buffers (! to force)\n\
          \tZZ / ZQ            write & quit / quit without saving\n\
-         \t:e <file>          open file\n\
+         \t:e <file>          open file     :r <file>  read file below cursor\n\
          \t:ls :bn :bp :b<n>  list / next / prev / goto buffer   :bd close\n\
          \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///)\n\
          \t:theme <name>      themes: {themes}\n\

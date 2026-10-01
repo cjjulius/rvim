@@ -2062,6 +2062,19 @@
     }
 
     #[test]
+    fn read_lines_below_inserts_file_contents() {
+        let mut ed = ed_with("a\nb\nc");
+        ed.cursor = Position::new(0, 0); // on "a"
+        ed.read_lines_below("X\nY\n"); // trailing newline must not add a blank line
+        assert_eq!(ed.buffer.line(0), Some("a"));
+        assert_eq!(ed.buffer.line(1), Some("X"));
+        assert_eq!(ed.buffer.line(2), Some("Y"));
+        assert_eq!(ed.buffer.line(3), Some("b"));
+        assert_eq!(ed.buffer.line_count(), 5);
+        assert_eq!(ed.cursor.row, 1); // on the first inserted line
+    }
+
+    #[test]
     fn mark_range_addresses_resolve() {
         let mut ed = ed_with("a\nb\nc\nd");
         ed.marks.insert('<', Position::new(1, 0));

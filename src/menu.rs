@@ -84,6 +84,7 @@ pub fn build_menus(themes: &[&str], plugin_cmds: &[&str]) -> Vec<Menu> {
             MenuItem::command("Quit", "q"),
             MenuItem::command("Quit Without Saving", "q!"),
             MenuItem::command_hint("Open File…", "e", "e "),
+            MenuItem::command_hint("Read File…", "r", "r "),
             MenuItem::command_hint("Source Script…", "source", "source "),
         ],
     };
