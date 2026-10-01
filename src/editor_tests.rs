@@ -2253,6 +2253,25 @@
     }
 
     #[test]
+    fn g_ampersand_repeats_substitute_over_file() {
+        let mut ed = ed_with("foo\nfoo\nfoo");
+        let spec = SubstituteSpec {
+            range: SubRange::CurrentLine,
+            pattern: "foo".into(),
+            replacement: "bar".into(),
+            global: false,
+            ignorecase: false,
+            count_only: false,
+        };
+        ed.substitute(&spec); // line 0 only
+        assert_eq!(ed.buffer.line(0), Some("bar"));
+        ed.handle_key(key('g'));
+        ed.handle_key(key('&')); // repeat across the whole file
+        assert_eq!(ed.buffer.line(1), Some("bar"));
+        assert_eq!(ed.buffer.line(2), Some("bar"));
+    }
+
+    #[test]
     fn at_colon_repeats_last_ex_command() {
         let mut ed = ed_with("");
         ed.handle_key(key(':'));
