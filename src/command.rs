@@ -58,6 +58,8 @@ pub enum ExCommand {
     WriteQuitAll { force: bool },
     /// `:e file`
     Edit(String),
+    /// `:r[ead] file` — insert the file's contents below the cursor line.
+    ReadFile(String),
     /// `:theme [name]` / `:colorscheme [name]` — `None` lists/cycles.
     SetTheme(Option<String>),
     /// `:set number` / `:set nonumber`
@@ -184,6 +186,13 @@ pub fn parse(input: &str) -> ExCommand {
         "wqa!" | "xa!" | "wqall!" | "xall!" => ExCommand::WriteQuitAll { force: true },
         "e" | "edit" => match arg {
             Some(a) => ExCommand::Edit(a),
+            None => ExCommand::Passthrough {
+                name: word.to_string(),
+                args: String::new(),
+            },
+        },
+        "r" | "re" | "read" => match arg {
+            Some(a) => ExCommand::ReadFile(a),
             None => ExCommand::Passthrough {
                 name: word.to_string(),
                 args: String::new(),
@@ -689,6 +698,14 @@ mod tests {
     #[test]
     fn edit() {
         assert_eq!(parse("e main.rs"), ExCommand::Edit("main.rs".into()));
+    }
+
+    #[test]
+    fn read_file_variants() {
+        assert_eq!(parse("r notes.txt"), ExCommand::ReadFile("notes.txt".into()));
+        assert_eq!(parse("read data.csv"), ExCommand::ReadFile("data.csv".into()));
+        // No file name falls through to the plugin passthrough, not a crash.
+        assert!(matches!(parse("r"), ExCommand::Passthrough { .. }));
     }
 
     #[test]
