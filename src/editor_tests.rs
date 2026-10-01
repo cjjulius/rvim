@@ -1912,6 +1912,22 @@
     }
 
     #[test]
+    fn n_repeats_in_last_search_direction() {
+        let mut ed = ed_with("foo\nbar\nfoo\nbar\nfoo");
+        ed.cursor = Position::new(2, 0);
+        ed.handle_key(key('?'));
+        for c in "foo".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Enter)); // backward -> row 0
+        assert_eq!(ed.cursor.row, 0);
+        ed.handle_key(key('n')); // n repeats backward -> wraps to row 4
+        assert_eq!(ed.cursor.row, 4);
+        ed.handle_key(key('N')); // N reverses -> forward -> row 0
+        assert_eq!(ed.cursor.row, 0);
+    }
+
+    #[test]
     fn nowrapscan_stops_at_buffer_end() {
         let mut ed = ed_with("foo\nbar\nfoo");
         ed.wrapscan = false;
