@@ -969,6 +969,65 @@
     }
 
     #[test]
+    fn yank_sets_bracket_marks_charwise() {
+        let mut ed = ed_with("foo bar baz");
+        ed.cursor = Position::new(0, 4); // on "bar"
+        ed.handle_key(key('y'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('w')); // yiw -> yank "bar" (cols 4..6)
+        ed.handle_key(key('0'));
+        ed.handle_key(key('`'));
+        ed.handle_key(key('['));
+        assert_eq!(ed.cursor, Position::new(0, 4));
+        ed.handle_key(key('`'));
+        ed.handle_key(key(']'));
+        assert_eq!(ed.cursor, Position::new(0, 6));
+    }
+
+    #[test]
+    fn yank_sets_bracket_marks_linewise() {
+        let mut ed = ed_with("one\ntwo\nthree");
+        ed.handle_key(key('y'));
+        ed.handle_key(key('j')); // yj -> yank lines 0-1 linewise
+        ed.handle_key(key('G'));
+        ed.handle_key(key('`'));
+        ed.handle_key(key('['));
+        assert_eq!(ed.cursor, Position::new(0, 0));
+        ed.handle_key(key('`'));
+        ed.handle_key(key(']'));
+        assert_eq!(ed.cursor, Position::new(1, 2)); // last char of "two"
+    }
+
+    #[test]
+    fn delete_sets_collapsed_bracket_marks() {
+        let mut ed = ed_with("a\nb\nc");
+        ed.cursor = Position::new(1, 0);
+        ed.handle_key(key('d'));
+        ed.handle_key(key('d')); // delete line "b"
+        ed.handle_key(key('g'));
+        ed.handle_key(key('g')); // jump to top
+        ed.handle_key(key('`'));
+        ed.handle_key(key('[')); // `[ -> where the deletion happened
+        assert_eq!(ed.cursor, Position::new(1, 0));
+    }
+
+    #[test]
+    fn visual_yank_sets_bracket_marks() {
+        let mut ed = ed_with("hello");
+        ed.handle_key(key('v'));
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // select "hel"
+        ed.handle_key(key('y'));
+        ed.handle_key(key('$'));
+        ed.handle_key(key('`'));
+        ed.handle_key(key('['));
+        assert_eq!(ed.cursor, Position::new(0, 0));
+        ed.handle_key(key('`'));
+        ed.handle_key(key(']'));
+        assert_eq!(ed.cursor, Position::new(0, 2));
+    }
+
+    #[test]
     fn mark_dot_tracks_last_change() {
         let mut ed = ed_with("a\nb\nc\nd");
         ed.cursor = Position::new(2, 0); // on "c"
