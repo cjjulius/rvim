@@ -164,6 +164,7 @@ quits without saving (like `:q!`).
 `:set ignorecase|noignorecase` · `:set smartcase|nosmartcase` · `:set incsearch|noincsearch` ·
 `:noh` / `:set hlsearch|nohlsearch` · `:sort[!] [u]` ·
 `:[range]m[ove] {addr}` / `:[range]t`|`:[range]co[py] {addr}` (move / copy lines) ·
+`:[range]d[elete]` / `:[range]y[ank]` / `:[range]>`|`:[range]<` (delete / yank / shift lines) ·
 `:source <file>` · `:help` · `:version`
 
 On the command line, `Up`/`Down` recall previous commands (`:` history) or
@@ -338,7 +339,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **300 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **304 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
