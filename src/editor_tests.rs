@@ -2593,6 +2593,32 @@
     }
 
     #[test]
+    fn insert_ctrl_e_copies_char_below() {
+        let mut ed = ed_with("Z\nabc");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('i'));
+        ed.handle_key(ctrl('e')); // char below at col 0 is 'a'
+        assert_eq!(ed.buffer.line(0), Some("aZ"));
+    }
+
+    #[test]
+    fn insert_ctrl_y_copies_char_above() {
+        let mut ed = ed_with("abc\nZ");
+        ed.cursor = Position::new(1, 0);
+        ed.handle_key(key('i'));
+        ed.handle_key(ctrl('y')); // char above at col 0 is 'a'
+        assert_eq!(ed.buffer.line(1), Some("aZ"));
+    }
+
+    #[test]
+    fn insert_ctrl_e_noop_without_line_below() {
+        let mut ed = ed_with("x");
+        ed.handle_key(key('i'));
+        ed.handle_key(ctrl('e')); // no line below -> nothing inserted
+        assert_eq!(ed.buffer.line(0), Some("x"));
+    }
+
+    #[test]
     fn insert_ctrl_a_inserts_last_insert() {
         let mut ed = ed_with("");
         ed.handle_key(key('i'));

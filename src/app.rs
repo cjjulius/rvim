@@ -863,6 +863,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t  (insert) C-n/C-p keyword completion (cycle matches in buffer)\n\
          \t  (insert) C-o     run one Normal command, then resume insert\n\
          \t  (insert) C-a     re-insert the last inserted text (\". register)\n\
+         \t  (insert) C-e/C-y copy the char below / above the cursor\n\
          \tv / V / Ctrl-v     visual / visual-line / visual-block\n\
          \t  (v-block) d I A c  delete / insert / append / change rectangle\n\
          \t  (visual) J / gJ  join the selected lines (with / without space)\n\
