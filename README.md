@@ -185,7 +185,7 @@ quits without saving (like `:q!`).
 `:[range]m[ove] {addr}` / `:[range]t`|`:[range]co[py] {addr}` (move / copy lines) ·
 `:[range]d[elete]` / `:[range]y[ank]` / `:[range]>`|`:[range]<` (delete / yank / shift lines) ·
 `:[range]j[oin][!]` (join lines; `!` keeps whitespace) ·
-`:[addr]pu[t] [reg]` (put a register as lines) · `:r[ead] <file>` (insert a file below the cursor) ·
+`:[addr]pu[t] [reg]` (put a register as lines) · `:r[ead] <file>` (insert a file below the cursor) · `:e`/`:e!` (reload current file) ·
 `:source <file>` · `:help` · `:version`
 
 On the command line, `Up`/`Down` recall previous commands (`:` history) or
@@ -369,7 +369,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **342 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **343 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

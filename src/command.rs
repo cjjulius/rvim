@@ -60,6 +60,8 @@ pub enum ExCommand {
     Edit(String),
     /// `:r[ead] file` — insert the file's contents below the cursor line.
     ReadFile(String),
+    /// `:e` / `:e!` with no file — reload the current file (`force` discards changes).
+    Reload { force: bool },
     /// `:theme [name]` / `:colorscheme [name]` — `None` lists/cycles.
     SetTheme(Option<String>),
     /// `:set number` / `:set nonumber`
@@ -202,10 +204,11 @@ pub fn parse(input: &str) -> ExCommand {
         "wqa!" | "xa!" | "wqall!" | "xall!" => ExCommand::WriteQuitAll { force: true },
         "e" | "edit" => match arg {
             Some(a) => ExCommand::Edit(a),
-            None => ExCommand::Passthrough {
-                name: word.to_string(),
-                args: String::new(),
-            },
+            None => ExCommand::Reload { force: false },
+        },
+        "e!" | "edit!" => match arg {
+            Some(a) => ExCommand::Edit(a),
+            None => ExCommand::Reload { force: true },
         },
         "r" | "re" | "read" => match arg {
             Some(a) => ExCommand::ReadFile(a),
