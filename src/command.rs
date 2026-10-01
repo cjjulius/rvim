@@ -102,6 +102,10 @@ pub enum ExCommand {
     ToggleIncSearch(bool),
     /// `:sort` / `:sort!` / `:sort u` — sort buffer lines.
     Sort { reverse: bool, unique: bool },
+    /// `:[range]m[ove] {addr}` — move the range's lines to after `dest`.
+    MoveLines { range: SubRange, dest: LineAddr },
+    /// `:[range]t`/`:[range]co[py] {addr}` — copy the range's lines to after `dest`.
+    CopyLines { range: SubRange, dest: LineAddr },
     /// `:ls` / `:buffers` — list open buffers.
     BufferList,
     /// `:bn` / `:bnext`
@@ -133,6 +137,11 @@ pub fn parse(input: &str) -> ExCommand {
     // Substitution, possibly with a leading range (`s/`, `%s/`, `1,5s/`).
     if let Some(sub) = parse_substitute(trimmed) {
         return sub;
+    }
+
+    // Line move/copy, possibly with a leading range (`m0`, `1,5t$`, `.co.`).
+    if let Some(mc) = parse_move_copy(trimmed) {
+        return mc;
     }
 
     // Pure line number → goto.
@@ -297,6 +306,46 @@ fn parse_range(s: &str) -> Option<SubRange> {
     Some(SubRange::Range(a, a))
 }
 
+/// Parse `:[range]{m|move|t|co|copy} {dest}`. Returns `None` (so the caller falls
+/// through) unless the command word and a valid destination address are present.
+fn parse_move_copy(trimmed: &str) -> Option<ExCommand> {
+    // Consume an optional leading range (same character set as a `:s` range).
+    let bytes = trimmed.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        let c = bytes[i] as char;
+        if c.is_ascii_digit() || matches!(c, ',' | '%' | '.' | '$') {
+            i += 1;
+        } else {
+            break;
+        }
+    }
+    let range_str = &trimmed[..i];
+    let after = &trimmed[i..];
+    // Identify the command word (longest match first) and whether it's a copy.
+    let (copy, tok_len) = if let Some(r) = after.strip_prefix("move") {
+        let _ = r;
+        (false, 4)
+    } else if after.starts_with("copy") {
+        (true, 4)
+    } else if after.starts_with("co") {
+        (true, 2)
+    } else if after.starts_with('m') {
+        (false, 1)
+    } else if after.starts_with('t') {
+        (true, 1)
+    } else {
+        return None;
+    };
+    let dest = parse_addr(after[tok_len..].trim())?;
+    let range = parse_range(range_str)?;
+    if copy {
+        Some(ExCommand::CopyLines { range, dest })
+    } else {
+        Some(ExCommand::MoveLines { range, dest })
+    }
+}
+
 fn parse_addr(s: &str) -> Option<LineAddr> {
     match s.trim() {
         "." => Some(LineAddr::Current),
@@ -383,6 +432,34 @@ mod tests {
         assert_eq!(parse("w"), ExCommand::Write(None));
         assert_eq!(parse("w out.rs"), ExCommand::Write(Some("out.rs".into())));
         assert_eq!(parse("write foo"), ExCommand::Write(Some("foo".into())));
+    }
+
+    #[test]
+    fn move_and_copy_variants() {
+        assert_eq!(
+            parse("m0"),
+            ExCommand::MoveLines { range: SubRange::CurrentLine, dest: LineAddr::Num(0) }
+        );
+        assert_eq!(
+            parse("1,3m$"),
+            ExCommand::MoveLines {
+                range: SubRange::Range(LineAddr::Num(1), LineAddr::Num(3)),
+                dest: LineAddr::Last
+            }
+        );
+        assert_eq!(
+            parse("t."),
+            ExCommand::CopyLines { range: SubRange::CurrentLine, dest: LineAddr::Current }
+        );
+        assert_eq!(
+            parse("2,4copy0"),
+            ExCommand::CopyLines {
+                range: SubRange::Range(LineAddr::Num(2), LineAddr::Num(4)),
+                dest: LineAddr::Num(0)
+            }
+        );
+        // `colo`/`colorscheme` must still reach the theme command, not copy.
+        assert_eq!(parse("colo"), ExCommand::SetTheme(None));
     }
 
     #[test]
