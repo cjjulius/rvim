@@ -127,9 +127,9 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   Normal-mode command (e.g. `Ctrl-o dd`, `Ctrl-o 0`) and returns to insert.
 - **Copy adjacent char:** in insert mode, `Ctrl-e` / `Ctrl-y` insert the character
   directly below / above the cursor.
-- **Reflow:** `gq{motion}` / `gqq` (and `gw`) rewrap lines to `:set textwidth=N`
-  (default 79), preserving the first line's indent — great for comments and prose.
-  Works on a visual selection too.
+- **Reflow:** `gq{motion}` / `gqq` / `gqip` / `gqap` (and `gw`) rewrap lines to
+  `:set textwidth=N` (default 79), preserving the first line's indent — great for
+  comments and prose. Works on a visual selection too.
 - **Repeat:** `.` repeats the last change (a delete, paste, replace, indent, or a
   whole insert/change session); a count repeats it that many times (`3.`).
 - **Info:** `Ctrl-g` shows the file name, modified flag, line count and position;
@@ -402,7 +402,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **394 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **395 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

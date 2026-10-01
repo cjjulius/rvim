@@ -2223,6 +2223,21 @@
     }
 
     #[test]
+    fn gqip_reflows_paragraph() {
+        let mut ed = ed_with("the quick brown fox\n\nnext para");
+        ed.textwidth = 10;
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('g'));
+        ed.handle_key(key('q'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('p')); // gqip — reflow the inner paragraph
+        assert_eq!(ed.buffer.line(0), Some("the quick"));
+        assert_eq!(ed.buffer.line(1), Some("brown fox"));
+        assert_eq!(ed.buffer.line(2), Some("")); // blank separator preserved
+        assert_eq!(ed.buffer.line(3), Some("next para"));
+    }
+
+    #[test]
     fn reflow_wraps_current_line_at_textwidth() {
         let mut ed = ed_with("the quick brown fox jumps over the lazy dog");
         ed.textwidth = 20;

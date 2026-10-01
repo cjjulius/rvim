@@ -136,6 +136,8 @@ pub struct Editor {
     pending_comment: bool,
     /// `gq` was pressed, awaiting a motion (or `q`) that selects lines to reflow.
     pending_format: bool,
+    /// `gq` + `i`/`a` was pressed, awaiting the text-object char (e.g. `gqip`).
+    pending_format_obj: Option<char>,
     /// `:set textwidth` — wrap column for `gq` reflow (0 means use 79).
     pub textwidth: usize,
     /// `:set list` — show tabs and trailing whitespace with markers.
@@ -280,6 +282,7 @@ impl Editor {
             pending_case_obj: None,
             pending_comment: false,
             pending_format: false,
+            pending_format_obj: None,
             textwidth: 0,
             list: false,
             cursorline: true,
@@ -1292,6 +1295,7 @@ impl Editor {
             && self.pending_case_obj.is_none()
             && !self.pending_comment
             && !self.pending_format
+            && self.pending_format_obj.is_none()
             && !self.pending_replace
             && self.pending_find.is_none()
             && self.pending_bracket.is_none()
@@ -1956,6 +1960,13 @@ impl Editor {
         // Motion (or doubled `q`) after `gq` — reflow those lines.
         if self.pending_format {
             self.pending_format = false;
+            // `gqip` / `gqap` — wait for the text-object char after i/a.
+            if matches!(key.code, KeyCode::Char('i') | KeyCode::Char('a')) {
+                if let KeyCode::Char(iora) = key.code {
+                    self.pending_format_obj = Some(iora);
+                }
+                return Action::None;
+            }
             let rows = match key.code {
                 KeyCode::Char('q') => Some((self.cursor.row, self.cursor.row)),
                 code => self.motion_target(code, 1).map(|t| match t {
@@ -1965,6 +1976,20 @@ impl Editor {
             };
             if let Some((a, b)) = rows {
                 self.reflow_lines(a, b);
+            }
+            return Action::None;
+        }
+
+        // Text-object char after `gq` + `i`/`a` (e.g. `gqip` reflows a paragraph).
+        if let Some(iora) = self.pending_format_obj.take() {
+            if let KeyCode::Char(obj) = key.code {
+                if let Some(t) = self.text_object(iora, obj) {
+                    let (a, b) = match t {
+                        OpTarget::Lines(a, b) => (a, b),
+                        OpTarget::Chars(_, _) => (self.cursor.row, self.cursor.row),
+                    };
+                    self.reflow_lines(a, b);
+                }
             }
             return Action::None;
         }
