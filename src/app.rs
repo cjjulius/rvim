@@ -581,6 +581,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tJ / gJ             join lines (with / without space)\n\
          \tu / Ctrl-r          undo / redo\n\
          \t.                  repeat last change\n\
+         \tCtrl-a / Ctrl-x    increment / decrement number\n\
          \n\
          SEARCH\n\
          \t/pat  ?pat         search fwd / back (regex)  n / N  next / prev\n\
