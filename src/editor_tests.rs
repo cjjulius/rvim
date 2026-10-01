@@ -1614,6 +1614,50 @@
     }
 
     #[test]
+    fn sentence_motion_forward() {
+        let mut ed = ed_with("One. Two. Three.");
+        ed.handle_key(key(')')); // -> start of "Two"
+        assert_eq!(ed.cursor.col, 5);
+        ed.handle_key(key(')')); // -> start of "Three"
+        assert_eq!(ed.cursor.col, 10);
+    }
+
+    #[test]
+    fn sentence_motion_backward() {
+        let mut ed = ed_with("One. Two. Three.");
+        ed.cursor = Position::new(0, 12); // mid "Three"
+        ed.handle_key(key('(')); // -> start of current sentence "Three"
+        assert_eq!(ed.cursor.col, 10);
+        ed.handle_key(key('(')); // already at start -> previous "Two"
+        assert_eq!(ed.cursor.col, 5);
+    }
+
+    #[test]
+    fn sentence_motion_crosses_lines() {
+        let mut ed = ed_with("First.\nSecond.");
+        ed.handle_key(key(')')); // -> start of the next sentence on line 1
+        assert_eq!(ed.cursor, Position::new(1, 0));
+    }
+
+    #[test]
+    fn das_deletes_sentence_with_trailing_space() {
+        let mut ed = ed_with("One. Two. Three.");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('s')); // das on "One. "
+        assert_eq!(ed.buffer.line(0), Some("Two. Three."));
+    }
+
+    #[test]
+    fn dis_deletes_inner_sentence() {
+        let mut ed = ed_with("One. Two.");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('s')); // dis on "One." keeps the trailing space
+        assert_eq!(ed.buffer.line(0), Some(" Two."));
+    }
+
+    #[test]
     fn paragraph_text_object_dip() {
         let mut ed = ed_with("a\nb\n\nc");
         ed.handle_key(key('d'));
