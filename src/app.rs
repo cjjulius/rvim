@@ -780,7 +780,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t{{ / }}             paragraph back / forward\n\
          \t[[ ]] [] ][         section back/fwd (open brace), close-brace variants\n\
          \tf/F/t/T <c>        find char on line   ; ,  repeat / reverse\n\
-         \t%                  jump to matching bracket () [] {{}}\n\
+         \t%                  jump to matching bracket () [] {{}}   <n>%  n% of file\n\
          \t0 / ^ / $ / g_      line start / first-nonblank / end / last-nonblank\n\
          \t+ / - / _  |        line first-nonblank down/up/down   | = column\n\
          \tgg / G             top / bottom (or <n>G, :<n>)\n\

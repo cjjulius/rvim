@@ -228,6 +228,28 @@
     }
 
     #[test]
+    fn count_percent_jumps_to_line() {
+        let mut ed = big_buffer(100); // 100 lines
+        ed.handle_key(key('5'));
+        ed.handle_key(key('0'));
+        ed.handle_key(key('%')); // 50% -> line 50 -> row 49
+        assert_eq!(ed.cursor.row, 49);
+        ed.handle_key(key('1'));
+        ed.handle_key(key('0'));
+        ed.handle_key(key('0'));
+        ed.handle_key(key('%')); // 100% -> last line
+        assert_eq!(ed.cursor.row, 99);
+    }
+
+    #[test]
+    fn percent_without_count_matches_bracket() {
+        let mut ed = ed_with("a(b)c");
+        ed.cursor = Position::new(0, 1); // on '('
+        ed.handle_key(key('%'));
+        assert_eq!(ed.cursor.col, 3); // matching ')'
+    }
+
+    #[test]
     fn ctrl_f_and_b_page_scroll() {
         let mut ed = big_buffer(100); // view_rows = 10 -> step = 8 (2-line overlap)
         ed.handle_key(ctrl('f'));
