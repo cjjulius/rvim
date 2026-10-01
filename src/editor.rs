@@ -510,14 +510,18 @@ impl Editor {
     /// Execute a `:g`/`:v` global command: run `command` on every line matching
     /// (or, when `invert`, not matching) `pattern`. Supports `d`/`delete` and a
     /// `:s` substitution. Returns the number of lines/substitutions affected.
-    pub fn global(&mut self, pattern: &str, invert: bool, command: &str) -> usize {
+    /// The 0-based rows matching `pattern` (or not, when `invert`), for `:g`/`:v`.
+    pub fn global_rows(&self, pattern: &str, invert: bool) -> Vec<usize> {
         let Some(re) = pattern::build(pattern) else {
-            return 0;
+            return Vec::new();
         };
-        let n = self.buffer.line_count();
-        let matches: Vec<usize> = (0..n)
+        (0..self.buffer.line_count())
             .filter(|&i| re.is_match(self.buffer.line(i).unwrap_or("")) != invert)
-            .collect();
+            .collect()
+    }
+
+    pub fn global(&mut self, pattern: &str, invert: bool, command: &str) -> usize {
+        let matches = self.global_rows(pattern, invert);
         if matches.is_empty() {
             return 0;
         }

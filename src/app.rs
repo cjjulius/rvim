@@ -678,6 +678,23 @@ impl App {
             } => {
                 if command.is_empty() {
                     self.editor.message = "E471: Argument required".into();
+                } else if let command::ExCommand::Normal { keys, .. } =
+                    command::parse(command.trim())
+                {
+                    // `:g/pat/normal {keys}` — run the keys on each matching line.
+                    // Process bottom-to-top so earlier indices stay valid even if
+                    // a key changes the line count.
+                    let rows = self.editor.global_rows(&pattern, invert);
+                    let count = rows.len();
+                    for &row in rows.iter().rev() {
+                        if row >= self.editor.buffer.line_count() {
+                            continue;
+                        }
+                        self.editor.cursor.row = row;
+                        self.editor.cursor.col = 0;
+                        self.feed_normal_keys(&keys);
+                    }
+                    self.editor.message = format!("{count} line(s) affected");
                 } else {
                     let affected = self.editor.global(&pattern, invert, &command);
                     self.editor.message = format!("{affected} line(s) affected");
@@ -958,7 +975,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tCtrl-^ / :b#       switch to the alternate (last) buffer\n\
          \t:marks :reg :jumps list marks / registers / jump list\n\
          \t:s/pat/rep/[gin]   substitute (g all, i ignore-case, n count only)\n\
-         \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///)\n\
+         \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///, normal)\n\
          \t:[range]norm {{keys}}  run Normal-mode keys (per line over a range)\n\
          \t:theme <name>      themes: {themes}\n\
          \t:set number|nonumber   :set relativenumber|nornu\n\

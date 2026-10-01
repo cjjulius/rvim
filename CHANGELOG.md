@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Global command
+- `:g/re/normal {keys}` (and `:v/…`) runs Normal-mode keystrokes on each
+  matching line, processed bottom-to-top so line-count changes (e.g.
+  `:g/re/normal dd`) stay correct.
+
 ### Undo
 - `u` and `Ctrl-r` take a count (`3u`, `2Ctrl-r`), and `:earlier [N]` / `:later
   [N]` step back / forward through N changes.
