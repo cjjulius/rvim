@@ -1503,11 +1503,11 @@
     #[test]
     fn sort_buffer_ascending_and_reverse() {
         let mut ed = ed_with("banana\napple\ncherry");
-        ed.sort_buffer(false, false, false, false);
+        ed.sort_lines(SubRange::WholeFile, false, false, false, false);
         assert_eq!(ed.buffer.line(0), Some("apple"));
         assert_eq!(ed.buffer.line(1), Some("banana"));
         assert_eq!(ed.buffer.line(2), Some("cherry"));
-        ed.sort_buffer(true, false, false, false);
+        ed.sort_lines(SubRange::WholeFile, true, false, false, false);
         assert_eq!(ed.buffer.line(0), Some("cherry"));
         assert_eq!(ed.buffer.line(2), Some("apple"));
     }
@@ -1515,7 +1515,7 @@
     #[test]
     fn sort_buffer_unique_removes_duplicates() {
         let mut ed = ed_with("b\na\nb\nc\na");
-        ed.sort_buffer(false, true, false, false);
+        ed.sort_lines(SubRange::WholeFile, false, true, false, false);
         assert_eq!(ed.buffer.line_count(), 3);
         assert_eq!(ed.buffer.line(0), Some("a"));
         assert_eq!(ed.buffer.line(1), Some("b"));
@@ -1523,9 +1523,27 @@
     }
 
     #[test]
+    fn sort_lines_range_only() {
+        let mut ed = ed_with("z\nc\na\nb\nq");
+        // :2,4sort -> sort only rows 1..=3 (c,a,b), leaving z and q in place
+        ed.sort_lines(
+            SubRange::Range(LineAddr::Num(2), LineAddr::Num(4)),
+            false,
+            false,
+            false,
+            false,
+        );
+        assert_eq!(ed.buffer.line(0), Some("z"));
+        assert_eq!(ed.buffer.line(1), Some("a"));
+        assert_eq!(ed.buffer.line(2), Some("b"));
+        assert_eq!(ed.buffer.line(3), Some("c"));
+        assert_eq!(ed.buffer.line(4), Some("q"));
+    }
+
+    #[test]
     fn sort_buffer_numeric() {
         let mut ed = ed_with("item 10\nitem 2\nitem 100\nitem 9");
-        ed.sort_buffer(false, false, true, false);
+        ed.sort_lines(SubRange::WholeFile, false, false, true, false);
         assert_eq!(ed.buffer.line(0), Some("item 2"));
         assert_eq!(ed.buffer.line(1), Some("item 9"));
         assert_eq!(ed.buffer.line(2), Some("item 10"));
@@ -1535,7 +1553,7 @@
     #[test]
     fn sort_buffer_ignorecase() {
         let mut ed = ed_with("Banana\napple\nCherry");
-        ed.sort_buffer(false, false, false, true);
+        ed.sort_lines(SubRange::WholeFile, false, false, false, true);
         assert_eq!(ed.buffer.line(0), Some("apple"));
         assert_eq!(ed.buffer.line(1), Some("Banana"));
         assert_eq!(ed.buffer.line(2), Some("Cherry"));

@@ -3536,14 +3536,25 @@ impl Editor {
 
     /// Sort every line in the buffer. `reverse` flips the order; `unique`
     /// removes duplicate lines after sorting.
-    pub fn sort_buffer(&mut self, reverse: bool, unique: bool, numeric: bool, ignorecase: bool) {
-        if self.buffer.line_count() <= 1 {
+    /// Sort the lines in `range` in place. `reverse`/`unique`/`numeric`/`ignorecase`
+    /// are vim's `:sort` flags. `unique` may shrink the range, pulling later lines
+    /// up.
+    pub fn sort_lines(
+        &mut self,
+        range: SubRange,
+        reverse: bool,
+        unique: bool,
+        numeric: bool,
+        ignorecase: bool,
+    ) {
+        let (a, b) = self.resolve_range(range);
+        if b <= a {
             return;
         }
         self.checkpoint();
-        let mut lines: Vec<String> = self.buffer.lines().to_vec();
+        let mut lines: Vec<String> =
+            (a..=b).map(|r| self.buffer.line(r).unwrap_or("").to_string()).collect();
         if numeric {
-            // Sort by the first number on each line (vim's `:sort n`).
             lines.sort_by_key(|l| first_number(l));
         } else if ignorecase {
             lines.sort_by_key(|l| l.to_lowercase());
@@ -3552,7 +3563,7 @@ impl Editor {
         }
         if unique {
             if ignorecase && !numeric {
-                lines.dedup_by(|a, b| a.to_lowercase() == b.to_lowercase());
+                lines.dedup_by(|x, y| x.to_lowercase() == y.to_lowercase());
             } else {
                 lines.dedup();
             }
@@ -3560,18 +3571,16 @@ impl Editor {
         if reverse {
             lines.reverse();
         }
-        for (row, line) in lines.iter().enumerate() {
-            if row < self.buffer.line_count() {
-                self.buffer.set_line(row, line.clone());
-            } else {
-                self.buffer.insert_line(row, line.clone());
-            }
+        // Insert the sorted lines before the range, then delete the originals, so
+        // the buffer is never momentarily empty (no sentinel blank line is left).
+        let count = b - a + 1;
+        for (k, line) in lines.iter().enumerate() {
+            self.buffer.insert_line(a + k, line.clone());
         }
-        // Remove any surplus lines if `unique` shrank the buffer.
-        while self.buffer.line_count() > lines.len() {
-            self.buffer.delete_line(self.buffer.line_count() - 1);
+        for _ in 0..count {
+            self.buffer.delete_line(a + lines.len());
         }
-        self.cursor = Position::default();
+        self.cursor = Position::new(a, 0);
         self.clamp_cursor(false);
     }
 

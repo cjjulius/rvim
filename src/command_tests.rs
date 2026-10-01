@@ -281,6 +281,7 @@
     #[test]
     fn sort_variants() {
         let base = |reverse, unique, numeric, ignorecase| ExCommand::Sort {
+            range: SubRange::WholeFile,
             reverse,
             unique,
             numeric,
@@ -293,6 +294,18 @@
         assert_eq!(parse("sort n"), base(false, false, true, false));
         assert_eq!(parse("sort i"), base(false, false, false, true));
         assert_eq!(parse("sort! un"), base(true, true, true, false));
+        // A leading range is carried through, and `source` must not match.
+        assert_eq!(
+            parse("1,3sort"),
+            ExCommand::Sort {
+                range: SubRange::Range(LineAddr::Num(1), LineAddr::Num(3)),
+                reverse: false,
+                unique: false,
+                numeric: false,
+                ignorecase: false,
+            }
+        );
+        assert!(matches!(parse("source foo"), ExCommand::Source(_)));
     }
 
     #[test]
