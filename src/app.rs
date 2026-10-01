@@ -606,6 +606,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tq<x> q  @<x>  @@   record macro / stop / replay / repeat\n\
          \n\
          COMMANDS\n\
+         \t(command line) Up/Down  recall previous commands / searches\n\
          \t:w [file]  :q  :q!  :wq  :x   write / quit variants\n\
          \t:e <file>          open file\n\
          \t:ls :bn :bp :b<n>  list / next / prev / goto buffer   :bd close\n\

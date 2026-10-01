@@ -68,6 +68,11 @@ pub struct Editor {
     pub view_cols: usize,
 
     line_kind: LineKind,
+    /// Ex-command and search history for Up/Down recall on the command line.
+    cmd_history: Vec<String>,
+    search_history: Vec<String>,
+    hist_idx: Option<usize>,
+    hist_saved: String,
     register: Register,
     registers: HashMap<char, Register>,
     pending_register: Option<char>,
@@ -172,6 +177,10 @@ impl Editor {
             view_rows: 24,
             view_cols: 80,
             line_kind: LineKind::Ex,
+            cmd_history: Vec::new(),
+            search_history: Vec::new(),
+            hist_idx: None,
+            hist_saved: String::new(),
             register: Register::default(),
             registers: HashMap::new(),
             pending_register: None,
@@ -810,11 +819,14 @@ impl Editor {
             KeyCode::Esc => {
                 self.mode = Mode::Normal;
                 self.cmdline.clear();
+                self.hist_idx = None;
                 Action::None
             }
             KeyCode::Enter => {
                 let text = std::mem::take(&mut self.cmdline);
                 self.mode = Mode::Normal;
+                self.hist_idx = None;
+                self.push_history(&text);
                 match self.line_kind {
                     LineKind::Ex => Action::RunEx(text),
                     LineKind::SearchFwd => {
@@ -829,18 +841,82 @@ impl Editor {
                     }
                 }
             }
+            KeyCode::Up => {
+                self.history_recall(true);
+                Action::None
+            }
+            KeyCode::Down => {
+                self.history_recall(false);
+                Action::None
+            }
             KeyCode::Backspace => {
+                self.hist_idx = None;
                 if self.cmdline.pop().is_none() {
                     self.mode = Mode::Normal;
                 }
                 Action::None
             }
             KeyCode::Char(c) => {
+                self.hist_idx = None;
                 self.cmdline.push(c);
                 Action::None
             }
             _ => Action::None,
         }
+    }
+
+    fn push_history(&mut self, text: &str) {
+        if text.is_empty() {
+            return;
+        }
+        let hist = if self.line_kind == LineKind::Ex {
+            &mut self.cmd_history
+        } else {
+            &mut self.search_history
+        };
+        if hist.last().map(|s| s.as_str()) != Some(text) {
+            hist.push(text.to_string());
+            if hist.len() > 100 {
+                hist.remove(0);
+            }
+        }
+    }
+
+    /// Up (`older = true`) / Down recall through the active history list.
+    fn history_recall(&mut self, older: bool) {
+        let hist = if self.line_kind == LineKind::Ex {
+            &self.cmd_history
+        } else {
+            &self.search_history
+        };
+        if hist.is_empty() {
+            return;
+        }
+        let len = hist.len();
+        let mut idx = match self.hist_idx {
+            Some(i) => i,
+            None => {
+                self.hist_saved = self.cmdline.clone();
+                len
+            }
+        };
+        if older {
+            if idx == 0 {
+                return;
+            }
+            idx -= 1;
+        } else {
+            if idx >= len {
+                return;
+            }
+            idx += 1;
+        }
+        self.cmdline = if idx >= len {
+            self.hist_saved.clone()
+        } else {
+            hist[idx].clone()
+        };
+        self.hist_idx = Some(idx);
     }
 
     fn handle_insert(&mut self, key: KeyEvent) {
@@ -1557,16 +1633,19 @@ impl Editor {
                 self.mode = Mode::Command;
                 self.line_kind = LineKind::Ex;
                 self.cmdline.clear();
+                self.hist_idx = None;
             }
             KeyCode::Char('/') => {
                 self.mode = Mode::Command;
                 self.line_kind = LineKind::SearchFwd;
                 self.cmdline.clear();
+                self.hist_idx = None;
             }
             KeyCode::Char('?') => {
                 self.mode = Mode::Command;
                 self.line_kind = LineKind::SearchBack;
                 self.cmdline.clear();
+                self.hist_idx = None;
             }
             KeyCode::Esc => {
                 if self.mode.is_visual() {
@@ -3810,6 +3889,48 @@ mod tests {
 
     fn ctrl(c: char) -> KeyEvent {
         KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL)
+    }
+
+    #[test]
+    fn command_history_recall() {
+        let mut ed = ed_with("x");
+        // Run two ex commands to build history.
+        ed.handle_key(key(':'));
+        for c in "set number".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Enter));
+        ed.handle_key(key(':'));
+        for c in "noh".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Enter));
+        // Open command line, Up recalls most recent, Up again older.
+        ed.handle_key(key(':'));
+        ed.handle_key(special(KeyCode::Up));
+        assert_eq!(ed.cmdline, "noh");
+        ed.handle_key(special(KeyCode::Up));
+        assert_eq!(ed.cmdline, "set number");
+        ed.handle_key(special(KeyCode::Down));
+        assert_eq!(ed.cmdline, "noh");
+    }
+
+    #[test]
+    fn search_history_is_separate() {
+        let mut ed = ed_with("foo bar");
+        ed.handle_key(key(':'));
+        for c in "wq".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Esc)); // not recorded (esc), use a real run instead
+        ed.handle_key(key('/'));
+        for c in "bar".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Enter)); // search history gets "bar"
+        ed.handle_key(key('/'));
+        ed.handle_key(special(KeyCode::Up));
+        assert_eq!(ed.cmdline, "bar");
     }
 
     #[test]
