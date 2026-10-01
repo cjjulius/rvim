@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Insert mode
+- Digraph input: `Ctrl-k` plus two characters composes a special character
+  (accented Latin letters, ligatures, currency, and common math/arrow symbols),
+  accepting the two keys in either order like vim. Composes within dot-repeat.
+
 ### Motions
 - `[(` `[{` `])` `]}` jump to the (counted) unmatched enclosing bracket — the
   open bracket searching backward, the close searching forward, with inner

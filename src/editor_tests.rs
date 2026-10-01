@@ -720,6 +720,64 @@
     }
 
     #[test]
+    fn digraph_inserts_accented_letter() {
+        let mut ed = ed_with("");
+        ed.handle_key(key('i'));
+        ed.handle_key(ctrl('k'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key(':')); // Ctrl-k a : -> ä
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("ä"));
+    }
+
+    #[test]
+    fn digraph_accepts_reversed_order() {
+        let mut ed = ed_with("");
+        ed.handle_key(key('i'));
+        ed.handle_key(ctrl('k'));
+        ed.handle_key(key(':'));
+        ed.handle_key(key('a')); // reversed order still composes ä
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("ä"));
+    }
+
+    #[test]
+    fn digraph_inserts_symbol_and_continues_typing() {
+        let mut ed = ed_with("");
+        ed.handle_key(key('i'));
+        ed.handle_key(ctrl('k'));
+        ed.handle_key(key('-'));
+        ed.handle_key(key('>')); // Ctrl-k - > -> →
+        ed.handle_key(key('x')); // normal typing resumes
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("→x"));
+    }
+
+    #[test]
+    fn digraph_escape_cancels() {
+        let mut ed = ed_with("");
+        ed.handle_key(key('i'));
+        ed.handle_key(ctrl('k'));
+        ed.handle_key(special(KeyCode::Esc)); // cancel the digraph, stay in insert
+        assert_eq!(ed.mode, Mode::Insert);
+        ed.handle_key(key('z'));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("z"));
+    }
+
+    #[test]
+    fn digraph_repeats_with_dot() {
+        let mut ed = ed_with("");
+        ed.handle_key(key('i'));
+        ed.handle_key(ctrl('k'));
+        ed.handle_key(key('o'));
+        ed.handle_key(key(':')); // insert ö
+        ed.handle_key(special(KeyCode::Esc));
+        ed.handle_key(key('.')); // dot-repeat the whole insert
+        assert_eq!(ed.buffer.line(0), Some("öö"));
+    }
+
+    #[test]
     fn command_history_recall() {
         let mut ed = ed_with("x");
         // Run two ex commands to build history.
