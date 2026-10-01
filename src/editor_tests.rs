@@ -2060,3 +2060,59 @@
         assert_eq!(subs, 2);
         assert_eq!(ed.buffer.line(0), Some("remove"));
     }
+
+    #[test]
+    fn copy_lines_duplicates_range_at_dest() {
+        let mut ed = ed_with("a\nb\nc");
+        // :1,2t$ -> copy lines 1-2 to after the last line
+        ed.copy_lines(
+            SubRange::Range(LineAddr::Num(1), LineAddr::Num(2)),
+            LineAddr::Last,
+        );
+        assert_eq!(ed.buffer.line(3), Some("a"));
+        assert_eq!(ed.buffer.line(4), Some("b"));
+        assert_eq!(ed.buffer.line_count(), 5);
+        assert_eq!(ed.cursor.row, 4); // on the last copied line
+    }
+
+    #[test]
+    fn move_lines_relocates_range() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        // :1,2m$ -> move lines 1-2 to the end
+        ed.move_lines(
+            SubRange::Range(LineAddr::Num(1), LineAddr::Num(2)),
+            LineAddr::Last,
+        );
+        assert_eq!(ed.buffer.line(0), Some("c"));
+        assert_eq!(ed.buffer.line(1), Some("d"));
+        assert_eq!(ed.buffer.line(2), Some("a"));
+        assert_eq!(ed.buffer.line(3), Some("b"));
+        assert_eq!(ed.buffer.line_count(), 4);
+    }
+
+    #[test]
+    fn move_lines_to_top_with_zero() {
+        let mut ed = ed_with("a\nb\nc");
+        // :3m0 -> move line 3 to the top
+        ed.move_lines(
+            SubRange::Range(LineAddr::Num(3), LineAddr::Num(3)),
+            LineAddr::Num(0),
+        );
+        assert_eq!(ed.buffer.line(0), Some("c"));
+        assert_eq!(ed.buffer.line(1), Some("a"));
+        assert_eq!(ed.buffer.line(2), Some("b"));
+    }
+
+    #[test]
+    fn move_lines_into_itself_is_rejected() {
+        let mut ed = ed_with("a\nb\nc");
+        // :1,2m2 -> destination inside the moved block; nothing changes
+        ed.move_lines(
+            SubRange::Range(LineAddr::Num(1), LineAddr::Num(2)),
+            LineAddr::Num(2),
+        );
+        assert_eq!(ed.buffer.line(0), Some("a"));
+        assert_eq!(ed.buffer.line(1), Some("b"));
+        assert_eq!(ed.buffer.line(2), Some("c"));
+        assert!(ed.message.contains("E134"));
+    }

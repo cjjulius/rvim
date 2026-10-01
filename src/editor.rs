@@ -694,6 +694,66 @@ impl Editor {
         }
     }
 
+    /// Resolve a `:move`/`:copy` destination to an insertion index in
+    /// `0..=line_count` (lines are inserted starting at that index). Address `0`
+    /// means "before the first line"; line `n` means "after line n".
+    fn resolve_dest(&self, addr: LineAddr) -> usize {
+        let n = self.buffer.line_count();
+        match addr {
+            LineAddr::Current => (self.cursor.row + 1).min(n),
+            LineAddr::Last => n,
+            LineAddr::Num(0) => 0,
+            LineAddr::Num(k) => k.min(n),
+        }
+    }
+
+    /// `:[range]copy dest` — copy the range's lines to after `dest`. The cursor
+    /// lands on the last copied line.
+    pub fn copy_lines(&mut self, range: SubRange, dest: LineAddr) {
+        let (s, e) = self.resolve_range(range);
+        let dest_ins = self.resolve_dest(dest);
+        self.checkpoint();
+        let lines: Vec<String> = (s..=e)
+            .map(|r| self.buffer.line(r).unwrap_or("").to_string())
+            .collect();
+        for (k, text) in lines.iter().enumerate() {
+            self.buffer.insert_line(dest_ins + k, text.clone());
+        }
+        self.cursor.row = (dest_ins + lines.len()).saturating_sub(1);
+        self.cursor.col = 0;
+        self.move_first_nonblank();
+        self.message = format!("{} line(s) copied", lines.len());
+    }
+
+    /// `:[range]move dest` — move the range's lines to after `dest`. Rejects a
+    /// destination inside the moved block (vim's E134). The cursor lands on the
+    /// last moved line.
+    pub fn move_lines(&mut self, range: SubRange, dest: LineAddr) {
+        let (s, e) = self.resolve_range(range);
+        let dest_ins = self.resolve_dest(dest);
+        if dest_ins >= s && dest_ins <= e + 1 {
+            self.message = "E134: cannot move lines into themselves".into();
+            return;
+        }
+        self.checkpoint();
+        let count = e - s + 1;
+        let lines: Vec<String> = (s..=e)
+            .map(|r| self.buffer.line(r).unwrap_or("").to_string())
+            .collect();
+        for _ in 0..count {
+            self.buffer.delete_line(s);
+        }
+        // Destinations past the removed block shift up by `count`.
+        let ins = if dest_ins > e { dest_ins - count } else { dest_ins };
+        for (k, text) in lines.iter().enumerate() {
+            self.buffer.insert_line(ins + k, text.clone());
+        }
+        self.cursor.row = (ins + count).saturating_sub(1);
+        self.cursor.col = 0;
+        self.move_first_nonblank();
+        self.message = format!("{count} line(s) moved");
+    }
+
     /// The visual selection as an inclusive `(start, end)` ordered pair, if in a
     /// visual mode.
     pub fn selection(&self) -> Option<(Position, Position)> {
