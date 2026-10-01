@@ -122,7 +122,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
   handling follows `:set ignorecase` and `:set smartcase` (an uppercase letter in
   the pattern forces a case-sensitive search), with per-pattern `\c`/`\C` overrides.
   With `:set incsearch` (on by default) the first match is previewed as you type;
-  `Enter` jumps to it, `Esc` returns to where you started.
+  `Enter` jumps to it, `Esc` returns to where you started. After a search (and on
+  `n`/`N`) a `[index/total]` count shows where you are among the matches.
 
 ### Global command (`:g` / `:v`)
 Run a command on every line matching a pattern:
@@ -335,7 +336,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **291 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **292 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
