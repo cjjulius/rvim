@@ -118,6 +118,8 @@ pub enum ExCommand {
     ToggleWrapScan(bool),
     /// `:set cursorline` / `:set nocursorline` — highlight the cursor's line.
     ToggleCursorLine(bool),
+    /// `:set cursorcolumn` / `:set nocursorcolumn` — highlight the cursor's column.
+    ToggleCursorColumn(bool),
     /// `:set colorcolumn=N` — highlight column N as a guide (0 disables).
     SetColorColumn(usize),
     /// `:sort` / `:sort!` / `:sort u` — sort buffer lines.
@@ -608,6 +610,8 @@ fn parse_set(rest: &str) -> ExCommand {
         "nowrapscan" | "nows" => ExCommand::ToggleWrapScan(false),
         "cursorline" | "cul" => ExCommand::ToggleCursorLine(true),
         "nocursorline" | "nocul" => ExCommand::ToggleCursorLine(false),
+        "cursorcolumn" | "cuc" => ExCommand::ToggleCursorColumn(true),
+        "nocursorcolumn" | "nocuc" => ExCommand::ToggleCursorColumn(false),
         _ => {
             if let Some(v) = opt
                 .strip_prefix("ft=")

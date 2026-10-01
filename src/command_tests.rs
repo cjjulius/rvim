@@ -210,6 +210,14 @@
     }
 
     #[test]
+    fn set_cursorcolumn() {
+        assert_eq!(parse("set cursorcolumn"), ExCommand::ToggleCursorColumn(true));
+        assert_eq!(parse("set cuc"), ExCommand::ToggleCursorColumn(true));
+        assert_eq!(parse("set nocursorcolumn"), ExCommand::ToggleCursorColumn(false));
+        assert_eq!(parse("set nocuc"), ExCommand::ToggleCursorColumn(false));
+    }
+
+    #[test]
     fn set_wrapscan() {
         assert_eq!(parse("set wrapscan"), ExCommand::ToggleWrapScan(true));
         assert_eq!(parse("set ws"), ExCommand::ToggleWrapScan(true));

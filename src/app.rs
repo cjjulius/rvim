@@ -615,6 +615,10 @@ impl App {
                 self.editor.cursorline = on;
                 self.editor.message = format!("cursorline {}", if on { "on" } else { "off" });
             }
+            ExCommand::ToggleCursorColumn(on) => {
+                self.editor.cursorcolumn = on;
+                self.editor.message = format!("cursorcolumn {}", if on { "on" } else { "off" });
+            }
             ExCommand::SetColorColumn(n) => {
                 self.editor.colorcolumn = n;
                 self.editor.message = format!("colorcolumn={n}");
@@ -961,6 +965,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set incsearch|nois    preview match while typing /?\n\
          \t:set list|nolist       show tabs / trailing whitespace\n\
          \t:set cursorline|nocul  highlight the cursor's line\n\
+         \t:set cursorcolumn|nocuc  highlight the cursor's column\n\
          \t:set colorcolumn=N     highlight column N (cc=0 off)\n\
          \t:set wrapscan|nows     search wraps around the file (default on)\n\
          \t:set ft=<lang>     rust tsql pgsql trino snowflake z80 sql\n\

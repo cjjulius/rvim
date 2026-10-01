@@ -195,9 +195,15 @@ pub fn render(
             in_block = next_block;
             let match_col = paren.filter(|p| p.row == row).map(|p| p.col);
             let color_col = editor.colorcolumn.checked_sub(1);
+            let cursor_col = if editor.cursorcolumn {
+                Some(editor.cursor.col)
+            } else {
+                None
+            };
             draw_text_line(
                 out, line, &tokens, theme, &layout, editor.left, row, line_bg, sel, linewise,
                 search, editor.tabstop.max(1), block, match_col, editor.list, color_col,
+                cursor_col,
             )?;
         } else {
             // Past end of buffer: tilde like vim.
@@ -331,6 +337,7 @@ fn draw_text_line(
     match_col: Option<usize>,
     list: bool,
     color_col: Option<usize>,
+    cursor_col: Option<usize>,
 ) -> io::Result<()> {
     let chars: Vec<(usize, char)> = line.char_indices().collect();
     let matches = search.map(|re| crate::pattern::match_ranges(re, line)).unwrap_or_default();
@@ -384,6 +391,8 @@ fn draw_text_line(
             (fg[ci], theme.search_bg)
         } else if color_col == Some(ci) {
             (fg[ci], theme.color_column_bg)
+        } else if cursor_col == Some(ci) {
+            (fg[ci], theme.cursor_line_bg)
         } else {
             (fg[ci], line_bg)
         };
@@ -450,6 +459,20 @@ fn draw_text_line(
                 out,
                 Print(" ".repeat(screen - printed)),
                 SetBackgroundColor(theme.color_column_bg),
+                Print(" "),
+                SetBackgroundColor(line_bg),
+                Print(" ".repeat(width - screen - 1)),
+            )?;
+        } else if let Some(screen) = cursor_col
+            .filter(|&c| c >= left)
+            .map(|c| c - left)
+            .filter(|&s| s >= printed && s < width)
+        {
+            // The cursorcolumn falls in the padding past the line's end.
+            queue!(
+                out,
+                Print(" ".repeat(screen - printed)),
+                SetBackgroundColor(theme.cursor_line_bg),
                 Print(" "),
                 SetBackgroundColor(line_bg),
                 Print(" ".repeat(width - screen - 1)),
@@ -880,7 +903,7 @@ mod tests {
         let mut buf: Vec<u8> = Vec::new();
         draw_text_line(
             &mut buf, "a\tb  ", &[], &theme, &layout, 0, 0, theme.bg, None, false, None, 4,
-            None, None, true, None,
+            None, None, true, None, None,
         )
         .unwrap();
         let out = String::from_utf8_lossy(&buf);
@@ -896,7 +919,7 @@ mod tests {
         let mut buf: Vec<u8> = Vec::new();
         draw_text_line(
             &mut buf, "a\tb  ", &[], &theme, &layout, 0, 0, theme.bg, None, false, None, 4,
-            None, None, false, None,
+            None, None, false, None, None,
         )
         .unwrap();
         let out = String::from_utf8_lossy(&buf);
