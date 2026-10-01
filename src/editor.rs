@@ -61,6 +61,15 @@ pub struct Editor {
     /// With `ignorecase`, searches stay insensitive only while the pattern is
     /// all-lowercase; an uppercase letter makes it case-sensitive (`:set smartcase`).
     pub smartcase: bool,
+    /// Preview the first match while typing a `/` or `?` search (`:set incsearch`).
+    pub incsearch: bool,
+    /// Cursor position when a search was started, for incsearch preview/restore.
+    search_origin: Position,
+    /// Search highlight state saved on search entry, restored if the search is
+    /// cancelled with Esc (so an incsearch preview leaves no trace).
+    saved_search_re: Option<Regex>,
+    saved_last_search: String,
+    saved_hlsearch: bool,
     /// Whether Enter in insert mode copies the previous line's indentation.
     pub autoindent: bool,
     /// Insert spaces instead of a tab character (`:set expandtab`).
@@ -186,6 +195,11 @@ impl Editor {
             hlsearch: true,
             ignorecase: false,
             smartcase: false,
+            incsearch: true,
+            search_origin: Position::default(),
+            saved_search_re: None,
+            saved_last_search: String::new(),
+            saved_hlsearch: true,
             autoindent: true,
             expandtab: true,
             shiftwidth: 4,
@@ -391,6 +405,24 @@ impl Editor {
             return false;
         }
         true
+    }
+
+    /// Begin a `/` (forward) or `?` (backward) search: switch to the command
+    /// line and snapshot the cursor and highlight state for incsearch preview and
+    /// Esc restore.
+    fn enter_search(&mut self, forward: bool) {
+        self.mode = Mode::Command;
+        self.line_kind = if forward {
+            LineKind::SearchFwd
+        } else {
+            LineKind::SearchBack
+        };
+        self.cmdline.clear();
+        self.hist_idx = None;
+        self.search_origin = self.cursor;
+        self.saved_search_re = self.search_re.clone();
+        self.saved_last_search = self.last_search.clone();
+        self.saved_hlsearch = self.hlsearch;
     }
 
     /// Set the search pattern and (re)compile its regex, enabling highlight.
@@ -882,6 +914,7 @@ impl Editor {
     fn handle_cmdline(&mut self, key: KeyEvent) -> Action {
         match key.code {
             KeyCode::Esc => {
+                self.cancel_search_preview();
                 self.mode = Mode::Normal;
                 self.cmdline.clear();
                 self.hist_idx = None;
@@ -895,11 +928,15 @@ impl Editor {
                 match self.line_kind {
                     LineKind::Ex => Action::RunEx(text),
                     LineKind::SearchFwd => {
+                        // Commit from the original position so the preview jump
+                        // doesn't make the search skip to the next match.
+                        self.cursor = self.search_origin;
                         self.set_search(text);
                         self.search(true);
                         Action::None
                     }
                     LineKind::SearchBack => {
+                        self.cursor = self.search_origin;
                         self.set_search(text);
                         self.search(false);
                         Action::None
@@ -908,22 +945,28 @@ impl Editor {
             }
             KeyCode::Up => {
                 self.history_recall(true);
+                self.update_incsearch();
                 Action::None
             }
             KeyCode::Down => {
                 self.history_recall(false);
+                self.update_incsearch();
                 Action::None
             }
             KeyCode::Backspace => {
                 self.hist_idx = None;
                 if self.cmdline.pop().is_none() {
+                    self.cancel_search_preview();
                     self.mode = Mode::Normal;
+                } else {
+                    self.update_incsearch();
                 }
                 Action::None
             }
             KeyCode::Char(c) => {
                 self.hist_idx = None;
                 self.cmdline.push(c);
+                self.update_incsearch();
                 Action::None
             }
             _ => Action::None,
@@ -1742,18 +1785,8 @@ impl Editor {
                 self.cmdline.clear();
                 self.hist_idx = None;
             }
-            KeyCode::Char('/') => {
-                self.mode = Mode::Command;
-                self.line_kind = LineKind::SearchFwd;
-                self.cmdline.clear();
-                self.hist_idx = None;
-            }
-            KeyCode::Char('?') => {
-                self.mode = Mode::Command;
-                self.line_kind = LineKind::SearchBack;
-                self.cmdline.clear();
-                self.hist_idx = None;
-            }
+            KeyCode::Char('/') => self.enter_search(true),
+            KeyCode::Char('?') => self.enter_search(false),
             KeyCode::Esc => {
                 if self.mode.is_visual() {
                     self.mode = Mode::Normal;
@@ -3305,32 +3338,93 @@ impl Editor {
         self.hlsearch = true;
         self.record_jump();
         let needle = self.last_search.clone();
+        match self.find_match(&re, forward, self.cursor) {
+            Some(pos) => {
+                self.cursor = pos;
+                let sigil = if forward { '/' } else { '?' };
+                self.message = format!("{sigil}{needle}");
+            }
+            None => self.message = format!("Pattern not found: {needle}"),
+        }
+    }
+
+    /// Undo an incsearch preview (on Esc or an emptied search line): restore the
+    /// cursor to where the search began and the highlight state to what it was.
+    fn cancel_search_preview(&mut self) {
+        if self.line_kind == LineKind::Ex {
+            return;
+        }
+        self.cursor = self.search_origin;
+        self.search_re = self.saved_search_re.take();
+        self.last_search = std::mem::take(&mut self.saved_last_search);
+        self.hlsearch = self.saved_hlsearch;
+        self.scroll_into_view();
+    }
+
+    /// Preview the first match of the in-progress `/`/`?` pattern (incsearch).
+    /// Moves the cursor to the match (or back to the search origin if the pattern
+    /// is empty or has no match) and highlights it, without committing anything.
+    fn update_incsearch(&mut self) {
+        if !self.incsearch {
+            return;
+        }
+        let forward = match self.line_kind {
+            LineKind::SearchFwd => true,
+            LineKind::SearchBack => false,
+            LineKind::Ex => return,
+        };
+        if self.cmdline.is_empty() {
+            // Nothing typed: show no preview, restore the pre-search view.
+            self.cursor = self.search_origin;
+            self.search_re = None;
+            self.scroll_into_view();
+            return;
+        }
+        let ic = self.effective_ignorecase(&self.cmdline);
+        if let Some(re) = pattern::build_opts(&self.cmdline, ic) {
+            self.cursor = self
+                .find_match(&re, forward, self.search_origin)
+                .unwrap_or(self.search_origin);
+            self.search_re = Some(re);
+            self.hlsearch = true;
+            self.scroll_into_view();
+        }
+    }
+
+    /// Find the next (`forward`) or previous match of `re`, scanning from just
+    /// after/before `origin` and wrapping around the buffer. Pure: it does not
+    /// move the cursor or touch any search state, so both `n`/`N` and the
+    /// incsearch preview can share it.
+    fn find_match(&self, re: &Regex, forward: bool, origin: Position) -> Option<Position> {
         let n = self.buffer.line_count();
+        if n == 0 {
+            return None;
+        }
         if forward {
             for step in 0..=n {
-                let row = (self.cursor.row + step) % n;
+                let row = (origin.row + step) % n;
                 let line = self.buffer.line(row).unwrap_or("");
-                let from = if step == 0 { self.byte_after_cursor() } else { 0 };
+                let from = if step == 0 {
+                    byte_after_col(line, origin.col)
+                } else {
+                    0
+                };
                 let from = from.min(line.len());
                 if let Some(m) = re.find(&line[from..]) {
                     let byte = from + m.start();
-                    self.cursor.row = row;
-                    self.cursor.col = line[..byte].chars().count();
-                    self.message = format!("/{needle}");
-                    return;
+                    return Some(Position::new(row, line[..byte].chars().count()));
                 }
             }
         } else {
             for step in 0..=n {
-                let row = (self.cursor.row + n - (step % n)) % n;
+                let row = (origin.row + n - (step % n)) % n;
                 let line = self.buffer.line(row).unwrap_or("");
                 let limit = if step == 0 {
-                    self.byte_before_cursor()
+                    byte_at_col(line, origin.col)
                 } else {
                     line.len()
                 };
                 let limit = limit.min(line.len());
-                // Last match starting before `limit`.
                 let mut best = None;
                 for m in re.find_iter(line) {
                     if m.start() < limit {
@@ -3340,30 +3434,11 @@ impl Editor {
                     }
                 }
                 if let Some(byte) = best {
-                    self.cursor.row = row;
-                    self.cursor.col = line[..byte].chars().count();
-                    self.message = format!("?{needle}");
-                    return;
+                    return Some(Position::new(row, line[..byte].chars().count()));
                 }
             }
         }
-        self.message = format!("Pattern not found: {needle}");
-    }
-
-    fn byte_after_cursor(&self) -> usize {
-        let line = self.buffer.line(self.cursor.row).unwrap_or("");
-        line.char_indices()
-            .nth(self.cursor.col + 1)
-            .map(|(i, _)| i)
-            .unwrap_or(line.len())
-    }
-
-    fn byte_before_cursor(&self) -> usize {
-        let line = self.buffer.line(self.cursor.row).unwrap_or("");
-        line.char_indices()
-            .nth(self.cursor.col)
-            .map(|(i, _)| i)
-            .unwrap_or(line.len())
+        None
     }
 
     // ---- misc ------------------------------------------------------------
@@ -3454,6 +3529,24 @@ fn order(a: Position, b: Position) -> (Position, Position) {
     } else {
         (b, a)
     }
+}
+
+/// Byte offset just after the character at column `col` (used to start a forward
+/// search one character past the origin). Falls back to the line's end.
+fn byte_after_col(line: &str, col: usize) -> usize {
+    line.char_indices()
+        .nth(col + 1)
+        .map(|(i, _)| i)
+        .unwrap_or(line.len())
+}
+
+/// Byte offset of the character at column `col` (the exclusive limit for a
+/// backward search from the origin). Falls back to the line's end.
+fn byte_at_col(line: &str, col: usize) -> usize {
+    line.char_indices()
+        .nth(col)
+        .map(|(i, _)| i)
+        .unwrap_or(line.len())
 }
 
 #[cfg(test)]
@@ -5344,6 +5437,45 @@ mod tests {
         };
         ed.substitute(&spec);
         assert_eq!(ed.buffer.line(0), Some("x x x"));
+    }
+
+    #[test]
+    fn incsearch_previews_match_and_commits() {
+        let mut ed = ed_with("alpha\nbravo\ncharlie");
+        ed.handle_key(key('/'));
+        for c in "charlie".chars() {
+            ed.handle_key(key(c));
+        }
+        assert_eq!(ed.cursor.row, 2); // previewed live while typing
+        ed.handle_key(special(KeyCode::Enter));
+        assert_eq!(ed.cursor.row, 2); // committed to the same match
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn incsearch_esc_restores_cursor() {
+        let mut ed = ed_with("alpha\nbravo\ncharlie");
+        ed.handle_key(key('/'));
+        for c in "charlie".chars() {
+            ed.handle_key(key(c));
+        }
+        assert_eq!(ed.cursor.row, 2);
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.cursor, Position::new(0, 0)); // back to where search began
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn noincsearch_skips_preview_but_commits() {
+        let mut ed = ed_with("alpha\nbravo\ncharlie");
+        ed.incsearch = false;
+        ed.handle_key(key('/'));
+        for c in "charlie".chars() {
+            ed.handle_key(key(c));
+        }
+        assert_eq!(ed.cursor.row, 0); // no live preview
+        ed.handle_key(special(KeyCode::Enter));
+        assert_eq!(ed.cursor.row, 2); // Enter still jumps
     }
 
     #[test]

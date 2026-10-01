@@ -431,6 +431,11 @@ impl App {
                 self.editor.message =
                     format!("smartcase {}", if on { "on" } else { "off" });
             }
+            ExCommand::ToggleIncSearch(on) => {
+                self.editor.incsearch = on;
+                self.editor.message =
+                    format!("incsearch {}", if on { "on" } else { "off" });
+            }
             ExCommand::Sort { reverse, unique } => {
                 let before = self.editor.buffer.line_count();
                 self.editor.sort_buffer(reverse, unique);
@@ -633,6 +638,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set autoindent|noai   :set expandtab|noet\n\
          \t:set shiftwidth=N  :set tabstop=N  :set scrolloff=N\n\
          \t:set ignorecase|noic   :set smartcase|noscs   (search case)\n\
+         \t:set incsearch|nois    preview match while typing /?\n\
          \t:set ft=<lang>     rust tsql pgsql trino snowflake z80 sql\n\
          \t:set mouse|nomouse toggle mouse support\n\
          \t:sort[!] [u]       sort lines (! reverse, u unique)\n\

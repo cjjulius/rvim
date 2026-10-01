@@ -92,6 +92,8 @@ pub enum ExCommand {
     /// `:set smartcase` / `:set nosmartcase` — uppercase in pattern forces
     /// case-sensitive search (only meaningful with `ignorecase`).
     ToggleSmartCase(bool),
+    /// `:set incsearch` / `:set noincsearch` — preview the first match while typing.
+    ToggleIncSearch(bool),
     /// `:sort` / `:sort!` / `:sort u` — sort buffer lines.
     Sort { reverse: bool, unique: bool },
     /// `:ls` / `:buffers` — list open buffers.
@@ -309,6 +311,8 @@ fn parse_set(rest: &str) -> ExCommand {
         "noignorecase" | "noic" => ExCommand::ToggleIgnoreCase(false),
         "smartcase" | "scs" => ExCommand::ToggleSmartCase(true),
         "nosmartcase" | "noscs" => ExCommand::ToggleSmartCase(false),
+        "incsearch" | "is" => ExCommand::ToggleIncSearch(true),
+        "noincsearch" | "nois" => ExCommand::ToggleIncSearch(false),
         _ => {
             if let Some(v) = opt
                 .strip_prefix("ft=")
@@ -440,6 +444,9 @@ mod tests {
         assert_eq!(parse("set smartcase"), ExCommand::ToggleSmartCase(true));
         assert_eq!(parse("set scs"), ExCommand::ToggleSmartCase(true));
         assert_eq!(parse("set noscs"), ExCommand::ToggleSmartCase(false));
+        assert_eq!(parse("set incsearch"), ExCommand::ToggleIncSearch(true));
+        assert_eq!(parse("set is"), ExCommand::ToggleIncSearch(true));
+        assert_eq!(parse("set noincsearch"), ExCommand::ToggleIncSearch(false));
     }
 
     #[test]
