@@ -106,6 +106,8 @@ pub enum ExCommand {
     ToggleSmartCase(bool),
     /// `:set incsearch` / `:set noincsearch` — preview the first match while typing.
     ToggleIncSearch(bool),
+    /// `:set list` / `:set nolist` — show tabs and trailing whitespace.
+    ToggleList(bool),
     /// `:sort` / `:sort!` / `:sort u` — sort buffer lines.
     Sort { reverse: bool, unique: bool },
     /// `:[range]m[ove] {addr}` — move the range's lines to after `dest`.
@@ -484,6 +486,8 @@ fn parse_set(rest: &str) -> ExCommand {
         "nosmartcase" | "noscs" => ExCommand::ToggleSmartCase(false),
         "incsearch" | "is" => ExCommand::ToggleIncSearch(true),
         "noincsearch" | "nois" => ExCommand::ToggleIncSearch(false),
+        "list" => ExCommand::ToggleList(true),
+        "nolist" => ExCommand::ToggleList(false),
         _ => {
             if let Some(v) = opt
                 .strip_prefix("ft=")

@@ -196,7 +196,7 @@ pub fn render(
             let match_col = paren.filter(|p| p.row == row).map(|p| p.col);
             draw_text_line(
                 out, line, &tokens, theme, &layout, editor.left, row, line_bg, sel, linewise,
-                search, editor.tabstop.max(1), block, match_col,
+                search, editor.tabstop.max(1), block, match_col, editor.list,
             )?;
         } else {
             // Past end of buffer: tilde like vim.
@@ -325,9 +325,17 @@ fn draw_text_line(
     tab_width: usize,
     block: Option<(usize, usize, usize, usize)>,
     match_col: Option<usize>,
+    list: bool,
 ) -> io::Result<()> {
     let chars: Vec<(usize, char)> = line.char_indices().collect();
     let matches = search.map(|re| crate::pattern::match_ranges(re, line)).unwrap_or_default();
+    // With `:set list`, trailing whitespace (after the last non-blank char) is
+    // shown with middot/tab markers so it's visible.
+    let trail_start = chars
+        .iter()
+        .rposition(|&(_, c)| !c.is_whitespace())
+        .map(|i| i + 1)
+        .unwrap_or(0);
 
     // Per-char foreground based on tokens (single pass).
     let kinds = char_token_kinds(&chars, tokens);
@@ -363,7 +371,7 @@ fn draw_text_line(
         let is_paren = match_col == Some(ci);
         // Priority: selection/block > matching bracket > search match > line.
         // The matched bracket is drawn in reverse video so it reads on any theme.
-        let (cfg, bg) = if selected || in_block {
+        let (mut cfg, bg) = if selected || in_block {
             (fg[ci], theme.selection_bg)
         } else if is_paren {
             (line_bg, fg[ci])
@@ -371,6 +379,28 @@ fn draw_text_line(
             (fg[ci], theme.search_bg)
         } else {
             (fg[ci], line_bg)
+        };
+        // Compute the glyph(s) for this cell, substituting list markers for
+        // whitespace. Widths are preserved so selection/search columns stay exact.
+        let plain = !(selected || in_block || is_paren || in_match);
+        let glyph: String = if ch == '\t' {
+            if list {
+                if plain {
+                    cfg = theme.gutter_fg;
+                }
+                let mut s = String::from('▸');
+                s.push_str(&"·".repeat(tab_width.saturating_sub(1)));
+                s
+            } else {
+                " ".repeat(tab_width)
+            }
+        } else if list && ci >= trail_start && ch == ' ' {
+            if plain {
+                cfg = theme.gutter_fg;
+            }
+            "·".to_string()
+        } else {
+            ch.to_string()
         };
         if !started {
             run_fg = cfg;
@@ -381,14 +411,8 @@ fn draw_text_line(
             run_fg = cfg;
             run_bg = bg;
         }
-        // Render tabs as spaces for alignment.
-        if ch == '\t' {
-            run.push_str(&" ".repeat(tab_width));
-            printed += tab_width;
-        } else {
-            run.push(ch);
-            printed += 1;
-        }
+        printed += if ch == '\t' { tab_width } else { 1 };
+        run.push_str(&glyph);
     }
     if !run.is_empty() {
         runs.push((run_fg, run_bg, run));
@@ -398,13 +422,20 @@ fn draw_text_line(
         queue!(out, SetForegroundColor(f), SetBackgroundColor(b), Print(text))?;
     }
 
-    // Pad the rest of the row with the line background.
+    // Pad the rest of the row with the line background. With `:set list`, mark the
+    // end of the actual line text with a `$` in the first padding cell.
     if printed < width {
-        queue!(
-            out,
-            SetBackgroundColor(line_bg),
-            Print(" ".repeat(width - printed))
-        )?;
+        queue!(out, SetBackgroundColor(line_bg))?;
+        if list && left <= chars.len() {
+            queue!(
+                out,
+                SetForegroundColor(theme.gutter_fg),
+                Print("$"),
+                Print(" ".repeat(width - printed - 1))
+            )?;
+        } else {
+            queue!(out, Print(" ".repeat(width - printed)))?;
+        }
     }
     Ok(())
 }
@@ -746,6 +777,37 @@ fn draw_dropdown(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn list_mode_marks_tabs_trailing_space_and_eol() {
+        let theme = crate::theme::matrix();
+        let layout = Layout::compute(80, 24, 1, false, false);
+        let mut buf: Vec<u8> = Vec::new();
+        draw_text_line(
+            &mut buf, "a\tb  ", &[], &theme, &layout, 0, 0, theme.bg, None, false, None, 4,
+            None, None, true,
+        )
+        .unwrap();
+        let out = String::from_utf8_lossy(&buf);
+        assert!(out.contains('▸')); // tab marker
+        assert!(out.contains('·')); // trailing-space / tab-fill marker
+        assert!(out.contains('$')); // end-of-line marker
+    }
+
+    #[test]
+    fn list_off_renders_no_markers() {
+        let theme = crate::theme::matrix();
+        let layout = Layout::compute(80, 24, 1, false, false);
+        let mut buf: Vec<u8> = Vec::new();
+        draw_text_line(
+            &mut buf, "a\tb  ", &[], &theme, &layout, 0, 0, theme.bg, None, false, None, 4,
+            None, None, false,
+        )
+        .unwrap();
+        let out = String::from_utf8_lossy(&buf);
+        assert!(!out.contains('▸'));
+        assert!(!out.contains('$'));
+    }
 
     #[test]
     fn draw_menu_renders_bar_and_dropdown() {

@@ -131,6 +131,8 @@ pub struct Editor {
     pending_format: bool,
     /// `:set textwidth` — wrap column for `gq` reflow (0 means use 79).
     pub textwidth: usize,
+    /// `:set list` — show tabs and trailing whitespace with markers.
+    pub list: bool,
     pending_replace: bool,
     pending_replace_count: usize,
     /// Replace-mode overtype history: `Some(orig)` for an overwritten char,
@@ -258,6 +260,7 @@ impl Editor {
             pending_comment: false,
             pending_format: false,
             textwidth: 0,
+            list: false,
             pending_replace: false,
             pending_replace_count: 1,
             replace_stack: Vec::new(),
