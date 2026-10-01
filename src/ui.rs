@@ -194,9 +194,10 @@ pub fn render(
                 syntax.highlight_stateful(editor.language, line, in_block);
             in_block = next_block;
             let match_col = paren.filter(|p| p.row == row).map(|p| p.col);
+            let color_col = editor.colorcolumn.checked_sub(1);
             draw_text_line(
                 out, line, &tokens, theme, &layout, editor.left, row, line_bg, sel, linewise,
-                search, editor.tabstop.max(1), block, match_col, editor.list,
+                search, editor.tabstop.max(1), block, match_col, editor.list, color_col,
             )?;
         } else {
             // Past end of buffer: tilde like vim.
@@ -326,6 +327,7 @@ fn draw_text_line(
     block: Option<(usize, usize, usize, usize)>,
     match_col: Option<usize>,
     list: bool,
+    color_col: Option<usize>,
 ) -> io::Result<()> {
     let chars: Vec<(usize, char)> = line.char_indices().collect();
     let matches = search.map(|re| crate::pattern::match_ranges(re, line)).unwrap_or_default();
@@ -377,6 +379,8 @@ fn draw_text_line(
             (line_bg, fg[ci])
         } else if in_match {
             (fg[ci], theme.search_bg)
+        } else if color_col == Some(ci) {
+            (fg[ci], theme.color_column_bg)
         } else {
             (fg[ci], line_bg)
         };
@@ -432,6 +436,20 @@ fn draw_text_line(
                 SetForegroundColor(theme.gutter_fg),
                 Print("$"),
                 Print(" ".repeat(width - printed - 1))
+            )?;
+        } else if let Some(screen) = color_col
+            .filter(|&c| c >= left)
+            .map(|c| c - left)
+            .filter(|&s| s >= printed && s < width)
+        {
+            // The colorcolumn falls in the padding past the line's end.
+            queue!(
+                out,
+                Print(" ".repeat(screen - printed)),
+                SetBackgroundColor(theme.color_column_bg),
+                Print(" "),
+                SetBackgroundColor(line_bg),
+                Print(" ".repeat(width - screen - 1)),
             )?;
         } else {
             queue!(out, Print(" ".repeat(width - printed)))?;
@@ -785,7 +803,7 @@ mod tests {
         let mut buf: Vec<u8> = Vec::new();
         draw_text_line(
             &mut buf, "a\tb  ", &[], &theme, &layout, 0, 0, theme.bg, None, false, None, 4,
-            None, None, true,
+            None, None, true, None,
         )
         .unwrap();
         let out = String::from_utf8_lossy(&buf);
@@ -801,7 +819,7 @@ mod tests {
         let mut buf: Vec<u8> = Vec::new();
         draw_text_line(
             &mut buf, "a\tb  ", &[], &theme, &layout, 0, 0, theme.bg, None, false, None, 4,
-            None, None, false,
+            None, None, false, None,
         )
         .unwrap();
         let out = String::from_utf8_lossy(&buf);

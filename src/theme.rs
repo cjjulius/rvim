@@ -20,6 +20,8 @@ pub struct Theme {
     pub selection_bg: Color,
     /// Background for highlighted search matches.
     pub search_bg: Color,
+    /// Background for the `:set colorcolumn` guide column.
+    pub color_column_bg: Color,
     // Gutter (line numbers).
     pub gutter_bg: Color,
     pub gutter_fg: Color,
@@ -118,6 +120,7 @@ pub fn matrix() -> Theme {
         cursor_line_bg: rgb(12, 22, 12),
         selection_bg: rgb(0, 80, 30),
         search_bg: rgb(80, 150, 40),
+        color_column_bg: rgb(20, 34, 20),
         gutter_bg: rgb(5, 8, 5),
         gutter_fg: rgb(0, 90, 30),
         current_line_nr_fg: rgb(120, 255, 120),
@@ -154,6 +157,7 @@ pub fn retrowave() -> Theme {
         cursor_line_bg: rgb(40, 30, 66),
         selection_bg: rgb(80, 50, 120),
         search_bg: rgb(160, 70, 130),
+        color_column_bg: rgb(56, 42, 86),
         gutter_bg: rgb(20, 15, 38),
         gutter_fg: rgb(110, 90, 160),
         current_line_nr_fg: rgb(255, 140, 220),
@@ -190,6 +194,7 @@ pub fn cobalt() -> Theme {
         cursor_line_bg: rgb(0, 50, 84),
         selection_bg: rgb(0, 70, 120),
         search_bg: rgb(150, 110, 0),
+        color_column_bg: rgb(0, 64, 104),
         gutter_bg: rgb(0, 30, 54),
         gutter_fg: rgb(60, 110, 150),
         current_line_nr_fg: rgb(255, 255, 255),
@@ -227,6 +232,7 @@ pub fn high_contrast() -> Theme {
         cursor_line_bg: rgb(40, 40, 40),
         selection_bg: rgb(70, 70, 130),
         search_bg: rgb(130, 90, 0),
+        color_column_bg: rgb(55, 55, 55),
         gutter_bg: rgb(0, 0, 0),
         gutter_fg: rgb(150, 150, 150),
         current_line_nr_fg: rgb(255, 255, 255),

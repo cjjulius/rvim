@@ -142,6 +142,8 @@ pub struct Editor {
     pub list: bool,
     /// `:set cursorline` — highlight the line the cursor is on (default on).
     pub cursorline: bool,
+    /// `:set colorcolumn` — 1-based column to highlight as a guide (0 = off).
+    pub colorcolumn: usize,
     pending_replace: bool,
     pending_replace_count: usize,
     /// Replace-mode overtype history: `Some(orig)` for an overwritten char,
@@ -281,6 +283,7 @@ impl Editor {
             textwidth: 0,
             list: false,
             cursorline: true,
+            colorcolumn: 0,
             pending_replace: false,
             pending_replace_count: 1,
             replace_stack: Vec::new(),

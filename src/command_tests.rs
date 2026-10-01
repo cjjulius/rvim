@@ -196,6 +196,12 @@
     }
 
     #[test]
+    fn set_colorcolumn() {
+        assert_eq!(parse("set colorcolumn=80"), ExCommand::SetColorColumn(80));
+        assert_eq!(parse("set cc=0"), ExCommand::SetColorColumn(0));
+    }
+
+    #[test]
     fn set_cursorline() {
         assert_eq!(parse("set cursorline"), ExCommand::ToggleCursorLine(true));
         assert_eq!(parse("set cul"), ExCommand::ToggleCursorLine(true));
