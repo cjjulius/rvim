@@ -114,6 +114,7 @@ pub enum ExCommand {
     ToggleWrapScan(bool),
     /// `:sort` / `:sort!` / `:sort u` — sort buffer lines.
     Sort {
+        range: SubRange,
         reverse: bool,
         unique: bool,
         numeric: bool,
@@ -184,6 +185,11 @@ pub fn parse(input: &str) -> ExCommand {
         return p;
     }
 
+    // Sort, with an optional leading range (`sort`, `%sort n`, `'<,'>sort u`).
+    if let Some(s) = parse_sort(trimmed) {
+        return s;
+    }
+
     // Pure line number → goto.
     if let Ok(n) = trimmed.parse::<usize>() {
         return ExCommand::Goto(n);
@@ -248,15 +254,6 @@ pub fn parse(input: &str) -> ExCommand {
                 args: rest.to_string(),
             },
         },
-        "sort" | "sort!" | "sor" | "sor!" => {
-            let reverse = word.ends_with('!');
-            ExCommand::Sort {
-                reverse,
-                unique: rest.contains('u'),
-                numeric: rest.contains('n'),
-                ignorecase: rest.contains('i'),
-            }
-        }
         "help" | "h" => ExCommand::Help,
         "version" | "ver" => ExCommand::Version,
         "set" | "se" => parse_set(rest),
@@ -446,6 +443,43 @@ fn parse_line_op(trimmed: &str) -> Option<ExCommand> {
         "j" | "join" => Some(ExCommand::JoinLines { range, raw: bang }),
         _ => None,
     }
+}
+
+/// Parse `:[range]sort[!] [flags]`. Bare `:sort` sorts the whole file; a leading
+/// range limits it. Returns `None` (so the caller falls through) unless the
+/// `sort`/`sor` word is present and properly terminated.
+fn parse_sort(trimmed: &str) -> Option<ExCommand> {
+    let i = range_prefix_len(trimmed);
+    let range_str = &trimmed[..i];
+    let after = &trimmed[i..];
+    let base = if after.starts_with("sort") {
+        4
+    } else if after.starts_with("sor") {
+        3
+    } else {
+        return None;
+    };
+    let tail = &after[base..];
+    // The word must end here, or be followed by `!`, or whitespace (rejects
+    // `source`, `sortfoo`, …).
+    match tail.chars().next() {
+        None | Some('!') | Some(' ') | Some('\t') => {}
+        _ => return None,
+    }
+    let reverse = tail.starts_with('!');
+    let flags = if reverse { &tail[1..] } else { tail };
+    let range = if range_str.is_empty() {
+        SubRange::WholeFile
+    } else {
+        parse_range(range_str)?
+    };
+    Some(ExCommand::Sort {
+        range,
+        reverse,
+        unique: flags.contains('u'),
+        numeric: flags.contains('n'),
+        ignorecase: flags.contains('i'),
+    })
 }
 
 /// Parse `:[addr]pu[t] [reg]`. Returns `None` (so the caller falls through)

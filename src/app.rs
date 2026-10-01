@@ -604,9 +604,9 @@ impl App {
             ExCommand::PutRegister { dest, register } => {
                 self.editor.put_register(dest, register);
             }
-            ExCommand::Sort { reverse, unique, numeric, ignorecase } => {
+            ExCommand::Sort { range, reverse, unique, numeric, ignorecase } => {
                 let before = self.editor.buffer.line_count();
-                self.editor.sort_buffer(reverse, unique, numeric, ignorecase);
+                self.editor.sort_lines(range, reverse, unique, numeric, ignorecase);
                 let after = self.editor.buffer.line_count();
                 self.editor.message = if unique && after < before {
                     format!("sorted; {} duplicate line(s) removed", before - after)
@@ -841,7 +841,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set wrapscan|nows     search wraps around the file (default on)\n\
          \t:set ft=<lang>     rust tsql pgsql trino snowflake z80 sql\n\
          \t:set mouse|nomouse toggle mouse support\n\
-         \t:sort[!] [u][n][i] sort lines (! rev, u uniq, n numeric, i ignore-case)\n\
+         \t:[range]sort[!] [uni] sort (! rev, u uniq, n numeric, i ignore-case)\n\
          \t:[range]m {{addr}}   move lines    :[range]t/co {{addr}}  copy lines\n\
          \t:[range]d / y       delete / yank lines   :[range]> / <  shift lines\n\
          \t:[range]j[!]        join lines (! keeps whitespace)\n\
