@@ -62,22 +62,24 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 
 ### Modal editing (vim-style)
 - **Modes:** Normal, Insert, Visual, Visual-Line, Command.
-- **Motions:** `h j k l`, arrows, `w`/`b`/`e` (word), `0`/`^`/`$`, `gg`/`G`,
-  `<n>G`, `f`/`F`/`t`/`T`+`;`/`,` (find char on line), `%` (matching bracket),
+- **Motions:** `h j k l`, arrows, `w`/`b`/`e` (word) and `W`/`B`/`E` (WORD),
+  `0`/`^`/`$`, `{`/`}` (paragraph), `gg`/`G`/`<n>gg`/`<n>G`,
+  `f`/`F`/`t`/`T`+`;`/`,` (find char on line), `%` (matching bracket),
   `H`/`M`/`L` (top/middle/bottom of screen), `Ctrl-d`/`Ctrl-u` (half-page).
 - **Scrolling:** `zz`/`zt`/`zb` (center/top/bottom the current line),
   `Ctrl-e`/`Ctrl-y` (scroll one line).
-- **Editing:** `i a I A o O`, `x`, `r<c>`, `~` (toggle case), `s`/`S`,
-  `D`/`C`, `p`/`P`, `J` (join), `>>`/`<<` (indent/dedent, also on a visual
-  selection), counts (e.g. `5j`).
-- **Operators + motions:** `d`, `y`, `c` compose with motions — `dw`/`yw`/`cw`,
-  `d$`/`y$`, `d0`/`y0`, `de`, `dl`/`dh`, `dj`/`dk` (line-wise), `dG`/`yG`/`cG`
-  (to end of file), and the doubled forms `dd`/`yy`/`cc`.
+- **Editing:** `i a I A o O`, `x`/`X`, `r<c>` (with count), `~` (toggle case),
+  `s`/`S`, `D`/`C`, `Y` (yank line), `p`/`P`, `J` (join), `>>`/`<<` (indent),
+  counts (e.g. `5j`).
+- **Operators + motions:** `d`, `y`, `c` compose with motions — `dw`/`dW`/`yw`,
+  `d$`/`y$`, `d0`, `de`/`dE`, `dj`/`dk`, `dG`/`dgg` (to EOF/BOF), `d}` and the
+  doubled `dd`/`yy`/`cc`. `cw`/`cW` act like `ce`/`cE` (vim's special case).
+  `>`/`<` also take a motion (`>j`, `>G`).
 - **Counts:** prefix motions, operators and paste with a number — `5j`, `3dd`,
-  `d3w`, `2d3w` (multiplied), `3p`.
+  `d3w`, `2d3w` (multiplied), `3p`, `3rx`, `<n>gg`.
 - **Text objects:** `d`/`y`/`c` + `i`/`a` + object — `iw`/`aw` (word),
-  `i(` `i{` `i[` `i<` and `i"` `i'` `` i` `` (inner), `a(` … (around, includes
-  the delimiters). E.g. `diw`, `ci(`, `yi"`, `da{`.
+  `iW`/`aW` (WORD), `ip`/`ap` (paragraph), `i(` `i{` `i[` `i<` and `i"` `i'`
+  `` i` `` (inner), `a(` … (around). E.g. `diw`, `ci(`, `yi"`, `dap`.
 - **Case operators:** `gu`/`gU`/`g~` (lower/upper/toggle) over a motion, a text
   object, or doubled for the whole line — `guw`, `gUiw`, `g~$`, `guu`.
 - **Comment toggling:** `gcc` toggles the current line, `gc<motion>` a range
@@ -95,7 +97,7 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 - **Repeat:** `.` repeats the last change (a delete, paste, replace, indent, or a
   whole insert/change session).
 - **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history).
-- **Visual mode:** `v`/`V` then `d`/`y`/`c`, `>`/`<` (indent), and
+- **Visual mode:** `v`/`V` then `d`/`x`, `y`, `c`/`s`, `>`/`<` (indent), and
   `u`/`U`/`~` (lower/upper/toggle case of the selection).
 - **Search:** `/pattern`, `?pattern`, `n`/`N` (wraps around); patterns are
   **regular expressions** (e.g. `/\bfn\s+\w+`). `*`/`#` search the word under the
@@ -283,7 +285,11 @@ cargo test syntax::      # highlighters & detection
 cargo test command::     # ex-command parsing
 ```
 
-Current suite: **201 tests** across buffer, editor, menu, syntax, themes,
+rvim aims for **keystroke compatibility with vim** so your muscle memory
+transfers; see the keybinding sections above. (Some advanced vim features differ
+or are absent — those are noted in the roadmap.)
+
+Current suite: **218 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

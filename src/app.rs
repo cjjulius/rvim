@@ -539,7 +539,8 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \n\
          MOTIONS\n\
          \th j k l  arrows    move left/down/up/right\n\
-         \tw / b / e          word forward / back / end\n\
+         \tw / b / e          word forward / back / end (W/B/E = WORD)\n\
+         \t{{ / }}             paragraph back / forward\n\
          \tf/F/t/T <c>        find char on line   ; ,  repeat / reverse\n\
          \t%                  jump to matching bracket () [] {{}}\n\
          \t0 / ^ / $          line start / first non-blank / line end\n\
@@ -550,10 +551,12 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tCtrl-e / Ctrl-y    scroll one line down / up\n\
          \n\
          EDITING\n\
-         \tx                  delete char        r<c>  replace char\n\
+         \tx / X              delete char under / before   r<c>  replace\n\
+         \tY                  yank line (= yy)\n\
          \t~                  toggle case        s / S  subst char / line\n\
          \td/y/c + motion     e.g. dw d$ d0 de dj dG yw y$ cc  (dd/yy/cc)\n\
-         \td/y/c + i/a + obj   text objects: diw daw ci( yi\" da{{ ...\n\
+         \td/y/c + i/a + obj   text objects: diw daW dip ci( yi\" da{{ ...\n\
+         \tdgg / dG           delete to top / bottom of file\n\
          \tgu / gU / g~ + mot  lower / upper / toggle case (guw gUiw guu)\n\
          \tgcc  gc<motion>     toggle line comment (also visual gc)\n\
          \tD / C              delete / change to end of line\n\
