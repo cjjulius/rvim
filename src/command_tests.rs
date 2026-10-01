@@ -178,6 +178,12 @@
     }
 
     #[test]
+    fn set_textwidth() {
+        assert_eq!(parse("set textwidth=40"), ExCommand::SetTextWidth(40));
+        assert_eq!(parse("set tw=72"), ExCommand::SetTextWidth(72));
+    }
+
+    #[test]
     fn set_case_options() {
         assert_eq!(parse("set ignorecase"), ExCommand::ToggleIgnoreCase(true));
         assert_eq!(parse("set ic"), ExCommand::ToggleIgnoreCase(true));

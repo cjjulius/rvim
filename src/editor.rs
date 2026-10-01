@@ -127,6 +127,10 @@ pub struct Editor {
     pending_case_obj: Option<(CaseOp, char)>,
     /// After `gc`: a comment-toggle operator awaiting a motion.
     pending_comment: bool,
+    /// `gq` was pressed, awaiting a motion (or `q`) that selects lines to reflow.
+    pending_format: bool,
+    /// `:set textwidth` — wrap column for `gq` reflow (0 means use 79).
+    pub textwidth: usize,
     pending_replace: bool,
     pending_replace_count: usize,
     /// Replace-mode overtype history: `Some(orig)` for an overwritten char,
@@ -252,6 +256,8 @@ impl Editor {
             pending_case: None,
             pending_case_obj: None,
             pending_comment: false,
+            pending_format: false,
+            textwidth: 0,
             pending_replace: false,
             pending_replace_count: 1,
             replace_stack: Vec::new(),
@@ -1122,6 +1128,7 @@ impl Editor {
             && self.pending_case.is_none()
             && self.pending_case_obj.is_none()
             && !self.pending_comment
+            && !self.pending_format
             && !self.pending_replace
             && self.pending_find.is_none()
             && self.pending_bracket.is_none()
@@ -1691,6 +1698,22 @@ impl Editor {
             return Action::None;
         }
 
+        // Motion (or doubled `q`) after `gq` — reflow those lines.
+        if self.pending_format {
+            self.pending_format = false;
+            let rows = match key.code {
+                KeyCode::Char('q') => Some((self.cursor.row, self.cursor.row)),
+                code => self.motion_target(code, 1).map(|t| match t {
+                    OpTarget::Chars(_, _) => (self.cursor.row, self.cursor.row),
+                    OpTarget::Lines(a, b) => (a, b),
+                }),
+            };
+            if let Some((a, b)) = rows {
+                self.reflow_lines(a, b);
+            }
+            return Action::None;
+        }
+
         // Object char after a case operator + `i`/`a` (e.g. `guiw`).
         if let Some((cop, iora)) = self.pending_case_obj.take() {
             if let KeyCode::Char(obj) = key.code {
@@ -2180,6 +2203,16 @@ impl Editor {
                 }
                 KeyCode::Char(';') => self.change_jump(true),
                 KeyCode::Char(',') => self.change_jump(false),
+                KeyCode::Char('q') | KeyCode::Char('w') => {
+                    // gq / gw — reflow. On a selection, format it now; otherwise
+                    // wait for a motion.
+                    if let Some((s, e)) = self.selection() {
+                        self.reflow_lines(s.row, e.row);
+                        self.mode = Mode::Normal;
+                    } else {
+                        self.pending_format = true;
+                    }
+                }
                 KeyCode::Char('v') => {
                     // gv — reselect the last visual selection.
                     if let Some((s, e, m)) = self.last_visual {
@@ -2381,6 +2414,62 @@ impl Editor {
                 self.cursor.row = a;
             }
         }
+        self.clamp_cursor(false);
+        self.scroll_into_view();
+    }
+
+    /// `gq` — reflow the inclusive row range to the current `textwidth` (or 79
+    /// when unset), greedily wrapping words. The first line's leading indent is
+    /// preserved on every wrapped line; blank lines are left as paragraph breaks.
+    fn reflow_lines(&mut self, a: usize, b: usize) {
+        let last = self.buffer.line_count().saturating_sub(1);
+        let (a, b) = (a.min(last), b.min(last));
+        let width = if self.textwidth == 0 { 79 } else { self.textwidth };
+        // Preserve the indent of the first line.
+        let first = self.buffer.line(a).unwrap_or("");
+        let indent: String = first.chars().take_while(|c| c.is_whitespace()).collect();
+        // Gather all words across the range.
+        let mut words: Vec<String> = Vec::new();
+        for row in a..=b {
+            for w in self.buffer.line(row).unwrap_or("").split_whitespace() {
+                words.push(w.to_string());
+            }
+        }
+        if words.is_empty() {
+            return;
+        }
+        // Greedy wrap.
+        let mut out: Vec<String> = Vec::new();
+        let mut cur = indent.clone();
+        for w in words {
+            let candidate = if cur.trim().is_empty() {
+                format!("{cur}{w}")
+            } else {
+                format!("{cur} {w}")
+            };
+            if candidate.chars().count() > width && cur.trim() != "" {
+                out.push(cur);
+                cur = format!("{indent}{w}");
+            } else {
+                cur = candidate;
+            }
+        }
+        if !cur.trim().is_empty() {
+            out.push(cur);
+        }
+        self.checkpoint();
+        // Insert the reflowed lines before the old range, then delete the old
+        // lines (now shifted down). Doing it in this order means the buffer is
+        // never momentarily empty, so no sentinel blank line is left behind.
+        for (k, line) in out.iter().enumerate() {
+            self.buffer.insert_line(a + k, line.clone());
+        }
+        let count = b - a + 1;
+        for _ in 0..count {
+            self.buffer.delete_line(a + out.len());
+        }
+        self.cursor.row = (a + out.len()).saturating_sub(1).min(self.buffer.line_count().saturating_sub(1));
+        self.move_first_nonblank();
         self.clamp_cursor(false);
         self.scroll_into_view();
     }

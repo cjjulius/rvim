@@ -434,6 +434,10 @@ impl App {
                 self.editor.scrolloff = n;
                 self.editor.message = format!("scrolloff={n}");
             }
+            ExCommand::SetTextWidth(n) => {
+                self.editor.textwidth = n;
+                self.editor.message = format!("textwidth={n}");
+            }
             ExCommand::SetFiletype(name) => match Language::from_name(&name) {
                 Some(lang) => {
                     self.editor.set_language(lang);
@@ -698,6 +702,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tm<x> `<x> '<x>     set mark / jump exact / jump line   `` prev pos\n\
          \tCtrl-o / Ctrl-i    jump list: older / newer position\n\
          \tg; / g,            change list: older / newer edit position\n\
+         \tgq{{motion}} / gqq   reflow lines to textwidth (gw too)\n\
          \tgi  `.  `^         resume insert / last change / last insert\n\
          \tq<x> q  @<x>  @@   record macro / stop / replay / repeat\n\
          \n\
@@ -712,7 +717,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:theme <name>      themes: {themes}\n\
          \t:set number|nonumber   :set relativenumber|nornu\n\
          \t:set autoindent|noai   :set expandtab|noet\n\
-         \t:set shiftwidth=N  :set tabstop=N  :set scrolloff=N\n\
+         \t:set shiftwidth=N  :set tabstop=N  :set scrolloff=N  :set textwidth=N\n\
          \t:set ignorecase|noic   :set smartcase|noscs   (search case)\n\
          \t:set incsearch|nois    preview match while typing /?\n\
          \t:set ft=<lang>     rust tsql pgsql trino snowflake z80 sql\n\
