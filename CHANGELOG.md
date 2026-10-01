@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Command line
+- `Tab` completion: completes the ex-command name, or the option name after
+  `:set `, with repeated `Tab` / `Shift-Tab` cycling forward / backward through
+  the matches.
+
 ### Operators
 - `g?` ROT13 operator — over a motion (`g?w`), a text object (`g?ip`), doubled
   for the whole line (`g??`), or applied to a visual selection. Reuses the case-

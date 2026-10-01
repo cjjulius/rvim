@@ -763,6 +763,52 @@
     }
 
     #[test]
+    fn cmdline_tab_completes_unique_command() {
+        let mut ed = ed_with("");
+        ed.handle_key(key(':'));
+        for c in "sor".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Tab)); // :sor -> :sort
+        assert_eq!(ed.cmdline, "sort");
+    }
+
+    #[test]
+    fn cmdline_tab_cycles_matches() {
+        let mut ed = ed_with("");
+        ed.handle_key(key(':'));
+        ed.handle_key(key('w'));
+        ed.handle_key(special(KeyCode::Tab)); // wall
+        assert_eq!(ed.cmdline, "wall");
+        ed.handle_key(special(KeyCode::Tab)); // wq
+        assert_eq!(ed.cmdline, "wq");
+        ed.handle_key(special(KeyCode::BackTab)); // back to wall
+        assert_eq!(ed.cmdline, "wall");
+    }
+
+    #[test]
+    fn cmdline_tab_completes_set_option() {
+        let mut ed = ed_with("");
+        ed.handle_key(key(':'));
+        for c in "set nu".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Tab)); // :set nu -> :set number
+        assert_eq!(ed.cmdline, "set number");
+    }
+
+    #[test]
+    fn cmdline_tab_noop_on_unknown_prefix() {
+        let mut ed = ed_with("");
+        ed.handle_key(key(':'));
+        for c in "zzz".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Tab)); // no command starts with zzz
+        assert_eq!(ed.cmdline, "zzz");
+    }
+
+    #[test]
     fn digraph_inserts_accented_letter() {
         let mut ed = ed_with("");
         ed.handle_key(key('i'));
