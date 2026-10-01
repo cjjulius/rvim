@@ -1074,14 +1074,20 @@ impl Editor {
             self.macros.entry(reg).or_default().push(key);
         }
 
-        // `.` repeats the last change (only from a resting normal state).
+        // `.` repeats the last change from a resting normal state. A leading count
+        // (`3.`) repeats it that many times.
         if !self.dot_replaying
             && self.mode == Mode::Normal
             && matches!(key.code, KeyCode::Char('.'))
-            && self.at_rest()
         {
-            self.replay_dot();
-            return Action::None;
+            let count = self.pending_count.take();
+            if self.at_rest() {
+                for _ in 0..count.unwrap_or(1).max(1) {
+                    self.replay_dot();
+                }
+                return Action::None;
+            }
+            self.pending_count = count; // not actually resting; leave state intact
         }
 
         // Accumulate keys for the `.` register unless we're replaying it.

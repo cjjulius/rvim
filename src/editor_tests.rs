@@ -2288,6 +2288,15 @@
     }
 
     #[test]
+    fn counted_dot_repeats_change_n_times() {
+        let mut ed = ed_with("abcdef");
+        ed.handle_key(key('x')); // delete 'a' -> "bcdef" (dot = x)
+        ed.handle_key(key('3'));
+        ed.handle_key(key('.')); // 3. -> delete b, c, d
+        assert_eq!(ed.buffer.line(0), Some("ef"));
+    }
+
+    #[test]
     fn at_colon_repeats_last_ex_command() {
         let mut ed = ed_with("");
         ed.handle_key(key(':'));

@@ -878,7 +878,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t\"_dd               black-hole register (delete, keep registers)\n\
          \tJ / gJ             join lines (with / without space)\n\
          \tu / Ctrl-r          undo / redo\n\
-         \t.                  repeat last change\n\
+         \t.  <n>.            repeat last change (n times)\n\
          \tCtrl-a / Ctrl-x    increment / decrement number\n\
          \n\
          SEARCH\n\
