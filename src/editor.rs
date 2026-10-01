@@ -522,6 +522,22 @@ impl Editor {
         self.substitute(&spec);
     }
 
+    /// `g&` — repeat the last substitute across the whole file (vim's
+    /// `:%s//~/&`), reporting the number of changes.
+    fn repeat_substitute_all(&mut self) {
+        let Some(mut spec) = self.last_subst.clone() else {
+            self.message = "No previous substitute".into();
+            return;
+        };
+        spec.range = SubRange::WholeFile;
+        let (subs, lines) = self.substitute(&spec);
+        self.message = if subs == 0 {
+            format!("E486: Pattern not found: {}", spec.pattern)
+        } else {
+            format!("{subs} substitution(s) on {lines} line(s)")
+        };
+    }
+
     /// The register currently being recorded into, if any (for the status line).
     pub fn recording_register(&self) -> Option<char> {
         self.recording
@@ -2271,6 +2287,7 @@ impl Editor {
                 }
                 KeyCode::Char('p') => self.paste_g(true),
                 KeyCode::Char('P') => self.paste_g(false),
+                KeyCode::Char('&') => self.repeat_substitute_all(),
                 KeyCode::Char('q') | KeyCode::Char('w') => {
                     // gq / gw — reflow. On a selection, format it now; otherwise
                     // wait for a motion.
