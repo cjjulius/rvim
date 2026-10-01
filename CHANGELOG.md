@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Internal
+- Consolidated the duplicated "operator target → row range" logic (used by `gc`,
+  `gq`, and `>`/`<`) into a single `target_rows` helper, so a future `OpTarget`
+  variant only needs handling in one place.
+
 ### UI
 - `:set cursorcolumn` (`cuc`) highlights the column the cursor is on down the
   whole screen — a vertical companion to `cursorline` for tracking alignment.

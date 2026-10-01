@@ -1891,6 +1891,18 @@
     }
 
     #[test]
+    fn target_rows_maps_each_variant() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.cursor = Position::new(2, 0);
+        assert_eq!(ed.target_rows(OpTarget::Lines(1, 3)), (1, 3));
+        assert_eq!(ed.target_rows(OpTarget::Chars(0, 4)), (2, 2)); // cursor row
+        assert_eq!(
+            ed.target_rows(OpTarget::Span(Position::new(0, 2), Position::new(3, 1))),
+            (0, 3)
+        );
+    }
+
+    #[test]
     fn shift_operator_with_paragraph_object() {
         let mut ed = ed_with("a\nb\n\nc");
         ed.handle_key(key('>'));
