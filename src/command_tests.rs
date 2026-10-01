@@ -279,6 +279,14 @@
     }
 
     #[test]
+    fn marks_registers_jumps_commands() {
+        assert_eq!(parse("marks"), ExCommand::Marks);
+        assert_eq!(parse("reg"), ExCommand::Registers);
+        assert_eq!(parse("registers"), ExCommand::Registers);
+        assert_eq!(parse("jumps"), ExCommand::Jumps);
+    }
+
+    #[test]
     fn buffer_commands() {
         assert_eq!(parse("ls"), ExCommand::BufferList);
         assert_eq!(parse("buffers"), ExCommand::BufferList);

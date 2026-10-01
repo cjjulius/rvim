@@ -757,6 +757,53 @@ impl Editor {
         self.resolve_range(range)
     }
 
+    /// A `:marks` listing: each mark with its line, column, and line text.
+    pub fn marks_listing(&self) -> String {
+        let mut entries: Vec<(char, Position)> =
+            self.marks.iter().map(|(&c, &p)| (c, p)).collect();
+        entries.sort_by_key(|(c, _)| *c);
+        let mut out = String::from("marks — :bd to close\n\n mark  line  col  text\n");
+        for (c, p) in entries {
+            let text = self.buffer.line(p.row).unwrap_or("");
+            out.push_str(&format!(
+                " {c:<4}  {:>4}  {:>3}  {}\n",
+                p.row + 1,
+                p.col + 1,
+                text.trim_start()
+            ));
+        }
+        out
+    }
+
+    /// A `:registers` listing: the unnamed, named, numbered, and small-delete
+    /// registers with their contents (newlines shown as `^J`).
+    pub fn registers_listing(&self) -> String {
+        let mut out = String::from("registers — :bd to close\n\n reg  content\n");
+        let mut row = |name: String, reg: &Register| {
+            if reg.text.is_empty() {
+                return;
+            }
+            let shown: String = reg.text.replace('\n', "^J").chars().take(60).collect();
+            out.push_str(&format!(" {name:<4} {shown}\n"));
+        };
+        row("\"\"".into(), &self.register);
+        for c in ('a'..='z').chain('0'..='9').chain(std::iter::once('-')) {
+            if let Some(r) = self.registers.get(&c) {
+                row(format!("\"{c}"), r);
+            }
+        }
+        out
+    }
+
+    /// A `:jumps` listing of the jump-list positions.
+    pub fn jumps_listing(&self) -> String {
+        let mut out = String::from("jumps — :bd to close\n\n jump  line  col\n");
+        for (i, p) in self.jumps.iter().enumerate() {
+            out.push_str(&format!(" {i:>4}  {:>4}  {:>3}\n", p.row + 1, p.col + 1));
+        }
+        out
+    }
+
     fn resolve_range(&self, range: SubRange) -> (usize, usize) {
         let last = self.buffer.line_count().saturating_sub(1);
         match range {
