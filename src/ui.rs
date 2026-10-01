@@ -160,7 +160,8 @@ pub fn render(
         draw_tabline(out, theme, &layout, tabs)?;
     }
 
-    let sel = editor.selection();
+    let block = editor.block_rect();
+    let sel = if block.is_some() { None } else { editor.selection() };
     let linewise = editor.mode == Mode::VisualLine;
     let search = editor.search_regex();
 
@@ -186,7 +187,7 @@ pub fn render(
             in_block = next_block;
             draw_text_line(
                 out, line, &tokens, theme, &layout, editor.left, row, line_bg, sel, linewise,
-                search, editor.tabstop.max(1),
+                search, editor.tabstop.max(1), block,
             )?;
         } else {
             // Past end of buffer: tilde like vim.
@@ -312,6 +313,7 @@ fn draw_text_line(
     linewise: bool,
     search: Option<&regex::Regex>,
     tab_width: usize,
+    block: Option<(usize, usize, usize, usize)>,
 ) -> io::Result<()> {
     let chars: Vec<(usize, char)> = line.char_indices().collect();
     let matches = search.map(|re| crate::pattern::match_ranges(re, line)).unwrap_or_default();
@@ -343,9 +345,12 @@ fn draw_text_line(
         let selected = sel
             .map(|s| in_selection(s, linewise, row, ci))
             .unwrap_or(false);
+        let in_block = block
+            .map(|(rmin, rmax, cmin, cmax)| row >= rmin && row <= rmax && ci >= cmin && ci <= cmax)
+            .unwrap_or(false);
         let in_match = matches.iter().any(|&(s, e)| ci >= s && ci < e);
-        // Priority: selection > search match > line background.
-        let bg = if selected {
+        // Priority: selection/block > search match > line background.
+        let bg = if selected || in_block {
             theme.selection_bg
         } else if in_match {
             theme.search_bg

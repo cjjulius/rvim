@@ -62,7 +62,7 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 
 ### Modal editing (vim-style)
 - **Modes:** Normal, Insert, Replace (`R` — overtype), Visual, Visual-Line,
-  Command.
+  Visual-Block (`Ctrl-v`), Command.
 - **Motions:** `h j k l`, arrows, `w`/`b`/`e` (word) and `W`/`B`/`E` (WORD),
   `0`/`^`/`$`/`g_` (line ends), `|` (column), `+`/`-`/`Enter` (line first
   non-blank), `{`/`}` (paragraph), `gg`/`G`/`<n>gg`/`<n>G`,
@@ -110,6 +110,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 - **Visual mode:** `v`/`V` then `d`/`x`, `y`, `c`/`s`, `>`/`<` (indent), and
   `u`/`U`/`~` (lower/upper/toggle case of the selection). `o` swaps the active
   end of the selection; `gv` (from normal mode) reselects the last selection.
+- **Visual block (`Ctrl-v`):** select a rectangle, then `d`/`x` to delete it,
+  `I`/`A` to insert/append text on every row, or `c` to change the block.
 - **Search:** `/pattern`, `?pattern`, `n`/`N` (wraps around); patterns are
   **regular expressions** (e.g. `/\bfn\s+\w+`). `*`/`#` search the word under the
   cursor (whole word) forward/back; `g*`/`g#` do so as a substring. All matches
@@ -302,7 +304,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **251 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **254 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

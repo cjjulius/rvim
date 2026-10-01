@@ -105,6 +105,9 @@ pub struct Editor {
     insert_replaying: bool,
     /// After insert-mode `Ctrl-r`: the next key names the register to paste.
     insert_pending_reg: bool,
+    /// Active block insert (`Ctrl-v` then `I`/`A`): (rmin, rmax, col, append).
+    /// Applied to every row on Esc.
+    block_insert: Option<(usize, usize, usize, bool)>,
     pending_find: Option<char>,
     last_find: Option<(char, char)>,
     marks: HashMap<char, Position>,
@@ -192,6 +195,7 @@ impl Editor {
             insert_keys: Vec::new(),
             insert_replaying: false,
             insert_pending_reg: false,
+            block_insert: None,
             pending_find: None,
             last_find: None,
             marks: HashMap::new(),
@@ -825,6 +829,8 @@ impl Editor {
         }
         match key.code {
             KeyCode::Esc => {
+                // Block insert (Ctrl-v I/A/c): replicate to the other rows.
+                self.finish_block_insert();
                 // Repeat the inserted text for a counted insert (3i, 3o, …).
                 let repeat = self.insert_repeat;
                 if repeat > 1 && !self.insert_replaying {
@@ -1208,6 +1214,10 @@ impl Editor {
                     self.modify_number(-1, c);
                     return Action::None;
                 }
+                KeyCode::Char('v') => {
+                    self.toggle_visual(Mode::VisualBlock);
+                    return Action::None;
+                }
                 _ => {}
             }
         }
@@ -1332,7 +1342,9 @@ impl Editor {
                 self.move_first_nonblank();
             }
             KeyCode::Char('d') => {
-                if self.mode.is_visual() {
+                if self.mode == Mode::VisualBlock {
+                    self.block_delete();
+                } else if self.mode.is_visual() {
                     self.visual_delete();
                 } else {
                     self.pending_op = Some('d');
@@ -1348,7 +1360,9 @@ impl Editor {
                 }
             }
             KeyCode::Char('c') => {
-                if self.mode.is_visual() {
+                if self.mode == Mode::VisualBlock {
+                    self.block_change();
+                } else if self.mode.is_visual() {
                     self.visual_delete();
                     self.mode = Mode::Insert;
                 } else {
@@ -1357,7 +1371,9 @@ impl Editor {
                 }
             }
             KeyCode::Char('x') => {
-                if self.mode.is_visual() {
+                if self.mode == Mode::VisualBlock {
+                    self.block_delete();
+                } else if self.mode.is_visual() {
                     self.visual_delete();
                 } else {
                     self.delete_char_under(count);
@@ -1421,16 +1437,24 @@ impl Editor {
                 self.insert_entry = 'a';
             }
             KeyCode::Char('I') => {
-                self.move_first_nonblank();
-                self.enter_insert_here();
-                self.insert_repeat = count;
-                self.insert_entry = 'I';
+                if self.mode == Mode::VisualBlock {
+                    self.block_insert_start(false);
+                } else {
+                    self.move_first_nonblank();
+                    self.enter_insert_here();
+                    self.insert_repeat = count;
+                    self.insert_entry = 'I';
+                }
             }
             KeyCode::Char('A') => {
-                self.move_line_end_exclusive();
-                self.enter_insert_here();
-                self.insert_repeat = count;
-                self.insert_entry = 'A';
+                if self.mode == Mode::VisualBlock {
+                    self.block_insert_start(true);
+                } else {
+                    self.move_line_end_exclusive();
+                    self.enter_insert_here();
+                    self.insert_repeat = count;
+                    self.insert_entry = 'A';
+                }
             }
             KeyCode::Char('R') => {
                 self.checkpoint();
@@ -2702,8 +2726,114 @@ impl Editor {
         if self.mode == target {
             self.mode = Mode::Normal;
         } else {
+            let was_visual = self.mode.is_visual();
             self.mode = target;
-            self.visual_anchor = self.cursor;
+            if !was_visual {
+                self.visual_anchor = self.cursor;
+            }
+        }
+    }
+
+    /// The block selection rectangle `(rmin, rmax, cmin, cmax)` in VisualBlock.
+    pub fn block_rect(&self) -> Option<(usize, usize, usize, usize)> {
+        if self.mode != Mode::VisualBlock {
+            return None;
+        }
+        let a = self.visual_anchor;
+        let c = self.cursor;
+        Some((
+            a.row.min(c.row),
+            a.row.max(c.row),
+            a.col.min(c.col),
+            a.col.max(c.col),
+        ))
+    }
+
+    fn pad_line_to(&mut self, row: usize, col: usize) {
+        let len = self.buffer.line_len(row);
+        if len < col {
+            self.buffer
+                .insert_str(Position::new(row, len), &" ".repeat(col - len));
+        }
+    }
+
+    fn block_delete(&mut self) {
+        if let Some((rmin, rmax, cmin, cmax)) = self.block_rect() {
+            self.checkpoint();
+            for r in rmin..=rmax {
+                let chars: Vec<char> = self.buffer.line(r).unwrap_or("").chars().collect();
+                let len = chars.len();
+                let s = cmin.min(len);
+                let e = (cmax + 1).min(len);
+                if s < e {
+                    let kept: String = chars[..s].iter().chain(&chars[e..]).collect();
+                    self.buffer.set_line(r, kept);
+                }
+            }
+            self.cursor = Position::new(rmin, cmin);
+        }
+        self.mode = Mode::Normal;
+        self.clamp_cursor(false);
+    }
+
+    /// `c` in block mode: delete the rectangle, then block-insert at its left.
+    fn block_change(&mut self) {
+        let Some((rmin, rmax, cmin, cmax)) = self.block_rect() else {
+            return;
+        };
+        self.checkpoint();
+        for r in rmin..=rmax {
+            let chars: Vec<char> = self.buffer.line(r).unwrap_or("").chars().collect();
+            let len = chars.len();
+            let s = cmin.min(len);
+            let e = (cmax + 1).min(len);
+            if s < e {
+                let kept: String = chars[..s].iter().chain(&chars[e..]).collect();
+                self.buffer.set_line(r, kept);
+            }
+        }
+        self.begin_insert_session();
+        self.block_insert = Some((rmin, rmax, cmin, false));
+        self.cursor = Position::new(rmin, cmin.min(self.buffer.line_len(rmin)));
+        self.mode = Mode::Insert;
+    }
+
+    /// `I`/`A` in block mode: start inserting; replicated to every row on Esc.
+    fn block_insert_start(&mut self, append: bool) {
+        let Some((rmin, rmax, cmin, cmax)) = self.block_rect() else {
+            return;
+        };
+        let col = if append { cmax + 1 } else { cmin };
+        self.checkpoint();
+        self.begin_insert_session();
+        self.pad_line_to(rmin, col);
+        self.block_insert = Some((rmin, rmax, col, append));
+        self.cursor = Position::new(rmin, col);
+        self.mode = Mode::Insert;
+    }
+
+    /// Apply the just-typed block-insert text to the remaining rows (on Esc).
+    fn finish_block_insert(&mut self) {
+        let Some((rmin, rmax, col, append)) = self.block_insert.take() else {
+            return;
+        };
+        // Only replicate single-line inserts typed on the top row.
+        if self.cursor.row != rmin || self.cursor.col < col {
+            return;
+        }
+        let chars: Vec<char> = self.buffer.line(rmin).unwrap_or("").chars().collect();
+        let text: String = chars[col..self.cursor.col.min(chars.len())].iter().collect();
+        if text.is_empty() {
+            return;
+        }
+        for r in (rmin + 1)..=rmax {
+            let len = self.buffer.line_len(r);
+            if append {
+                self.pad_line_to(r, col);
+                self.buffer.insert_str(Position::new(r, col), &text);
+            } else if col <= len {
+                self.buffer.insert_str(Position::new(r, col), &text);
+            }
         }
     }
 
@@ -3586,6 +3716,54 @@ mod tests {
 
     fn ctrl(c: char) -> KeyEvent {
         KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL)
+    }
+
+    #[test]
+    fn block_delete_removes_rectangle() {
+        let mut ed = ed_with("abcd\nefgh\nijkl");
+        // cursor at (0,1); block select to (2,2) -> columns 1..=2 over 3 rows
+        ed.handle_key(key('l')); // col 1
+        ed.handle_key(ctrl('v'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('j')); // row 2
+        ed.handle_key(key('l')); // col 2
+        ed.handle_key(key('d'));
+        assert_eq!(ed.buffer.line(0), Some("ad"));
+        assert_eq!(ed.buffer.line(1), Some("eh"));
+        assert_eq!(ed.buffer.line(2), Some("il"));
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn block_insert_prepends_each_row() {
+        let mut ed = ed_with("one\ntwo\nthree");
+        ed.handle_key(ctrl('v'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('j')); // block over column 0, rows 0..2
+        ed.handle_key(key('I'));
+        ed.handle_key(key('#'));
+        ed.handle_key(key(' '));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("# one"));
+        assert_eq!(ed.buffer.line(1), Some("# two"));
+        assert_eq!(ed.buffer.line(2), Some("# three"));
+    }
+
+    #[test]
+    fn block_append_pads_short_rows() {
+        let mut ed = ed_with("aa\nb\nccc");
+        ed.handle_key(key('$')); // col 1 on "aa"
+        ed.handle_key(ctrl('v'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('j')); // rows 0..2, col ~1
+        ed.handle_key(key('A'));
+        ed.handle_key(key('X'));
+        ed.handle_key(special(KeyCode::Esc));
+        // Append at column 2 (cmax+1); short rows get padded, longer rows get
+        // the text inserted at that column.
+        assert_eq!(ed.buffer.line(0), Some("aaX"));
+        assert_eq!(ed.buffer.line(1), Some("b X"));
+        assert_eq!(ed.buffer.line(2), Some("ccXc"));
     }
 
     #[test]
