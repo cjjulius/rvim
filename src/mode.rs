@@ -16,6 +16,8 @@ pub enum Mode {
     Visual,
     /// Line-wise selection.
     VisualLine,
+    /// Block (rectangular) selection.
+    VisualBlock,
     /// The `:` ex command line.
     Command,
 }
@@ -29,13 +31,14 @@ impl Mode {
             Mode::Replace => "REPLACE",
             Mode::Visual => "VISUAL",
             Mode::VisualLine => "V-LINE",
+            Mode::VisualBlock => "V-BLOCK",
             Mode::Command => "COMMAND",
         }
     }
 
     /// Whether this mode is one of the visual selection modes.
     pub fn is_visual(&self) -> bool {
-        matches!(self, Mode::Visual | Mode::VisualLine)
+        matches!(self, Mode::Visual | Mode::VisualLine | Mode::VisualBlock)
     }
 }
 
