@@ -506,6 +506,18 @@ impl App {
             ExCommand::Buffer(n) => self.buffer_goto(n),
             ExCommand::BufferDelete => self.buffer_delete(),
             ExCommand::BufferAlternate => self.switch_alternate(),
+            ExCommand::Marks => {
+                let text = self.editor.marks_listing();
+                self.open_scratch(&text, "marks —", "marks — :bd to close");
+            }
+            ExCommand::Registers => {
+                let text = self.editor.registers_listing();
+                self.open_scratch(&text, "registers —", "registers — :bd to close");
+            }
+            ExCommand::Jumps => {
+                let text = self.editor.jumps_listing();
+                self.open_scratch(&text, "jumps —", "jumps — :bd to close");
+            }
             ExCommand::SetTheme(arg) => match arg {
                 Some(name) => {
                     if self.themes.set_current(&name) {
@@ -799,29 +811,36 @@ impl App {
         }
     }
 
-    fn open_help(&mut self) {
-        // If help is already the active buffer, don't stack another copy.
-        let already_help = self.editor.buffer.path().is_none()
+    /// Open `text` in a throwaway scratch buffer, preserving the current buffer at
+    /// the front of the list (so `:bd` returns to it). Shared by `:help`,
+    /// `:marks`, `:registers`, and `:jumps`. `marker` is a substring of the first
+    /// line used to detect "already showing this" and avoid stacking copies.
+    fn open_scratch(&mut self, text: &str, marker: &str, message: &str) {
+        let already = self.editor.buffer.path().is_none()
             && self
                 .editor
                 .buffer
                 .line(0)
-                .map(|l| l.contains("quick help"))
+                .map(|l| l.contains(marker))
                 .unwrap_or(false);
-        if already_help {
-            return;
+        let mut sed = Editor::new();
+        sed.buffer = crate::buffer::Buffer::from_text(text);
+        sed.set_language(Language::PlainText);
+        self.inherit_prefs(&mut sed);
+        if already {
+            // Replace the current scratch in place rather than stacking another.
+            self.editor.buffer = sed.buffer;
+        } else {
+            self.remember_alternate();
+            let old = std::mem::replace(&mut self.editor, sed);
+            self.others.insert(0, old);
         }
+        self.editor.message = message.into();
+    }
+
+    fn open_help(&mut self) {
         let help = help_text(&self.themes.names(), &self.plugins.all_commands());
-        let mut hed = Editor::new();
-        hed.buffer = crate::buffer::Buffer::from_text(&help);
-        hed.set_language(Language::PlainText);
-        self.inherit_prefs(&mut hed);
-        // Preserve the current buffer (help used to overwrite it, losing the file).
-        // Put it at the front so `:bd` returns straight to it.
-        self.remember_alternate();
-        let old = std::mem::replace(&mut self.editor, hed);
-        self.others.insert(0, old);
-        self.editor.message = "help — :bd to close".into();
+        self.open_scratch(&help, "quick help", "help — :bd to close");
     }
 }
 
@@ -913,6 +932,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:e / :e!            reload current file (! discards changes)\n\
          \t:ls :bn :bp :b<n>  list / next / prev / goto buffer   :bd close\n\
          \tCtrl-^ / :b#       switch to the alternate (last) buffer\n\
+         \t:marks :reg :jumps list marks / registers / jump list\n\
          \t:s/pat/rep/[gin]   substitute (g all, i ignore-case, n count only)\n\
          \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///)\n\
          \t:[range]norm {{keys}}  run Normal-mode keys (per line over a range)\n\

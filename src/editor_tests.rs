@@ -2688,6 +2688,25 @@
     }
 
     #[test]
+    fn marks_listing_includes_set_mark() {
+        let mut ed = ed_with("alpha\nbeta");
+        ed.cursor = Position::new(1, 0);
+        ed.handle_key(key('m'));
+        ed.handle_key(key('a')); // set mark a on line 2
+        let listing = ed.marks_listing();
+        assert!(listing.contains("beta")); // the mark's line text is shown
+    }
+
+    #[test]
+    fn registers_listing_shows_yanked_text() {
+        let mut ed = ed_with("hello");
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y')); // yank the line
+        let listing = ed.registers_listing();
+        assert!(listing.contains("hello"));
+    }
+
+    #[test]
     fn mark_range_addresses_resolve() {
         let mut ed = ed_with("a\nb\nc\nd");
         ed.marks.insert('<', Position::new(1, 0));

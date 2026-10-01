@@ -122,6 +122,15 @@
     }
 
     #[test]
+    fn marks_command_opens_listing_and_preserves_buffer() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("x\ny");
+        app.run_ex("marks");
+        assert!(app.editor.buffer.line(0).unwrap().contains("marks"));
+        assert_eq!(app.others.len(), 1); // original buffer preserved
+    }
+
+    #[test]
     fn help_preserves_current_buffer() {
         let path = std::env::temp_dir().join(format!("rvim_help_{}.txt", std::process::id()));
         std::fs::write(&path, "my work\n").unwrap();

@@ -156,6 +156,12 @@ pub enum ExCommand {
     BufferDelete,
     /// `:b#` / `:e#` — switch to the alternate buffer.
     BufferAlternate,
+    /// `:marks` — list the marks.
+    Marks,
+    /// `:reg` / `:registers` — list the registers.
+    Registers,
+    /// `:jumps` — list the jump list.
+    Jumps,
     /// Anything unrecognized — offered to plugins as (name, args).
     Passthrough { name: String, args: String },
     /// Empty input.
@@ -268,6 +274,9 @@ pub fn parse(input: &str) -> ExCommand {
                 args: rest.to_string(),
             },
         },
+        "marks" => ExCommand::Marks,
+        "reg" | "registers" | "display" | "di" => ExCommand::Registers,
+        "ju" | "jumps" => ExCommand::Jumps,
         "help" | "h" => ExCommand::Help,
         "version" | "ver" => ExCommand::Version,
         "set" | "se" => parse_set(rest),
