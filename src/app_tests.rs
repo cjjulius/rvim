@@ -58,6 +58,32 @@
     }
 
     #[test]
+    fn alternate_buffer_switches_back_and_forth() {
+        let dir = std::env::temp_dir();
+        let pid = std::process::id();
+        let a = dir.join(format!("rvim_alt_a_{pid}.txt"));
+        let b = dir.join(format!("rvim_alt_b_{pid}.txt"));
+        std::fs::write(&a, "AAA\n").unwrap();
+        std::fs::write(&b, "BBB\n").unwrap();
+        let mut app = App::open(a.to_str().unwrap()).unwrap();
+        app.run_ex(&format!("e {}", b.to_str().unwrap())); // -> B, alternate = A
+        assert_eq!(app.editor.buffer.line(0), Some("BBB"));
+        app.run_ex("b#"); // -> A
+        assert_eq!(app.editor.buffer.line(0), Some("AAA"));
+        app.run_ex("b#"); // -> B again
+        assert_eq!(app.editor.buffer.line(0), Some("BBB"));
+        std::fs::remove_file(&a).ok();
+        std::fs::remove_file(&b).ok();
+    }
+
+    #[test]
+    fn alternate_buffer_without_alternate_reports() {
+        let mut app = App::new();
+        app.run_ex("b#");
+        assert!(app.editor.message.contains("No alternate"));
+    }
+
+    #[test]
     fn reload_discards_changes_with_force() {
         let path = std::env::temp_dir()
             .join(format!("rvim_reload_{}.txt", std::process::id()));
