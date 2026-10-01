@@ -107,6 +107,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 - **Insert mode:** autoindent on Enter (`:set autoindent`/`noai`), `Ctrl-w`
   (delete word before cursor), `Ctrl-u` (delete to line start), `Ctrl-r<reg>`
   (paste a register), `Ctrl-t`/`Ctrl-d` (indent/dedent line), `Tab`.
+- **Keyword completion:** `Ctrl-n` / `Ctrl-p` complete the word before the cursor
+  from other words in the buffer, cycling forward / backward through the matches.
 - **Repeat:** `.` repeats the last change (a delete, paste, replace, indent, or a
   whole insert/change session).
 - **Numbers:** `Ctrl-a` / `Ctrl-x` increment / decrement the number under (or
@@ -350,7 +352,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **317 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **320 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

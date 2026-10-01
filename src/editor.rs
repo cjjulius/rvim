@@ -31,6 +31,19 @@ struct Register {
     linewise: bool,
 }
 
+/// Active insert-mode keyword completion (`Ctrl-n`/`Ctrl-p`): the column where
+/// the replaced word starts, the candidate list, and the current index.
+struct Completion {
+    start_col: usize,
+    candidates: Vec<String>,
+    idx: usize,
+}
+
+/// Word character for keyword completion (identifier characters).
+fn is_word_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
 /// The kind of text being entered on the command line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LineKind {
@@ -128,6 +141,8 @@ pub struct Editor {
     insert_replaying: bool,
     /// After insert-mode `Ctrl-r`: the next key names the register to paste.
     insert_pending_reg: bool,
+    /// Active `Ctrl-n`/`Ctrl-p` keyword completion session, if any.
+    completion: Option<Completion>,
     /// Active block insert (`Ctrl-v` then `I`/`A`): (rmin, rmax, col, append).
     /// Applied to every row on Esc.
     block_insert: Option<(usize, usize, usize, bool)>,
@@ -241,6 +256,7 @@ impl Editor {
             insert_keys: Vec::new(),
             insert_replaying: false,
             insert_pending_reg: false,
+            completion: None,
             block_insert: None,
             pending_find: None,
             pending_bracket: None,
@@ -1219,6 +1235,12 @@ impl Editor {
         if !self.insert_replaying && key.code != KeyCode::Esc {
             self.insert_keys.push(key);
         }
+        // Any key other than the completion cycle keys ends a completion session.
+        let is_completion_key = key.modifiers.contains(KeyModifiers::CONTROL)
+            && matches!(key.code, KeyCode::Char('n') | KeyCode::Char('p'));
+        if !is_completion_key {
+            self.completion = None;
+        }
         // Register name after Ctrl-r.
         if self.insert_pending_reg {
             self.insert_pending_reg = false;
@@ -1237,6 +1259,8 @@ impl Editor {
                 KeyCode::Char('r') => self.insert_pending_reg = true,
                 KeyCode::Char('t') => self.insert_indent(true),
                 KeyCode::Char('d') => self.insert_indent(false),
+                KeyCode::Char('n') => self.insert_completion(true),
+                KeyCode::Char('p') => self.insert_completion(false),
                 _ => {}
             }
             self.scroll_into_view();
@@ -1384,6 +1408,93 @@ impl Editor {
             self.cursor.col = prev_len;
             self.buffer.insert_str(self.cursor, &cur);
         }
+    }
+
+    /// `Ctrl-n` (forward) / `Ctrl-p` (backward) keyword completion. On the first
+    /// press it finds the word prefix before the cursor, gathers matching words
+    /// from the buffer, and inserts the first/last one; subsequent presses cycle.
+    fn insert_completion(&mut self, forward: bool) {
+        if let Some(comp) = self.completion.as_ref() {
+            let n = comp.candidates.len();
+            let idx = if forward {
+                (comp.idx + 1) % n
+            } else {
+                (comp.idx + n - 1) % n
+            };
+            let cand = comp.candidates[idx].clone();
+            let start = comp.start_col;
+            self.apply_completion(start, &cand);
+            if let Some(c) = self.completion.as_mut() {
+                c.idx = idx;
+            }
+            return;
+        }
+        let line: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+        let col = self.cursor.col.min(line.len());
+        let mut start = col;
+        while start > 0 && is_word_char(line[start - 1]) {
+            start -= 1;
+        }
+        if start == col {
+            self.message = "No completion prefix".into();
+            return;
+        }
+        let prefix: String = line[start..col].iter().collect();
+        let candidates = self.gather_candidates(&prefix);
+        if candidates.is_empty() {
+            self.message = format!("No match for \"{prefix}\"");
+            return;
+        }
+        let idx = if forward { 0 } else { candidates.len() - 1 };
+        let cand = candidates[idx].clone();
+        self.completion = Some(Completion {
+            start_col: start,
+            candidates,
+            idx,
+        });
+        self.apply_completion(start, &cand);
+    }
+
+    /// Replace the characters from `start` to the cursor on the current line with
+    /// `cand`, leaving the cursor at the end of the inserted word.
+    fn apply_completion(&mut self, start: usize, cand: &str) {
+        let line: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+        let end = self.cursor.col.min(line.len());
+        let prefix: String = line[..start].iter().collect();
+        let suffix: String = line[end..].iter().collect();
+        self.buffer.set_line(self.cursor.row, format!("{prefix}{cand}{suffix}"));
+        self.cursor.col = start + cand.chars().count();
+    }
+
+    /// Collect unique words in the buffer that start with `prefix` (and aren't
+    /// exactly `prefix`), in document order.
+    fn gather_candidates(&self, prefix: &str) -> Vec<String> {
+        let mut seen = std::collections::HashSet::new();
+        let mut out = Vec::new();
+        for row in 0..self.buffer.line_count() {
+            let line = self.buffer.line(row).unwrap_or("");
+            let mut word = String::new();
+            for ch in line.chars() {
+                if is_word_char(ch) {
+                    word.push(ch);
+                    continue;
+                }
+                if !word.is_empty() {
+                    if word.starts_with(prefix) && word != prefix && seen.insert(word.clone()) {
+                        out.push(word.clone());
+                    }
+                    word.clear();
+                }
+            }
+            if !word.is_empty()
+                && word.starts_with(prefix)
+                && word != prefix
+                && seen.insert(word.clone())
+            {
+                out.push(word);
+            }
+        }
+        out
     }
 
     /// `Ctrl-w` in insert mode: delete the word (and preceding spaces) before

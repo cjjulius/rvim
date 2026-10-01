@@ -2062,6 +2062,39 @@
     }
 
     #[test]
+    fn insert_completion_completes_prefix() {
+        let mut ed = ed_with("function\nfun");
+        ed.cursor = Position::new(1, 3); // end of "fun"
+        ed.mode = Mode::Insert;
+        ed.handle_key(ctrl('n'));
+        assert_eq!(ed.buffer.line(1), Some("function"));
+        assert_eq!(ed.cursor.col, 8);
+    }
+
+    #[test]
+    fn insert_completion_cycles_candidates() {
+        let mut ed = ed_with("apple apricot\nap");
+        ed.cursor = Position::new(1, 2); // end of "ap"
+        ed.mode = Mode::Insert;
+        ed.handle_key(ctrl('n')); // first match in document order
+        assert_eq!(ed.buffer.line(1), Some("apple"));
+        ed.handle_key(ctrl('n')); // next candidate
+        assert_eq!(ed.buffer.line(1), Some("apricot"));
+        ed.handle_key(ctrl('p')); // back again
+        assert_eq!(ed.buffer.line(1), Some("apple"));
+    }
+
+    #[test]
+    fn insert_completion_no_match_leaves_text() {
+        let mut ed = ed_with("hello\nzz");
+        ed.cursor = Position::new(1, 2);
+        ed.mode = Mode::Insert;
+        ed.handle_key(ctrl('n'));
+        assert_eq!(ed.buffer.line(1), Some("zz")); // unchanged
+        assert!(ed.message.contains("No match"));
+    }
+
+    #[test]
     fn put_register_inserts_lines_below() {
         let mut ed = ed_with("a\nb\nc");
         ed.handle_key(key('y'));
