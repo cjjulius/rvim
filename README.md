@@ -76,7 +76,7 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   `Ctrl-e`/`Ctrl-y` (scroll one line).
 - **Editing:** `i a I A o O`, `gI` (insert at column 0), `x`/`X`, `r<c>` (with
   count), `~` (toggle case), `s`/`S`, `D`/`C`, `Y` (yank line), `p`/`P`,
-  `gp`/`gP` (paste, cursor after), `J`/`gJ` (join with/without space),
+  `gp`/`gP` (paste, cursor after), `J`/`gJ` (join with/without space; counted),
   `>>`/`<<` (indent, honoring `shiftwidth`), counts (e.g. `5j`).
 - **Operators + motions:** `d`, `y`, `c` compose with motions — `dw`/`dW`/`yw`,
   `d$`/`y$`, `d0`, `de`/`dE`, `dj`/`dk`, `dG`/`dgg` (to EOF/BOF), `d}` and the
@@ -128,7 +128,8 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   mode they bump the first number on every selected line at once.
 - **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history).
 - **Visual mode:** `v`/`V` then `d`/`x`, `y`, `c`/`s`, `>`/`<` (indent),
-  `r<c>` (replace every selected char with `c`), and `u`/`U`/`~`
+  `J`/`gJ` (join the selected lines), `r<c>` (replace every selected char with
+  `c`), and `u`/`U`/`~`
   (lower/upper/toggle case of the selection). `o` swaps the active end of the
   selection; `gv` (from normal mode) reselects the last selection.
   Pressing `:` from visual mode prefills the command line with the selection
@@ -384,7 +385,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **370 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **372 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
