@@ -194,6 +194,7 @@ Run a command on every line matching a pattern:
 | `:g/re/d`           | delete all lines matching `re`                      |
 | `:v/re/d` (`:g!/re/d`) | delete all lines *not* matching `re`            |
 | `:g/re/s/a/b/g`     | run the substitution on matching lines only         |
+| `:g/re/normal A;`   | run Normal-mode keys on each matching line (`:normal`) |
 
 ### Multiple buffers
 Open several files and switch between them:
@@ -431,7 +432,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **464 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **466 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

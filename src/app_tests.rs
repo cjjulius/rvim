@@ -111,6 +111,26 @@
     }
 
     #[test]
+    fn global_normal_appends_to_matching_lines() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("foo\nbar\nfoo baz");
+        app.run_ex("g/foo/normal A!");
+        assert_eq!(app.editor.buffer.line(0), Some("foo!"));
+        assert_eq!(app.editor.buffer.line(1), Some("bar"));
+        assert_eq!(app.editor.buffer.line(2), Some("foo baz!"));
+    }
+
+    #[test]
+    fn global_normal_dd_deletes_matching_lines() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("x1\nkeep\nx2\nx3\ndone");
+        app.run_ex("g/x/normal dd");
+        assert_eq!(app.editor.buffer.line(0), Some("keep"));
+        assert_eq!(app.editor.buffer.line(1), Some("done"));
+        assert_eq!(app.editor.buffer.line_count(), 2);
+    }
+
+    #[test]
     fn earlier_later_undo_redo() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("abcdef");
