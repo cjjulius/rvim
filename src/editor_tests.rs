@@ -2125,6 +2125,23 @@
     }
 
     #[test]
+    fn black_hole_register_preserves_unnamed() {
+        let mut ed = ed_with("keep\ndrop");
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y')); // yank "keep" into the unnamed register
+        ed.cursor = Position::new(1, 0);
+        // "_dd deletes "drop" into the black hole, leaving the unnamed register.
+        ed.handle_key(key('"'));
+        ed.handle_key(key('_'));
+        ed.handle_key(key('d'));
+        ed.handle_key(key('d'));
+        assert_eq!(ed.buffer.line_count(), 1);
+        assert_eq!(ed.buffer.line(0), Some("keep"));
+        ed.handle_key(key('p')); // paste the still-intact unnamed register
+        assert_eq!(ed.buffer.line(1), Some("keep"));
+    }
+
+    #[test]
     fn visual_paste_replaces_charwise_selection() {
         let mut ed = ed_with("foo bar");
         ed.register = Register { text: "XYZ".into(), linewise: false };
