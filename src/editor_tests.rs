@@ -2062,6 +2062,23 @@
     }
 
     #[test]
+    fn join_lines_collapses_range() {
+        let mut ed = ed_with("foo\n  bar\n  baz\nkeep");
+        // :1,3j -> join the first three lines with single spaces
+        ed.join_lines(SubRange::Range(LineAddr::Num(1), LineAddr::Num(3)), false);
+        assert_eq!(ed.buffer.line(0), Some("foo bar baz"));
+        assert_eq!(ed.buffer.line(1), Some("keep"));
+    }
+
+    #[test]
+    fn join_lines_raw_keeps_whitespace() {
+        let mut ed = ed_with("foo\n  bar");
+        // :1,2j! -> raw join, leading spaces preserved
+        ed.join_lines(SubRange::Range(LineAddr::Num(1), LineAddr::Num(2)), true);
+        assert_eq!(ed.buffer.line(0), Some("foo  bar"));
+    }
+
+    #[test]
     fn match_highlight_pairs_brackets() {
         let mut ed = ed_with("foo(bar)");
         ed.cursor = Position::new(0, 3); // on '('

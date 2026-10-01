@@ -768,6 +768,29 @@ impl Editor {
         self.scroll_into_view();
     }
 
+    /// `:[range]j[oin]` — join the range's lines into one. `raw` keeps surrounding
+    /// whitespace (like `gJ`); otherwise whitespace is collapsed to a space (`J`).
+    /// A single-line range joins the current line with the one below it.
+    pub fn join_lines(&mut self, range: SubRange, raw: bool) {
+        let (a, b) = self.resolve_range(range);
+        let joins = if b > a { b - a } else { 1 };
+        self.checkpoint();
+        for _ in 0..joins {
+            let joined = if raw {
+                self.buffer.join_line_raw(a)
+            } else {
+                self.buffer.join_line(a)
+            };
+            if !joined {
+                break;
+            }
+        }
+        self.cursor.row = a.min(self.buffer.line_count().saturating_sub(1));
+        self.move_first_nonblank();
+        self.clamp_cursor(false);
+        self.scroll_into_view();
+    }
+
     /// `:[range]copy dest` — copy the range's lines to after `dest`. The cursor
     /// lands on the last copied line.
     pub fn copy_lines(&mut self, range: SubRange, dest: LineAddr) {
