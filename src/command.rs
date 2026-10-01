@@ -64,6 +64,8 @@ pub enum ExCommand {
     SetShiftWidth(usize),
     /// `:set tabstop=N`
     SetTabStop(usize),
+    /// `:set scrolloff=N` — minimum lines of context kept above/below the cursor.
+    SetScrollOff(usize),
     /// `:set ft=<lang>`
     SetFiletype(String),
     /// `:help`
@@ -321,6 +323,14 @@ fn parse_set(rest: &str) -> ExCommand {
                     Ok(n) if n > 0 => ExCommand::SetTabStop(n),
                     _ => unknown_set(opt),
                 }
+            } else if let Some(v) = opt
+                .strip_prefix("scrolloff=")
+                .or_else(|| opt.strip_prefix("so="))
+            {
+                match v.trim().parse::<usize>() {
+                    Ok(n) => ExCommand::SetScrollOff(n),
+                    _ => unknown_set(opt),
+                }
             } else {
                 unknown_set(opt)
             }
@@ -404,6 +414,13 @@ mod tests {
         assert_eq!(parse("set sw=8"), ExCommand::SetShiftWidth(8));
         assert_eq!(parse("set tabstop=4"), ExCommand::SetTabStop(4));
         assert_eq!(parse("set ts=2"), ExCommand::SetTabStop(2));
+    }
+
+    #[test]
+    fn set_scrolloff() {
+        assert_eq!(parse("set scrolloff=5"), ExCommand::SetScrollOff(5));
+        assert_eq!(parse("set so=3"), ExCommand::SetScrollOff(3));
+        assert_eq!(parse("set scrolloff=0"), ExCommand::SetScrollOff(0));
     }
 
     #[test]

@@ -66,6 +66,8 @@ pub struct Editor {
     pub tabstop: usize,
     pub view_rows: usize,
     pub view_cols: usize,
+    /// `:set scrolloff` — minimum lines of context kept above/below the cursor.
+    pub scrolloff: usize,
 
     line_kind: LineKind,
     /// Ex-command and search history for Up/Down recall on the command line.
@@ -183,6 +185,7 @@ impl Editor {
             tabstop: 4,
             view_rows: 24,
             view_cols: 80,
+            scrolloff: 0,
             line_kind: LineKind::Ex,
             cmd_history: Vec::new(),
             search_history: Vec::new(),
@@ -703,10 +706,18 @@ impl Editor {
     }
 
     fn scroll_into_view(&mut self) {
-        if self.cursor.row < self.top {
-            self.top = self.cursor.row;
-        } else if self.cursor.row >= self.top + self.view_rows {
-            self.top = self.cursor.row + 1 - self.view_rows;
+        // Keep `scrolloff` lines of context above and below the cursor, capped to
+        // half the window so the margin can never exceed what fits. Near the file
+        // edges the margin shrinks naturally rather than scrolling past the ends.
+        let last = self.buffer.line_count().saturating_sub(1);
+        let so = self.scrolloff.min(self.view_rows.saturating_sub(1) / 2);
+        let top_margin = self.cursor.row.saturating_sub(so);
+        if top_margin < self.top {
+            self.top = top_margin;
+        }
+        let bottom_margin = (self.cursor.row + so).min(last);
+        if bottom_margin >= self.top + self.view_rows {
+            self.top = bottom_margin + 1 - self.view_rows;
         }
         if self.cursor.col < self.left {
             self.left = self.cursor.col;
@@ -3620,6 +3631,35 @@ mod tests {
         ed.handle_key(key('z'));
         ed.handle_key(key('b'));
         assert_eq!(ed.top, 41); // 50 + 1 - 10
+    }
+
+    #[test]
+    fn scrolloff_keeps_context_below_cursor() {
+        let mut ed = big_buffer(100); // view_rows = 10
+        ed.scrolloff = 3;
+        ed.cursor.row = 8;
+        ed.scroll_into_view();
+        // Three lines must stay below the cursor (row 11 visible) -> top scrolls to 2.
+        assert_eq!(ed.top, 2);
+    }
+
+    #[test]
+    fn scrolloff_keeps_context_above_cursor() {
+        let mut ed = big_buffer(100);
+        ed.scrolloff = 3;
+        ed.top = 20;
+        ed.cursor.row = 21; // only one line of context above within the view
+        ed.scroll_into_view();
+        assert_eq!(ed.top, 18); // pulled up so three lines show above
+    }
+
+    #[test]
+    fn scrolloff_shrinks_near_file_end() {
+        let mut ed = big_buffer(10); // all 10 lines fit; cursor on the last line
+        ed.scrolloff = 3;
+        ed.cursor.row = 9;
+        ed.scroll_into_view();
+        assert_eq!(ed.top, 0); // never scrolls past the end to honor the margin
     }
 
     #[test]
