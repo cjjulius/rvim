@@ -2062,6 +2062,29 @@
     }
 
     #[test]
+    fn mark_range_addresses_resolve() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.marks.insert('<', Position::new(1, 0));
+        ed.marks.insert('>', Position::new(2, 0));
+        ed.delete_lines(SubRange::Range(LineAddr::Mark('<'), LineAddr::Mark('>')));
+        assert_eq!(ed.buffer.line(0), Some("a"));
+        assert_eq!(ed.buffer.line(1), Some("d"));
+        assert_eq!(ed.buffer.line_count(), 2);
+    }
+
+    #[test]
+    fn visual_colon_prefills_selection_range() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.handle_key(key('V')); // visual-line on row 0
+        ed.handle_key(key('j')); // extend to row 1
+        ed.handle_key(key(':'));
+        assert_eq!(ed.mode, Mode::Command);
+        assert_eq!(ed.cmdline, "'<,'>");
+        assert_eq!(ed.marks.get(&'<').map(|p| p.row), Some(0));
+        assert_eq!(ed.marks.get(&'>').map(|p| p.row), Some(1));
+    }
+
+    #[test]
     fn delete_lines_removes_range() {
         let mut ed = ed_with("a\nb\nc\nd");
         ed.delete_lines(SubRange::Range(LineAddr::Num(2), LineAddr::Num(3)));

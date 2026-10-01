@@ -14,6 +14,8 @@ pub enum LineAddr {
     Last,
     /// A concrete 1-based line number.
     Num(usize),
+    /// A mark address (`'a`, `'<`, `'>`): the line holding that mark.
+    Mark(char),
 }
 
 /// The line range a `:s` command applies to.
@@ -263,18 +265,31 @@ fn parse_global(trimmed: &str) -> Option<ExCommand> {
 
 /// Try to parse a substitute command. Returns `None` if `trimmed` isn't a
 /// `:s`-style command, so the caller can fall through to other commands.
-fn parse_substitute(trimmed: &str) -> Option<ExCommand> {
-    // Consume an optional leading range made of these characters.
-    let bytes = trimmed.as_bytes();
+/// Byte length of a leading line range (`1,5`, `%`, `.`, `$`, `'a`, `'<,'>`, …)
+/// at the start of `s`. Mark addresses consume the quote and the name char.
+fn range_prefix_len(s: &str) -> usize {
+    let bytes = s.as_bytes();
     let mut i = 0;
     while i < bytes.len() {
         let c = bytes[i] as char;
-        if c.is_ascii_digit() || matches!(c, ',' | '%' | '.' | '$') {
+        if c == '\'' {
+            i += 1; // the quote
+            if i < bytes.len() {
+                i += 1; // the mark name (ASCII)
+            }
+        } else if c.is_ascii_digit() || matches!(c, ',' | '%' | '.' | '$') {
             i += 1;
         } else {
             break;
         }
     }
+    i
+}
+
+fn parse_substitute(trimmed: &str) -> Option<ExCommand> {
+    // Consume an optional leading range.
+    let bytes = trimmed.as_bytes();
+    let i = range_prefix_len(trimmed);
     // The command char must be exactly 's'.
     if bytes.get(i).copied() != Some(b's') {
         return None;
@@ -320,17 +335,8 @@ fn parse_range(s: &str) -> Option<SubRange> {
 /// Parse `:[range]{m|move|t|co|copy} {dest}`. Returns `None` (so the caller falls
 /// through) unless the command word and a valid destination address are present.
 fn parse_move_copy(trimmed: &str) -> Option<ExCommand> {
-    // Consume an optional leading range (same character set as a `:s` range).
-    let bytes = trimmed.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        let c = bytes[i] as char;
-        if c.is_ascii_digit() || matches!(c, ',' | '%' | '.' | '$') {
-            i += 1;
-        } else {
-            break;
-        }
-    }
+    // Consume an optional leading range.
+    let i = range_prefix_len(trimmed);
     let range_str = &trimmed[..i];
     let after = &trimmed[i..];
     // Identify the command word (longest match first) and whether it's a copy.
@@ -360,16 +366,7 @@ fn parse_move_copy(trimmed: &str) -> Option<ExCommand> {
 /// Parse `:[range]{d|delete|y|yank}` and `:[range]{>|<}...`. Returns `None` (so
 /// the caller falls through) unless a recognized line operator is present.
 fn parse_line_op(trimmed: &str) -> Option<ExCommand> {
-    let bytes = trimmed.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        let c = bytes[i] as char;
-        if c.is_ascii_digit() || matches!(c, ',' | '%' | '.' | '$') {
-            i += 1;
-        } else {
-            break;
-        }
-    }
+    let i = range_prefix_len(trimmed);
     let range_str = &trimmed[..i];
     let after = trimmed[i..].trim_start();
     if after.is_empty() {
@@ -407,10 +404,21 @@ fn parse_line_op(trimmed: &str) -> Option<ExCommand> {
 }
 
 fn parse_addr(s: &str) -> Option<LineAddr> {
-    match s.trim() {
+    let s = s.trim();
+    match s {
         "." => Some(LineAddr::Current),
         "$" => Some(LineAddr::Last),
-        other => other.parse::<usize>().ok().map(LineAddr::Num),
+        _ => {
+            // A mark address: `'` followed by a single mark name (`'a`, `'<`, `'>`).
+            if let Some(rest) = s.strip_prefix('\'') {
+                let mut chars = rest.chars();
+                if let (Some(c), None) = (chars.next(), chars.next()) {
+                    return Some(LineAddr::Mark(c));
+                }
+                return None;
+            }
+            s.parse::<usize>().ok().map(LineAddr::Num)
+        }
     }
 }
 
@@ -520,6 +528,32 @@ mod tests {
         );
         // `colo`/`colorscheme` must still reach the theme command, not copy.
         assert_eq!(parse("colo"), ExCommand::SetTheme(None));
+    }
+
+    #[test]
+    fn mark_and_visual_range_addresses() {
+        assert_eq!(
+            parse("'<,'>d"),
+            ExCommand::DeleteLines(SubRange::Range(
+                LineAddr::Mark('<'),
+                LineAddr::Mark('>')
+            ))
+        );
+        assert_eq!(
+            parse("'a,'bm0"),
+            ExCommand::MoveLines {
+                range: SubRange::Range(LineAddr::Mark('a'), LineAddr::Mark('b')),
+                dest: LineAddr::Num(0)
+            }
+        );
+        // A marked range also drives :s.
+        match parse("'<,'>s/x/y/") {
+            ExCommand::Substitute(spec) => assert_eq!(
+                spec.range,
+                SubRange::Range(LineAddr::Mark('<'), LineAddr::Mark('>'))
+            ),
+            other => panic!("expected substitute, got {other:?}"),
+        }
     }
 
     #[test]

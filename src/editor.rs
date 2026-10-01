@@ -691,6 +691,7 @@ impl Editor {
             LineAddr::Current => self.cursor.row,
             LineAddr::Last => last,
             LineAddr::Num(n) => n.saturating_sub(1),
+            LineAddr::Mark(c) => self.marks.get(&c).map(|p| p.row).unwrap_or(self.cursor.row),
         }
     }
 
@@ -704,6 +705,10 @@ impl Editor {
             LineAddr::Last => n,
             LineAddr::Num(0) => 0,
             LineAddr::Num(k) => k.min(n),
+            LineAddr::Mark(c) => {
+                let row = self.marks.get(&c).map(|p| p.row).unwrap_or(self.cursor.row);
+                (row + 1).min(n)
+            }
         }
     }
 
@@ -1895,9 +1900,20 @@ impl Editor {
             KeyCode::Char('*') => self.search_word(true, true),
             KeyCode::Char('#') => self.search_word(false, true),
             KeyCode::Char(':') => {
+                // From visual mode, set the `'<`/`'>` marks to the selection and
+                // prefill the range so the ex-command acts on it (`:'<,'>...`).
+                let prefill = if self.mode.is_visual() {
+                    self.selection().map(|(s, e)| {
+                        self.marks.insert('<', s);
+                        self.marks.insert('>', e);
+                        "'<,'>".to_string()
+                    })
+                } else {
+                    None
+                };
                 self.mode = Mode::Command;
                 self.line_kind = LineKind::Ex;
-                self.cmdline.clear();
+                self.cmdline = prefill.unwrap_or_default();
                 self.hist_idx = None;
             }
             KeyCode::Char('/') => self.enter_search(true),
