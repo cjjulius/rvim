@@ -1094,6 +1094,22 @@ impl Editor {
             KeyCode::Char('0') | KeyCode::Home => self.cursor.col = 0,
             KeyCode::Char('$') | KeyCode::End => self.move_line_end(),
             KeyCode::Char('^') => self.move_first_nonblank(),
+            KeyCode::Char('+') | KeyCode::Enter => {
+                self.move_down(count);
+                self.move_first_nonblank();
+            }
+            KeyCode::Char('-') => {
+                self.move_up(count);
+                self.move_first_nonblank();
+            }
+            KeyCode::Char('_') => {
+                self.move_down(count.saturating_sub(1));
+                self.move_first_nonblank();
+            }
+            KeyCode::Char('|') => {
+                let max = self.cur_len().saturating_sub(1);
+                self.cursor.col = count.saturating_sub(1).min(max);
+            }
             KeyCode::Char('w') => self.move_word_forward(count, false),
             KeyCode::Char('W') => self.move_word_forward(count, true),
             KeyCode::Char('b') => self.move_word_backward(count, false),
@@ -1330,6 +1346,11 @@ impl Editor {
                     self.checkpoint();
                     self.buffer.join_line_raw(self.cursor.row);
                 }
+                KeyCode::Char('_') => {
+                    // g_ — last non-blank char (count-1 lines down).
+                    self.move_down(count.saturating_sub(1));
+                    self.cursor.col = self.last_nonblank_col();
+                }
                 KeyCode::Char('v') => {
                     // gv — reselect the last visual selection.
                     if let Some((s, e, m)) = self.last_visual {
@@ -1428,8 +1449,13 @@ impl Editor {
             KeyCode::Char('^') => OpTarget::Chars(self.first_nonblank_col(), col),
             KeyCode::Char('l') | KeyCode::Right => OpTarget::Chars(col, (col + count).min(len)),
             KeyCode::Char('h') | KeyCode::Left => OpTarget::Chars(col.saturating_sub(count), col),
-            KeyCode::Char('j') | KeyCode::Down => OpTarget::Lines(row, (row + count).min(last)),
-            KeyCode::Char('k') | KeyCode::Up => OpTarget::Lines(row.saturating_sub(count), row),
+            KeyCode::Char('j') | KeyCode::Down | KeyCode::Char('+') | KeyCode::Enter => {
+                OpTarget::Lines(row, (row + count).min(last))
+            }
+            KeyCode::Char('k') | KeyCode::Up | KeyCode::Char('-') => {
+                OpTarget::Lines(row.saturating_sub(count), row)
+            }
+            KeyCode::Char('_') => OpTarget::Lines(row, (row + count - 1).min(last)),
             KeyCode::Char('G') => OpTarget::Lines(row, last),
             _ => return None,
         })
@@ -1584,6 +1610,12 @@ impl Editor {
     fn first_nonblank_col(&self) -> usize {
         let line = self.buffer.line(self.cursor.row).unwrap_or("");
         line.chars().take_while(|c| c.is_whitespace()).count()
+    }
+
+    /// Column of the last non-blank character on the current line.
+    fn last_nonblank_col(&self) -> usize {
+        let line = self.buffer.line(self.cursor.row).unwrap_or("");
+        line.trim_end().chars().count().saturating_sub(1)
     }
 
     fn is_blank_row(&self, row: usize) -> bool {
@@ -3308,6 +3340,47 @@ mod tests {
 
     fn ctrl(c: char) -> KeyEvent {
         KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL)
+    }
+
+    #[test]
+    fn line_motions_plus_minus_underscore() {
+        let mut ed = ed_with("a\n  b\n   c\nd");
+        ed.handle_key(key('+')); // next line, first non-blank
+        assert_eq!(ed.cursor, Position::new(1, 2));
+        ed.handle_key(key('+'));
+        assert_eq!(ed.cursor, Position::new(2, 3));
+        ed.handle_key(key('-')); // prev line, first non-blank
+        assert_eq!(ed.cursor, Position::new(1, 2));
+        ed.handle_key(key('2'));
+        ed.handle_key(key('_')); // down count-1 = 1 line, first non-blank
+        assert_eq!(ed.cursor, Position::new(2, 3));
+    }
+
+    #[test]
+    fn goto_column_bar() {
+        let mut ed = ed_with("abcdef");
+        ed.handle_key(key('4'));
+        ed.handle_key(key('|')); // column 4 (0-based 3)
+        assert_eq!(ed.cursor.col, 3);
+        ed.handle_key(key('|')); // bare | -> column 1 (0-based 0)
+        assert_eq!(ed.cursor.col, 0);
+    }
+
+    #[test]
+    fn g_underscore_last_nonblank() {
+        let mut ed = ed_with("hello   ");
+        ed.handle_key(key('g'));
+        ed.handle_key(key('_'));
+        assert_eq!(ed.cursor.col, 4); // 'o', ignoring trailing spaces
+    }
+
+    #[test]
+    fn delete_to_next_line_with_plus() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('+')); // delete current + next line
+        assert_eq!(ed.buffer.line(0), Some("c"));
+        assert_eq!(ed.buffer.line_count(), 2);
     }
 
     #[test]
