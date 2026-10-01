@@ -577,6 +577,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tH / M / L          top / middle / bottom of screen\n\
          \tzz / zt / zb       center / top / bottom current line\n\
          \tCtrl-d / Ctrl-u    half-page down / up\n\
+         \tCtrl-f / Ctrl-b    full-page forward / back (counted)\n\
          \tCtrl-e / Ctrl-y    scroll one line down / up\n\
          \n\
          EDITING\n\

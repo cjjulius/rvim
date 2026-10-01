@@ -70,6 +70,7 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
   `f`/`F`/`t`/`T`+`;`/`,` (find char on line), `%` (matching bracket),
   `H`/`M`/`L` (top/middle/bottom of screen), `Ctrl-d`/`Ctrl-u` (half-page).
 - **Scrolling:** `zz`/`zt`/`zb` (center/top/bottom the current line),
+  `Ctrl-f`/`Ctrl-b` (full page forward/back, 2-line overlap, counted),
   `Ctrl-e`/`Ctrl-y` (scroll one line).
 - **Editing:** `i a I A o O`, `x`/`X`, `r<c>` (with count), `~` (toggle case),
   `s`/`S`, `D`/`C`, `Y` (yank line), `p`/`P`, `J`/`gJ` (join with/without space),
@@ -320,7 +321,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **270 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **272 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
