@@ -437,6 +437,18 @@ impl App {
                     format!("{subs} substitution{s_p} on {lines} line{l_p}")
                 };
             }
+            ExCommand::Global {
+                pattern,
+                invert,
+                command,
+            } => {
+                if command.is_empty() {
+                    self.editor.message = "E471: Argument required".into();
+                } else {
+                    let affected = self.editor.global(&pattern, invert, &command);
+                    self.editor.message = format!("{affected} line(s) affected");
+                }
+            }
             ExCommand::Source(path) => match std::fs::read_to_string(&path) {
                 Ok(text) => {
                     let cmds = crate::config::parse_config(&text);
@@ -596,6 +608,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:w [file]  :q  :q!  :wq  :x   write / quit variants\n\
          \t:e <file>          open file\n\
          \t:ls :bn :bp :b<n>  list / next / prev / goto buffer   :bd close\n\
+         \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///)\n\
          \t:theme <name>      themes: {themes}\n\
          \t:set number|nonumber   :set relativenumber|nornu\n\
          \t:set autoindent|noai   :set expandtab|noet\n\
