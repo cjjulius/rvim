@@ -2121,14 +2121,14 @@ impl Editor {
                     self.message = "Already at oldest change".into();
                 }
             }
-            KeyCode::Char('p') => {
-                for _ in 0..count {
-                    self.paste(true);
-                }
-            }
-            KeyCode::Char('P') => {
-                for _ in 0..count {
-                    self.paste(false);
+            KeyCode::Char('p') | KeyCode::Char('P') => {
+                if self.mode.is_visual() {
+                    self.visual_paste();
+                } else {
+                    let after = code == KeyCode::Char('p');
+                    for _ in 0..count {
+                        self.paste(after);
+                    }
                 }
             }
             KeyCode::Char('J') => {
@@ -3440,6 +3440,12 @@ impl Editor {
             return;
         }
         self.checkpoint();
+        self.paste_text(&reg, after);
+    }
+
+    /// Insert register `reg` at/after the cursor. Shared by `p`/`P` and visual
+    /// paste; the caller is responsible for the undo checkpoint.
+    fn paste_text(&mut self, reg: &Register, after: bool) {
         if reg.linewise {
             let row = if after {
                 self.cursor.row + 1
@@ -3647,6 +3653,31 @@ impl Editor {
             self.store_yank(text, linewise);
         }
         self.mode = Mode::Normal;
+    }
+
+    /// Visual-mode `p`/`P`: replace the selection with the active register's
+    /// contents. The register to put is captured before the deletion, and the
+    /// deleted text goes to the unnamed register (as in vim).
+    fn visual_paste(&mut self) {
+        let Some((start, end)) = self.selection() else {
+            self.mode = Mode::Normal;
+            return;
+        };
+        let linewise = self.mode == Mode::VisualLine;
+        let reg = self.active_register();
+        self.checkpoint();
+        let deleted = self.extract_range(start, end, linewise);
+        self.delete_range(start, end, linewise);
+        self.cursor = if linewise {
+            Position::new(start.row.min(self.buffer.line_count().saturating_sub(1)), 0)
+        } else {
+            start
+        };
+        self.paste_text(&reg, false);
+        self.store_delete(deleted, linewise);
+        self.mode = Mode::Normal;
+        self.clamp_cursor(false);
+        self.scroll_into_view();
     }
 
     fn visual_delete(&mut self) {
