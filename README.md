@@ -98,6 +98,8 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   `"0` (last yank), `"1`–`"9` (recent line/multi-line deletes, shifted), and
   `"-` (last small delete). The unnamed register is used when none is given. The
   black-hole register `"_` (e.g. `"_dd`) deletes without disturbing any register.
+  The read-only `"%` register holds the current file name (`"%p`, or `Ctrl-r %`
+  in insert mode).
 - **Marks:** `m<letter>` sets a mark, `` `<letter> `` jumps to it (exact),
   `'<letter>` jumps to its line; `` `` `` / `''` return to the previous position
   (also set by `G`, `gg`, and searches). Automatic marks: `` `. `` (last change),
@@ -385,7 +387,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **373 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **374 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

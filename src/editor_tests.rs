@@ -2217,6 +2217,16 @@
     }
 
     #[test]
+    fn percent_register_holds_filename() {
+        let mut ed = ed_with("x");
+        ed.buffer.set_path("notes.txt");
+        ed.handle_key(key('"'));
+        ed.handle_key(key('%'));
+        ed.handle_key(key('p')); // "%p pastes the file name
+        assert!(ed.buffer.line(0).unwrap().contains("notes.txt"), "{:?}", ed.buffer.line(0));
+    }
+
+    #[test]
     fn black_hole_register_preserves_unnamed() {
         let mut ed = ed_with("keep\ndrop");
         ed.handle_key(key('y'));
