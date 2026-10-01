@@ -171,6 +171,7 @@ pub fn render(
     let sel = if block.is_some() { None } else { editor.selection() };
     let linewise = editor.mode == Mode::VisualLine;
     let search = editor.search_regex();
+    let paren = editor.match_highlight();
 
     // Carry block-comment state from the top of the buffer to the first visible
     // line, then thread it through the visible rows.
@@ -192,9 +193,10 @@ pub fn render(
             let (tokens, next_block) =
                 syntax.highlight_stateful(editor.language, line, in_block);
             in_block = next_block;
+            let match_col = paren.filter(|p| p.row == row).map(|p| p.col);
             draw_text_line(
                 out, line, &tokens, theme, &layout, editor.left, row, line_bg, sel, linewise,
-                search, editor.tabstop.max(1), block,
+                search, editor.tabstop.max(1), block, match_col,
             )?;
         } else {
             // Past end of buffer: tilde like vim.
@@ -322,6 +324,7 @@ fn draw_text_line(
     search: Option<&regex::Regex>,
     tab_width: usize,
     block: Option<(usize, usize, usize, usize)>,
+    match_col: Option<usize>,
 ) -> io::Result<()> {
     let chars: Vec<(usize, char)> = line.char_indices().collect();
     let matches = search.map(|re| crate::pattern::match_ranges(re, line)).unwrap_or_default();
@@ -357,15 +360,18 @@ fn draw_text_line(
             .map(|(rmin, rmax, cmin, cmax)| row >= rmin && row <= rmax && ci >= cmin && ci <= cmax)
             .unwrap_or(false);
         let in_match = matches.iter().any(|&(s, e)| ci >= s && ci < e);
-        // Priority: selection/block > search match > line background.
-        let bg = if selected || in_block {
-            theme.selection_bg
+        let is_paren = match_col == Some(ci);
+        // Priority: selection/block > matching bracket > search match > line.
+        // The matched bracket is drawn in reverse video so it reads on any theme.
+        let (cfg, bg) = if selected || in_block {
+            (fg[ci], theme.selection_bg)
+        } else if is_paren {
+            (line_bg, fg[ci])
         } else if in_match {
-            theme.search_bg
+            (fg[ci], theme.search_bg)
         } else {
-            line_bg
+            (fg[ci], line_bg)
         };
-        let cfg = fg[ci];
         if !started {
             run_fg = cfg;
             run_bg = bg;

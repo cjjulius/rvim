@@ -2062,6 +2062,29 @@
     }
 
     #[test]
+    fn match_highlight_pairs_brackets() {
+        let mut ed = ed_with("foo(bar)");
+        ed.cursor = Position::new(0, 3); // on '('
+        assert_eq!(ed.match_highlight(), Some(Position::new(0, 7)));
+        ed.cursor = Position::new(0, 7); // on ')'
+        assert_eq!(ed.match_highlight(), Some(Position::new(0, 3)));
+    }
+
+    #[test]
+    fn match_highlight_none_off_bracket() {
+        let mut ed = ed_with("foo(bar)");
+        ed.cursor = Position::new(0, 1); // on 'o', not a bracket
+        assert_eq!(ed.match_highlight(), None);
+    }
+
+    #[test]
+    fn match_highlight_spans_lines() {
+        let mut ed = ed_with("fn x() {\n  body\n}");
+        ed.cursor = Position::new(0, 7); // on '{'
+        assert_eq!(ed.match_highlight(), Some(Position::new(2, 0))); // matching '}'
+    }
+
+    #[test]
     fn read_lines_below_inserts_file_contents() {
         let mut ed = ed_with("a\nb\nc");
         ed.cursor = Position::new(0, 0); // on "a"

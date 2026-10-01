@@ -270,6 +270,9 @@ correctly colored even when scrolled.
   the cursor line shows its absolute number (left-aligned to stand out), every
   other line shows its distance, so `12j` / `8k` jumps are countable at a glance.
   `:set norelativenumber` (`nornu`) returns to absolute numbers.
+- **Matching-bracket highlight** — when the cursor rests on a `()`, `[]`, or `{}`
+  bracket, its partner is highlighted (in reverse video, so it reads on any
+  theme) even across lines, making nesting easy to follow.
 - **Command preview (showcmd)** — the partially-typed command (count, operator,
   text-object prefix) appears at the bottom-right as you type, so you can see
   exactly what rvim is waiting for — e.g. `2d` while `2dw` is mid-entry. It clears
@@ -345,7 +348,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **309 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **312 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
