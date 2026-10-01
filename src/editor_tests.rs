@@ -925,6 +925,50 @@
     }
 
     #[test]
+    fn put_marks_bracket_linewise() {
+        let mut ed = ed_with("one\ntwo\nthree");
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y')); // yank "one" linewise
+        ed.handle_key(key('j'));
+        ed.handle_key(key('p')); // paste below line 1 -> row 2 is "one"
+        ed.handle_key(key('`'));
+        ed.handle_key(key('[')); // `[ -> start of put
+        assert_eq!(ed.cursor, Position::new(2, 0));
+        ed.handle_key(key('`'));
+        ed.handle_key(key(']')); // `] -> end of put
+        assert_eq!(ed.cursor, Position::new(2, 2));
+    }
+
+    #[test]
+    fn put_marks_bracket_charwise() {
+        let mut ed = ed_with("foo bar");
+        ed.handle_key(key('y'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('w')); // yank "foo" charwise
+        ed.cursor = Position::new(0, 4); // on "bar"
+        ed.handle_key(key('P')); // paste before -> "foo foobar"
+        assert_eq!(ed.buffer.line(0), Some("foo foobar"));
+        ed.handle_key(key('`'));
+        ed.handle_key(key('['));
+        assert_eq!(ed.cursor, Position::new(0, 4));
+        ed.handle_key(key('`'));
+        ed.handle_key(key(']'));
+        assert_eq!(ed.cursor, Position::new(0, 6));
+    }
+
+    #[test]
+    fn put_mark_linewise_jump_lands_on_first_nonblank() {
+        let mut ed = ed_with("  indented\nx");
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y')); // yank "  indented"
+        ed.handle_key(key('j'));
+        ed.handle_key(key('p')); // paste below -> row 2
+        ed.handle_key(key('\''));
+        ed.handle_key(key('[')); // '[ is linewise -> first non-blank
+        assert_eq!(ed.cursor, Position::new(2, 2));
+    }
+
+    #[test]
     fn mark_dot_tracks_last_change() {
         let mut ed = ed_with("a\nb\nc\nd");
         ed.cursor = Position::new(2, 0); // on "c"

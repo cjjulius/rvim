@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Marks
+- The `` `[ `` / `` `] `` (and linewise `'[` / `']`) marks are now set to the
+  start and end of text inserted by a put — `p`, `P`, `gp`, `gP`, and `:put` —
+  so you can jump to or operate on what you just pasted.
+
 ### Search
 - `gn` / `gN` select the search match under or after/before the cursor, and work
   as operator targets (`cgn`, `dgn`, `ygn`). Combined with dot-repeat, `cgn`

@@ -945,6 +945,9 @@ impl Editor {
         for (k, line) in lines.iter().enumerate() {
             self.buffer.insert_line(dest_ins + k, *line);
         }
+        let last = lines.len().saturating_sub(1);
+        let end_col = lines[last].chars().count().saturating_sub(1);
+        self.set_change_marks(Position::new(dest_ins, 0), Position::new(dest_ins + last, end_col));
         self.cursor.row = (dest_ins + lines.len()).saturating_sub(1);
         self.cursor.col = 0;
         self.move_first_nonblank();
@@ -4217,9 +4220,13 @@ impl Editor {
                 self.cursor.row
             };
             // A linewise register may hold several lines (e.g. `2yy`, `yG`).
-            for (i, line) in reg.text.split('\n').enumerate() {
+            let lines: Vec<&str> = reg.text.split('\n').collect();
+            for (i, line) in lines.iter().enumerate() {
                 self.buffer.insert_line(row + i, line.to_string());
             }
+            let last = lines.len().saturating_sub(1);
+            let end_col = lines[last].chars().count().saturating_sub(1);
+            self.set_change_marks(Position::new(row, 0), Position::new(row + last, end_col));
             self.cursor.row = row;
             self.move_first_nonblank();
         } else {
@@ -4228,9 +4235,29 @@ impl Editor {
                 pos.col += 1;
             }
             self.buffer.insert_str(pos, &reg.text);
+            self.set_change_marks(pos, Self::region_end(pos, &reg.text));
             self.cursor.col = pos.col + reg.text.chars().count().saturating_sub(1);
         }
         self.clamp_cursor(false);
+    }
+
+    /// Record the `` `[ `` and `` `] `` marks (start / end of the text just
+    /// changed, yanked, or put) for later jumps.
+    fn set_change_marks(&mut self, start: Position, end: Position) {
+        self.marks.insert('[', start);
+        self.marks.insert(']', end);
+    }
+
+    /// The position of the last character of `text` when inserted starting at
+    /// `start`, accounting for any embedded newlines.
+    fn region_end(start: Position, text: &str) -> Position {
+        let newlines = text.matches('\n').count();
+        if newlines == 0 {
+            Position::new(start.row, start.col + text.chars().count().saturating_sub(1))
+        } else {
+            let last_len = text.rsplit('\n').next().unwrap_or("").chars().count();
+            Position::new(start.row + newlines, last_len.saturating_sub(1))
+        }
     }
 
     // ---- visual mode -----------------------------------------------------
