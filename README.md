@@ -97,7 +97,9 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 - **Marks:** `m<letter>` sets a mark, `` `<letter> `` jumps to it (exact),
   `'<letter>` jumps to its line; `` `` `` / `''` return to the previous position
   (also set by `G`, `gg`, and searches). Automatic marks: `` `. `` (last change),
-  `` `^ `` (last insert). `gi` resumes insert at the last insert position.
+  `` `^ `` (last insert). `gi` resumes insert at the last insert position. Marks
+  also work as ex-command addresses — `:'a,'bd`, `:'<,'>s/…` — including the
+  `'<`/`'>` selection marks.
 - **Jump list:** `Ctrl-o` jumps to an older position, `Ctrl-i` (or `Tab`) to a
   newer one — populated by `G`, `gg`, searches and mark jumps.
 - **Macros:** `q<reg>` records keystrokes, `q` stops, `@<reg>` replays, `@@`
@@ -113,6 +115,9 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 - **Visual mode:** `v`/`V` then `d`/`x`, `y`, `c`/`s`, `>`/`<` (indent), and
   `u`/`U`/`~` (lower/upper/toggle case of the selection). `o` swaps the active
   end of the selection; `gv` (from normal mode) reselects the last selection.
+  Pressing `:` from visual mode prefills the command line with the selection
+  range (`:'<,'>`), so any ex-command — `:'<,'>s/…`, `:'<,'>d`, `:'<,'>m0` — runs
+  on the selected lines.
 - **Visual block (`Ctrl-v`):** select a rectangle, then `d`/`x` to delete it,
   `I`/`A` to insert/append text on every row, or `c` to change the block.
 - **Search:** `/pattern`, `?pattern`, `n`/`N` (wraps around); patterns are
@@ -339,7 +344,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **304 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **307 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
