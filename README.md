@@ -106,7 +106,8 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   (e.g. `gcj`, `gcG`), and `gc` in visual mode the selection — using the current
   language's comment marker (`//`, `--`, `;`), indentation preserved.
 - **Registers:** `"a`–`"z` prefix any yank/delete/paste to use a named register
-  (e.g. `"ayy` … `"ap`). Vim's read-only registers are populated automatically:
+  (e.g. `"ayy` … `"ap`); the uppercase name `"A`–`"Z` *appends* to that register
+  (`"Ayy` adds to `"a`). Vim's read-only registers are populated automatically:
   `"0` (last yank), `"1`–`"9` (recent line/multi-line deletes, shifted), and
   `"-` (last small delete). The unnamed register is used when none is given. The
   black-hole register `"_` (e.g. `"_dd`) deletes without disturbing any register.
@@ -426,7 +427,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **452 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **455 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

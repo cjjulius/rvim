@@ -2033,6 +2033,59 @@
     }
 
     #[test]
+    fn uppercase_register_appends_linewise() {
+        let mut ed = ed_with("one\ntwo\nthree");
+        ed.handle_key(key('"'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y')); // "ayy -> reg a = "one"
+        ed.handle_key(key('j'));
+        ed.handle_key(key('"'));
+        ed.handle_key(key('A'));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y')); // "Ayy -> append "two"
+        ed.handle_key(key('G'));
+        ed.handle_key(key('"'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('p')); // paste both appended lines
+        assert_eq!(ed.buffer.line(3), Some("one"));
+        assert_eq!(ed.buffer.line(4), Some("two"));
+    }
+
+    #[test]
+    fn uppercase_register_appends_charwise() {
+        let mut ed = ed_with("abcdef");
+        ed.handle_key(key('"'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('l')); // "ayl -> reg a = "a"
+        ed.handle_key(key('l'));
+        ed.handle_key(key('"'));
+        ed.handle_key(key('A'));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('l')); // "Ayl -> append "b" => "ab"
+        ed.handle_key(key('$'));
+        ed.handle_key(key('"'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('p')); // paste "ab" after 'f'
+        assert_eq!(ed.buffer.line(0), Some("abcdefab"));
+    }
+
+    #[test]
+    fn uppercase_register_reads_lowercase() {
+        let mut ed = ed_with("hello\nx");
+        ed.handle_key(key('"'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y')); // reg a = "hello"
+        ed.handle_key(key('j'));
+        ed.handle_key(key('"'));
+        ed.handle_key(key('A')); // reading "A resolves to register a
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(2), Some("hello"));
+    }
+
+    #[test]
     fn named_register_independent_from_unnamed() {
         let mut ed = ed_with("keep\nother");
         // Yank "keep" into register a.
