@@ -2313,6 +2313,65 @@
     }
 
     #[test]
+    fn find_char_with_count() {
+        let mut ed = ed_with("a1a2a3a4");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('f'));
+        ed.handle_key(key('a')); // 3fa -> 3rd 'a' after col 0 (col 6)
+        assert_eq!(ed.cursor.col, 6);
+    }
+
+    #[test]
+    fn till_char_with_count() {
+        let mut ed = ed_with("xaxaxa");
+        ed.handle_key(key('2'));
+        ed.handle_key(key('t'));
+        ed.handle_key(key('a')); // 2ta -> just before the 2nd 'a' (col 2)
+        assert_eq!(ed.cursor.col, 2);
+    }
+
+    #[test]
+    fn repeat_find_with_count() {
+        let mut ed = ed_with("o.o.o.o");
+        ed.handle_key(key('f'));
+        ed.handle_key(key('o')); // col 2
+        ed.handle_key(key('2'));
+        ed.handle_key(key(';')); // 2; -> skip to the 3rd-from-here 'o' (col 6)
+        assert_eq!(ed.cursor.col, 6);
+    }
+
+    #[test]
+    fn operator_find_forward() {
+        let mut ed = ed_with("foo(bar)baz");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('d'));
+        ed.handle_key(key('f'));
+        ed.handle_key(key(')')); // df) deletes "foo(bar)"
+        assert_eq!(ed.buffer.line(0), Some("baz"));
+    }
+
+    #[test]
+    fn operator_till_change_enters_insert() {
+        let mut ed = ed_with("foo(bar)baz");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('c'));
+        ed.handle_key(key('t'));
+        ed.handle_key(key('(')); // ct( changes up to before '('
+        assert_eq!(ed.mode, Mode::Insert);
+        assert_eq!(ed.buffer.line(0), Some("(bar)baz"));
+    }
+
+    #[test]
+    fn operator_find_backward() {
+        let mut ed = ed_with("abcXdef");
+        ed.cursor = Position::new(0, 6); // on 'f'
+        ed.handle_key(key('d'));
+        ed.handle_key(key('F'));
+        ed.handle_key(key('X')); // dFX deletes "Xde" (X up to before cursor)
+        assert_eq!(ed.buffer.line(0), Some("abcf"));
+    }
+
+    #[test]
     fn word_end_motion() {
         let mut ed = ed_with("foo bar");
         ed.handle_key(key('e'));

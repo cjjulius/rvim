@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Motions
+- `f`/`F`/`t`/`T` (and `;`/`,`) take a count — `3fx` jumps to the 3rd `x` — and
+  work as operator motions: `dfx`, `ct)`, `dFx`, `y2tn`, etc.
+
 ### Global command
 - `:g/re/normal {keys}` (and `:v/…`) runs Normal-mode keystrokes on each
   matching line, processed bottom-to-top so line-count changes (e.g.
