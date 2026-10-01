@@ -604,6 +604,13 @@ impl Editor {
         self.replay_depth = self.replay_depth.saturating_sub(1);
     }
 
+    /// The active command-line completion candidates and the selected index,
+    /// for the wildmenu. `None` when no `Tab` completion cycle is in progress.
+    pub fn completion_menu(&self) -> Option<(&[String], usize)> {
+        let c = self.cmd_comp.as_ref()?;
+        Some((&c.matches, c.idx))
+    }
+
     /// The prefix character shown before the command line (`:`, `/`, `?`).
     pub fn cmdline_prefix(&self) -> char {
         match self.line_kind {
