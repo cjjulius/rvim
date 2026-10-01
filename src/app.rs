@@ -913,7 +913,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tg? + mot            ROT13 (g?w g?ip g??, or on a visual selection)\n\
          \tgcc  gc<motion>     toggle line comment (also visual gc)\n\
          \tD / C              delete / change to end of line\n\
-         \t>> / <<            indent / dedent (also in visual mode)\n\
+         \t>> / <<            indent / dedent (also >motion, >ip, visual)\n\
          \tyy / p / P         yank line / paste after / before\n\
          \t\"a yy / \"a p       named registers a-z; auto: \"0 yank \"1-9 del \"- small\n\
          \t\"_dd               black-hole register (delete, keep registers)\n\

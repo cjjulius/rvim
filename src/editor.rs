@@ -2188,11 +2188,20 @@ impl Editor {
             return Action::None;
         }
 
-        // Object char after `d`/`y`/`c` + `i`/`a` (e.g. `diw`, `ci(`).
+        // Object char after `d`/`y`/`c`/`>`/`<` + `i`/`a` (e.g. `diw`, `ci(`, `>ip`).
         if let Some((op, iora)) = self.pending_textobj.take() {
             if let KeyCode::Char(obj) = key.code {
                 if let Some(t) = self.text_object(iora, obj) {
-                    self.apply_op(op, t);
+                    if op == '>' || op == '<' {
+                        let (a, b) = match t {
+                            OpTarget::Lines(a, b) => (a, b),
+                            OpTarget::Chars(_, _) => (self.cursor.row, self.cursor.row),
+                            OpTarget::Span(s, e) => (s.row, e.row),
+                        };
+                        self.shift_range(a, b, op == '>');
+                    } else {
+                        self.apply_op(op, t);
+                    }
                 }
             }
             return Action::None;
@@ -2302,8 +2311,9 @@ impl Editor {
         // count typed before the operator by the count typed before the motion.
         if let Some(op) = self.pending_op.take() {
             let op_count = self.pending_op_count.take().unwrap_or(1);
-            // `i`/`a` after d/y/c begins a text object (e.g. diw, ci().
-            if matches!(op, 'd' | 'y' | 'c')
+            // `i`/`a` after d/y/c (and the shift operators >/<) begins a text
+            // object (e.g. diw, ci(, >ip).
+            if matches!(op, 'd' | 'y' | 'c' | '>' | '<')
                 && matches!(code, KeyCode::Char('i') | KeyCode::Char('a'))
             {
                 if let KeyCode::Char(iora) = code {
@@ -2759,16 +2769,7 @@ impl Editor {
                     }
                 };
                 if let Some((a, b)) = rows {
-                    self.checkpoint();
-                    for r in a..=b {
-                        if op == '>' {
-                            self.indent_line(r);
-                        } else {
-                            self.dedent_line(r);
-                        }
-                    }
-                    self.cursor.row = a;
-                    self.move_first_nonblank();
+                    self.shift_range(a, b, op == '>');
                 }
             }
             'd' | 'y' | 'c' => {
@@ -4069,6 +4070,23 @@ impl Editor {
         if removed > 0 {
             self.buffer.set_line(row, new);
         }
+    }
+
+    /// Indent (`>`) or dedent (`<`) the inclusive row range `a..=b` under one
+    /// undo step, landing the cursor on the first non-blank of the first line.
+    fn shift_range(&mut self, a: usize, b: usize, indent: bool) {
+        let last = self.buffer.line_count().saturating_sub(1);
+        let (a, b) = (a.min(last), b.min(last));
+        self.checkpoint();
+        for r in a..=b {
+            if indent {
+                self.indent_line(r);
+            } else {
+                self.dedent_line(r);
+            }
+        }
+        self.cursor.row = a;
+        self.move_first_nonblank();
     }
 
     fn shift_selection(&mut self, indent: bool) {

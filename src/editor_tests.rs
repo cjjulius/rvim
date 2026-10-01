@@ -1891,6 +1891,39 @@
     }
 
     #[test]
+    fn shift_operator_with_paragraph_object() {
+        let mut ed = ed_with("a\nb\n\nc");
+        ed.handle_key(key('>'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('p')); // >ip indents the paragraph (lines 0-1)
+        assert_eq!(ed.buffer.line(0), Some("    a"));
+        assert_eq!(ed.buffer.line(1), Some("    b"));
+        assert_eq!(ed.buffer.line(2), Some(""));
+    }
+
+    #[test]
+    fn shift_operator_with_multiline_brace_object() {
+        let mut ed = ed_with("{\nx\ny\n}");
+        ed.cursor = Position::new(1, 0);
+        ed.handle_key(key('>'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('{')); // >i{ indents the inner block
+        assert_eq!(ed.buffer.line(0), Some("{"));
+        assert_eq!(ed.buffer.line(1), Some("    x"));
+        assert_eq!(ed.buffer.line(2), Some("    y"));
+    }
+
+    #[test]
+    fn dedent_operator_with_paragraph_object() {
+        let mut ed = ed_with("    a\n    b\n\nc");
+        ed.handle_key(key('<'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('p')); // <ip dedents the paragraph
+        assert_eq!(ed.buffer.line(0), Some("a"));
+        assert_eq!(ed.buffer.line(1), Some("b"));
+    }
+
+    #[test]
     fn visual_x_deletes_selection() {
         let mut ed = ed_with("hello");
         ed.handle_key(key('v'));
