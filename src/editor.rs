@@ -74,6 +74,8 @@ pub struct Editor {
     pending_op_count: Option<usize>,
     /// After `d`/`y`/`c` + `i`/`a`: the (operator, i-or-a) awaiting an object char.
     pending_textobj: Option<(char, char)>,
+    /// After `d`/`y`/`c` + `g`: the operator awaiting the second `g` (e.g. `dgg`).
+    pending_op_gg: Option<char>,
     /// After `gu`/`gU`/`g~`: a case operator awaiting a motion/object.
     pending_case: Option<CaseOp>,
     /// After a case operator + `i`/`a`: awaiting an object char.
@@ -81,6 +83,7 @@ pub struct Editor {
     /// After `gc`: a comment-toggle operator awaiting a motion.
     pending_comment: bool,
     pending_replace: bool,
+    pending_replace_count: usize,
     pending_find: Option<char>,
     last_find: Option<(char, char)>,
     marks: HashMap<char, Position>,
@@ -149,10 +152,12 @@ impl Editor {
             pending_op: None,
             pending_op_count: None,
             pending_textobj: None,
+            pending_op_gg: None,
             pending_case: None,
             pending_case_obj: None,
             pending_comment: false,
             pending_replace: false,
+            pending_replace_count: 1,
             pending_find: None,
             last_find: None,
             marks: HashMap::new(),
@@ -622,6 +627,7 @@ impl Editor {
             && self.pending_op.is_none()
             && self.pending_count.is_none()
             && self.pending_textobj.is_none()
+            && self.pending_op_gg.is_none()
             && self.pending_case.is_none()
             && self.pending_case_obj.is_none()
             && !self.pending_comment
@@ -789,12 +795,28 @@ impl Editor {
     }
 
     fn handle_normal(&mut self, key: KeyEvent) -> Action {
-        // Pending `r<char>` replace.
+        // Pending `r<char>` replace (`<n>r<char>` replaces n chars).
         if self.pending_replace {
             self.pending_replace = false;
+            let n = self.pending_replace_count.max(1);
             if let KeyCode::Char(c) = key.code {
+                // Only act if the whole run fits on the line (vim behavior).
+                if self.cursor.col + n <= self.cur_len() {
+                    self.checkpoint();
+                    for k in 0..n {
+                        let pos = Position::new(self.cursor.row, self.cursor.col + k);
+                        self.buffer.replace_char(pos, c);
+                    }
+                    self.cursor.col += n - 1;
+                    self.clamp_cursor(false);
+                }
+            } else if key.code == KeyCode::Enter {
+                // r<Enter> splits the line.
                 self.checkpoint();
-                self.buffer.replace_char(self.cursor, c);
+                self.buffer.delete_char(self.cursor);
+                self.buffer.split_line(self.cursor);
+                self.cursor.row += 1;
+                self.cursor.col = 0;
             }
             return Action::None;
         }
@@ -858,6 +880,15 @@ impl Editor {
                         self.apply_case_op(cop, t);
                     }
                 }
+            }
+            return Action::None;
+        }
+
+        // Second `g` after an operator (e.g. `dgg` -> to top of file, line-wise).
+        if let Some(op) = self.pending_op_gg.take() {
+            if key.code == KeyCode::Char('g') {
+                let target = OpTarget::Lines(0, self.cursor.row);
+                self.apply_op(op, target);
             }
             return Action::None;
         }
@@ -944,6 +975,11 @@ impl Editor {
                 }
                 return Action::None;
             }
+            // `g` after d/y/c awaits a second `g` (e.g. dgg).
+            if matches!(op, 'd' | 'y' | 'c') && code == KeyCode::Char('g') {
+                self.pending_op_gg = Some(op);
+                return Action::None;
+            }
             self.apply_operator(op, code, op_count.saturating_mul(count));
             return Action::None;
         }
@@ -956,9 +992,12 @@ impl Editor {
             KeyCode::Char('0') | KeyCode::Home => self.cursor.col = 0,
             KeyCode::Char('$') | KeyCode::End => self.move_line_end(),
             KeyCode::Char('^') => self.move_first_nonblank(),
-            KeyCode::Char('w') => self.move_word_forward(count),
-            KeyCode::Char('b') => self.move_word_backward(count),
-            KeyCode::Char('e') => self.move_word_end(),
+            KeyCode::Char('w') => self.move_word_forward(count, false),
+            KeyCode::Char('W') => self.move_word_forward(count, true),
+            KeyCode::Char('b') => self.move_word_backward(count, false),
+            KeyCode::Char('B') => self.move_word_backward(count, true),
+            KeyCode::Char('e') => self.move_word_end(count, false),
+            KeyCode::Char('E') => self.move_word_end(count, true),
             KeyCode::Char('f') => self.pending_find = Some('f'),
             KeyCode::Char('F') => self.pending_find = Some('F'),
             KeyCode::Char('t') => self.pending_find = Some('t'),
@@ -970,6 +1009,14 @@ impl Editor {
                     self.cursor = p;
                 }
             }
+            KeyCode::Char('}') => {
+                self.cursor.row = self.paragraph_forward();
+                self.cursor.col = 0;
+            }
+            KeyCode::Char('{') => {
+                self.cursor.row = self.paragraph_backward();
+                self.cursor.col = 0;
+            }
             KeyCode::Char('"') => self.expect_register = true,
             KeyCode::Char('m') => self.pending_mark = Some(PendingMark::Set),
             KeyCode::Char('`') => self.pending_mark = Some(PendingMark::JumpExact),
@@ -977,8 +1024,14 @@ impl Editor {
             KeyCode::Char('q') => self.expect_macro = Some(MacroMode::Record),
             KeyCode::Char('@') => self.expect_macro = Some(MacroMode::Play),
             KeyCode::Char('G') => self.goto_line_or_end(count),
-            KeyCode::Char('g') => self.pending_op = Some('g'),
-            KeyCode::Char('z') => self.pending_op = Some('z'),
+            KeyCode::Char('g') => {
+                self.pending_op = Some('g');
+                self.pending_op_count = Some(count);
+            }
+            KeyCode::Char('z') => {
+                self.pending_op = Some('z');
+                self.pending_op_count = Some(count);
+            }
             KeyCode::Char('H') => {
                 self.cursor.row = self.top.min(self.buffer.line_count().saturating_sub(1));
                 self.move_first_nonblank();
@@ -1018,17 +1071,38 @@ impl Editor {
                     self.pending_op_count = Some(count);
                 }
             }
-            KeyCode::Char('x') => self.delete_char_under(count),
-            KeyCode::Char('r') => self.pending_replace = true,
+            KeyCode::Char('x') => {
+                if self.mode.is_visual() {
+                    self.visual_delete();
+                } else {
+                    self.delete_char_under(count);
+                }
+            }
+            KeyCode::Char('X') => self.delete_char_before(count),
+            KeyCode::Char('r') => {
+                self.pending_replace = true;
+                self.pending_replace_count = count;
+            }
             KeyCode::Char('D') => self.delete_to_eol(),
             KeyCode::Char('C') => self.change_to_eol(),
-            KeyCode::Char('s') => self.substitute_char(),
+            KeyCode::Char('Y') => {
+                let last = self.buffer.line_count().saturating_sub(1);
+                self.apply_op('y', OpTarget::Lines(self.cursor.row, (self.cursor.row + count - 1).min(last)));
+            }
+            KeyCode::Char('s') => {
+                if self.mode.is_visual() {
+                    self.visual_delete();
+                    self.mode = Mode::Insert;
+                } else {
+                    self.substitute_char(count);
+                }
+            }
             KeyCode::Char('S') => self.substitute_line(),
             KeyCode::Char('~') => {
                 if self.mode.is_visual() {
                     self.transform_selection(CaseOp::Toggle);
                 } else {
-                    self.toggle_case();
+                    self.toggle_case(count);
                 }
             }
             KeyCode::Char('U') if self.mode.is_visual() => {
@@ -1039,6 +1113,7 @@ impl Editor {
                     self.shift_selection(true);
                 } else {
                     self.pending_op = Some('>');
+                    self.pending_op_count = Some(count);
                 }
             }
             KeyCode::Char('<') => {
@@ -1046,6 +1121,7 @@ impl Editor {
                     self.shift_selection(false);
                 } else {
                     self.pending_op = Some('<');
+                    self.pending_op_count = Some(count);
                 }
             }
             KeyCode::Char('i') => self.enter_insert_here(),
@@ -1114,6 +1190,7 @@ impl Editor {
                 }
                 self.pending_op = None;
                 self.pending_op_count = None;
+                self.pending_op_gg = None;
                 self.pending_count = None;
             }
             _ => {}
@@ -1129,8 +1206,10 @@ impl Editor {
             'g' => match code {
                 KeyCode::Char('g') => {
                     self.record_jump();
-                    self.cursor.row = 0;
-                    self.cursor.col = 0;
+                    // `gg` -> first line; `<n>gg` -> line n (first non-blank).
+                    let last = self.buffer.line_count().saturating_sub(1);
+                    self.cursor.row = count.saturating_sub(1).min(last);
+                    self.move_first_nonblank();
                 }
                 KeyCode::Char('u') => self.pending_case = Some(CaseOp::Lower),
                 KeyCode::Char('U') => self.pending_case = Some(CaseOp::Upper),
@@ -1153,28 +1232,49 @@ impl Editor {
                 KeyCode::Char('b') => self.line_to_bottom(),
                 _ => {}
             },
-            '>' => {
-                if code == KeyCode::Char('>') {
+            '>' | '<' => {
+                let last = self.buffer.line_count().saturating_sub(1);
+                let rows = if code == KeyCode::Char(op) {
+                    // Doubled (`>>`/`<<`): `count` lines from the cursor.
+                    Some((self.cursor.row, (self.cursor.row + count - 1).min(last)))
+                } else {
+                    match self.motion_target(code, count) {
+                        Some(OpTarget::Lines(a, b)) => Some((a, b)),
+                        Some(OpTarget::Chars(_, _)) => Some((self.cursor.row, self.cursor.row)),
+                        None => None,
+                    }
+                };
+                if let Some((a, b)) = rows {
                     self.checkpoint();
-                    self.indent_line(self.cursor.row);
-                    self.move_first_nonblank();
-                }
-            }
-            '<' => {
-                if code == KeyCode::Char('<') {
-                    self.checkpoint();
-                    self.dedent_line(self.cursor.row);
+                    for r in a..=b {
+                        if op == '>' {
+                            self.indent_line(r);
+                        } else {
+                            self.dedent_line(r);
+                        }
+                    }
+                    self.cursor.row = a;
                     self.move_first_nonblank();
                 }
             }
             'd' | 'y' | 'c' => {
                 // Doubled operator (dd/yy/cc) acts on `count` whole lines.
                 let doubled = code == KeyCode::Char(op);
+                // `cw`/`cW` behave like `ce`/`cE` (vim's special case).
+                let motion = if op == 'c' {
+                    match code {
+                        KeyCode::Char('w') => KeyCode::Char('e'),
+                        KeyCode::Char('W') => KeyCode::Char('E'),
+                        other => other,
+                    }
+                } else {
+                    code
+                };
                 let target = if doubled {
                     let last = self.buffer.line_count().saturating_sub(1);
                     OpTarget::Lines(self.cursor.row, (self.cursor.row + count - 1).min(last))
                 } else {
-                    match self.motion_target(code, count) {
+                    match self.motion_target(motion, count) {
                         Some(t) => t,
                         None => return,
                     }
@@ -1195,8 +1295,10 @@ impl Editor {
         let len = self.cur_len();
         let last = self.buffer.line_count().saturating_sub(1);
         Some(match code {
-            KeyCode::Char('w') => OpTarget::Chars(col, self.word_forward_col_n(count)),
-            KeyCode::Char('e') => OpTarget::Chars(col, (self.word_end_col_n(count) + 1).min(len)),
+            KeyCode::Char('w') => OpTarget::Chars(col, self.word_forward_col_n(count, false)),
+            KeyCode::Char('W') => OpTarget::Chars(col, self.word_forward_col_n(count, true)),
+            KeyCode::Char('e') => OpTarget::Chars(col, (self.word_end_col_n(count, false) + 1).min(len)),
+            KeyCode::Char('E') => OpTarget::Chars(col, (self.word_end_col_n(count, true) + 1).min(len)),
             KeyCode::Char('$') | KeyCode::End => OpTarget::Chars(col, len),
             KeyCode::Char('0') | KeyCode::Home => OpTarget::Chars(0, col),
             KeyCode::Char('^') => OpTarget::Chars(self.first_nonblank_col(), col),
@@ -1360,8 +1462,37 @@ impl Editor {
         line.chars().take_while(|c| c.is_whitespace()).count()
     }
 
+    fn is_blank_row(&self, row: usize) -> bool {
+        self.buffer
+            .line(row)
+            .map(|l| l.trim().is_empty())
+            .unwrap_or(true)
+    }
+
+    /// `}` — the next blank line after the cursor (or the last line).
+    fn paragraph_forward(&self) -> usize {
+        let n = self.buffer.line_count();
+        let mut r = self.cursor.row + 1;
+        while r < n && !self.is_blank_row(r) {
+            r += 1;
+        }
+        r.min(n.saturating_sub(1))
+    }
+
+    /// `{` — the previous blank line before the cursor (or the first line).
+    fn paragraph_backward(&self) -> usize {
+        if self.cursor.row == 0 {
+            return 0;
+        }
+        let mut r = self.cursor.row - 1;
+        while r > 0 && !self.is_blank_row(r) {
+            r -= 1;
+        }
+        r
+    }
+
     /// The column `count` word-starts forward on the current line (bounded to EOL).
-    fn word_forward_col_n(&self, count: usize) -> usize {
+    fn word_forward_col_n(&self, count: usize, big: bool) -> usize {
         let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
         let len = chars.len();
         let mut col = self.cursor.col;
@@ -1369,8 +1500,8 @@ impl Editor {
             if col >= len {
                 break;
             }
-            let class = Self::char_class(chars[col]);
-            while col < len && Self::char_class(chars[col]) == class && class != 0 {
+            let class = Self::class_of(chars[col], big);
+            while col < len && Self::class_of(chars[col], big) == class && class != 0 {
                 col += 1;
             }
             while col < len && chars[col].is_whitespace() {
@@ -1381,7 +1512,7 @@ impl Editor {
     }
 
     /// The column of the end of the `count`-th word forward on the current line.
-    fn word_end_col_n(&self, count: usize) -> usize {
+    fn word_end_col_n(&self, count: usize, big: bool) -> usize {
         let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
         let len = chars.len();
         let mut i = self.cursor.col;
@@ -1391,8 +1522,8 @@ impl Editor {
                 i += 1;
             }
             if i < len {
-                let class = Self::char_class(chars[i]);
-                while i + 1 < len && Self::char_class(chars[i + 1]) == class {
+                let class = Self::class_of(chars[i], big);
+                while i + 1 < len && Self::class_of(chars[i + 1], big) == class {
                     i += 1;
                 }
             }
@@ -1472,7 +1603,21 @@ impl Editor {
         }
     }
 
-    fn move_word_forward(&mut self, count: usize) {
+    /// Character class for word motions. `big` collapses word/punctuation into a
+    /// single class so `W`/`B`/`E` treat whitespace-delimited WORDs.
+    fn class_of(c: char, big: bool) -> u8 {
+        if big {
+            if c.is_whitespace() {
+                0
+            } else {
+                1
+            }
+        } else {
+            Self::char_class(c)
+        }
+    }
+
+    fn move_word_forward(&mut self, count: usize, big: bool) {
         for _ in 0..count {
             let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
             let mut col = self.cursor.col;
@@ -1484,9 +1629,9 @@ impl Editor {
                 }
                 continue;
             }
-            let start_class = Self::char_class(chars[col]);
+            let start_class = Self::class_of(chars[col], big);
             // skip current run
-            while col < chars.len() && Self::char_class(chars[col]) == start_class && start_class != 0
+            while col < chars.len() && Self::class_of(chars[col], big) == start_class && start_class != 0
             {
                 col += 1;
             }
@@ -1506,22 +1651,44 @@ impl Editor {
     /// Compute a text object span on the current line. `iora` is `i` (inner) or
     /// `a` (around); `obj` selects the object (`w`, brackets, quotes).
     fn text_object(&self, iora: char, obj: char) -> Option<OpTarget> {
+        let around = iora == 'a';
+
+        // Paragraph object (line-wise), valid even on a blank line.
+        if obj == 'p' {
+            let blank = self.is_blank_row(self.cursor.row);
+            let n = self.buffer.line_count();
+            let mut a = self.cursor.row;
+            while a > 0 && self.is_blank_row(a - 1) == blank {
+                a -= 1;
+            }
+            let mut b = self.cursor.row;
+            while b + 1 < n && self.is_blank_row(b + 1) == blank {
+                b += 1;
+            }
+            if around {
+                while b + 1 < n && self.is_blank_row(b + 1) {
+                    b += 1;
+                }
+            }
+            return Some(OpTarget::Lines(a, b));
+        }
+
         let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
         if chars.is_empty() {
             return None;
         }
         let col = self.cursor.col.min(chars.len() - 1);
-        let around = iora == 'a';
 
-        // Word object.
-        if obj == 'w' {
-            let class = Self::char_class(chars[col]);
+        // Word object (`w` = word, `W` = WORD).
+        if obj == 'w' || obj == 'W' {
+            let big = obj == 'W';
+            let class = Self::class_of(chars[col], big);
             let mut start = col;
-            while start > 0 && Self::char_class(chars[start - 1]) == class {
+            while start > 0 && Self::class_of(chars[start - 1], big) == class {
                 start -= 1;
             }
             let mut end = col + 1;
-            while end < chars.len() && Self::char_class(chars[end]) == class {
+            while end < chars.len() && Self::class_of(chars[end], big) == class {
                 end += 1;
             }
             if around {
@@ -1684,19 +1851,32 @@ impl Editor {
         }
     }
 
-    fn move_word_end(&mut self) {
-        let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
-        let len = chars.len();
-        let mut i = self.cursor.col + 1;
-        while i < len && chars[i].is_whitespace() {
-            i += 1;
-        }
-        if i < len {
-            let class = Self::char_class(chars[i]);
-            while i + 1 < len && Self::char_class(chars[i + 1]) == class {
+    fn move_word_end(&mut self, count: usize, big: bool) {
+        for _ in 0..count.max(1) {
+            let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+            let len = chars.len();
+            // Cross to the next line if there's nothing left on this one.
+            if self.cursor.col + 1 >= len {
+                if self.cursor.row + 1 < self.buffer.line_count() {
+                    self.cursor.row += 1;
+                    self.cursor.col = 0;
+                } else {
+                    break;
+                }
+            }
+            let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+            let len = chars.len();
+            let mut i = self.cursor.col + 1;
+            while i < len && chars[i].is_whitespace() {
                 i += 1;
             }
-            self.cursor.col = i;
+            if i < len {
+                let class = Self::class_of(chars[i], big);
+                while i + 1 < len && Self::class_of(chars[i + 1], big) == class {
+                    i += 1;
+                }
+                self.cursor.col = i;
+            }
         }
     }
 
@@ -1748,27 +1928,31 @@ impl Editor {
         self.clamp_cursor(false);
     }
 
-    fn toggle_case(&mut self) {
-        let line = self.buffer.line(self.cursor.row).unwrap_or("");
-        let Some(ch) = line.chars().nth(self.cursor.col) else {
+    fn toggle_case(&mut self, count: usize) {
+        if self.cur_len() == 0 {
             return;
-        };
-        let toggled: String = if ch.is_uppercase() {
-            ch.to_lowercase().collect()
-        } else if ch.is_lowercase() {
-            ch.to_uppercase().collect()
-        } else {
-            return; // non-alphabetic: no change, no cursor move
-        };
-        self.checkpoint();
-        // Handle the (rare) case where case change alters char count.
-        if toggled.chars().count() == 1 {
-            self.buffer.replace_char(self.cursor, toggled.chars().next().unwrap());
-        } else {
-            self.buffer.delete_char(self.cursor);
-            self.buffer.insert_str(self.cursor, &toggled);
         }
-        self.move_right(1, false);
+        self.checkpoint();
+        for _ in 0..count.max(1) {
+            if self.cursor.col >= self.cur_len() {
+                break;
+            }
+            let line = self.buffer.line(self.cursor.row).unwrap_or("");
+            let Some(ch) = line.chars().nth(self.cursor.col) else {
+                break;
+            };
+            let toggled: Option<char> = if ch.is_uppercase() {
+                ch.to_lowercase().next()
+            } else if ch.is_lowercase() {
+                ch.to_uppercase().next()
+            } else {
+                None
+            };
+            if let Some(t) = toggled {
+                self.buffer.replace_char(self.cursor, t);
+            }
+            self.move_right(1, false);
+        }
     }
 
     fn change_to_eol(&mut self) {
@@ -1784,13 +1968,22 @@ impl Editor {
         self.mode = Mode::Insert;
     }
 
-    fn substitute_char(&mut self) {
+    fn substitute_char(&mut self, count: usize) {
         if self.cur_len() == 0 {
             self.enter_insert_here();
             return;
         }
         self.checkpoint();
-        self.buffer.delete_char(self.cursor);
+        let mut removed = String::new();
+        for _ in 0..count.max(1) {
+            if self.cursor.col >= self.cur_len() {
+                break;
+            }
+            if let Some(c) = self.buffer.delete_char(self.cursor) {
+                removed.push(c);
+            }
+        }
+        self.store_register(removed, false);
         self.mode = Mode::Insert;
     }
 
@@ -1849,7 +2042,7 @@ impl Editor {
         self.mode = Mode::Normal;
     }
 
-    fn move_word_backward(&mut self, count: usize) {
+    fn move_word_backward(&mut self, count: usize, big: bool) {
         for _ in 0..count {
             if self.cursor.col == 0 {
                 if self.cursor.row > 0 {
@@ -1865,8 +2058,8 @@ impl Editor {
                 col -= 1;
             }
             if col > 0 {
-                let class = Self::char_class(chars[col]);
-                while col > 0 && Self::char_class(chars[col - 1]) == class {
+                let class = Self::class_of(chars[col], big);
+                while col > 0 && Self::class_of(chars[col - 1], big) == class {
                     col -= 1;
                 }
             }
@@ -1923,6 +2116,26 @@ impl Editor {
         self.clamp_cursor(false);
     }
 
+    /// `X` — delete up to `count` characters before the cursor.
+    fn delete_char_before(&mut self, count: usize) {
+        if self.cursor.col == 0 {
+            return;
+        }
+        let n = count.min(self.cursor.col);
+        self.checkpoint();
+        let mut removed = String::new();
+        for _ in 0..n {
+            self.cursor.col -= 1;
+            if let Some(c) = self.buffer.delete_char(self.cursor) {
+                removed.push(c);
+            }
+        }
+        // Collected in reverse; restore left-to-right order.
+        let removed: String = removed.chars().rev().collect();
+        self.store_register(removed, false);
+        self.clamp_cursor(false);
+    }
+
     fn delete_to_eol(&mut self) {
         self.checkpoint();
         let line = self.buffer.line(self.cursor.row).unwrap_or("").to_string();
@@ -1969,7 +2182,10 @@ impl Editor {
             } else {
                 self.cursor.row
             };
-            self.buffer.insert_line(row, reg.text.clone());
+            // A linewise register may hold several lines (e.g. `2yy`, `yG`).
+            for (i, line) in reg.text.split('\n').enumerate() {
+                self.buffer.insert_line(row + i, line.to_string());
+            }
             self.cursor.row = row;
             self.move_first_nonblank();
         } else {
@@ -2936,13 +3152,179 @@ mod tests {
     }
 
     #[test]
-    fn change_word_still_works() {
+    fn paragraph_motions() {
+        let mut ed = ed_with("a\nb\n\nc\nd\n\ne");
+        ed.handle_key(key('}')); // to first blank (row 2)
+        assert_eq!(ed.cursor.row, 2);
+        ed.handle_key(key('}')); // to next blank (row 5)
+        assert_eq!(ed.cursor.row, 5);
+        ed.handle_key(key('{')); // back to blank (row 2)
+        assert_eq!(ed.cursor.row, 2);
+    }
+
+    #[test]
+    fn paragraph_text_object_dip() {
+        let mut ed = ed_with("a\nb\n\nc");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('p')); // delete the paragraph "a","b"
+        assert_eq!(ed.buffer.line(0), Some(""));
+        assert_eq!(ed.buffer.line(1), Some("c"));
+    }
+
+    #[test]
+    fn paragraph_text_object_dap_eats_trailing_blank() {
+        let mut ed = ed_with("a\nb\n\nc");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('p')); // delete "a","b" + the blank line
+        assert_eq!(ed.buffer.line(0), Some("c"));
+        assert_eq!(ed.buffer.line_count(), 1);
+    }
+
+    #[test]
+    fn big_word_motions_w_b_e() {
+        let mut ed = ed_with("foo.bar baz.qux");
+        ed.handle_key(key('W')); // skip whole WORD "foo.bar" -> start of "baz.qux"
+        assert_eq!(ed.cursor.col, 8);
+        ed.handle_key(key('B')); // back to start of "foo.bar"
+        assert_eq!(ed.cursor.col, 0);
+        ed.handle_key(key('E')); // end of WORD "foo.bar"
+        assert_eq!(ed.cursor.col, 6);
+    }
+
+    #[test]
+    fn small_w_stops_at_punctuation() {
+        let mut ed = ed_with("foo.bar");
+        ed.handle_key(key('w')); // small word stops at '.'
+        assert_eq!(ed.cursor.col, 3);
+    }
+
+    #[test]
+    fn delete_big_word_d_w() {
+        let mut ed = ed_with("foo.bar baz");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('W')); // delete "foo.bar " (WORD + trailing space)
+        assert_eq!(ed.buffer.line(0), Some("baz"));
+    }
+
+    #[test]
+    fn change_big_word_like_ce() {
+        let mut ed = ed_with("foo.bar baz");
+        ed.handle_key(key('c'));
+        ed.handle_key(key('W')); // like cE: change "foo.bar", keep the space
+        ed.handle_key(key('X'));
+        assert_eq!(ed.buffer.line(0), Some("X baz"));
+    }
+
+    #[test]
+    fn capital_x_deletes_before_cursor() {
+        let mut ed = ed_with("abcd");
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // col 2
+        ed.handle_key(key('X')); // delete 'b'
+        assert_eq!(ed.buffer.line(0), Some("acd"));
+    }
+
+    #[test]
+    fn capital_y_yanks_lines() {
+        let mut ed = ed_with("one\ntwo\nthree");
+        ed.handle_key(key('2'));
+        ed.handle_key(key('Y')); // yank 2 lines
+        ed.handle_key(key('G'));
+        ed.handle_key(key('p'));
+        assert_eq!(ed.buffer.line(3), Some("one"));
+        assert_eq!(ed.buffer.line(4), Some("two"));
+    }
+
+    #[test]
+    fn count_gg_goes_to_line() {
+        let mut ed = ed_with("l0\nl1\nl2\nl3\nl4");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('g'));
+        ed.handle_key(key('g')); // 3gg -> line 3 (row 2)
+        assert_eq!(ed.cursor.row, 2);
+    }
+
+    #[test]
+    fn operator_dgg_deletes_to_top() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.handle_key(key('G')); // last line (row 3)
+        ed.handle_key(key('k')); // row 2
+        ed.handle_key(key('d'));
+        ed.handle_key(key('g'));
+        ed.handle_key(key('g')); // delete rows 0..=2
+        assert_eq!(ed.buffer.line_count(), 1);
+        assert_eq!(ed.buffer.line(0), Some("d"));
+    }
+
+    #[test]
+    fn count_replace_3r() {
+        let mut ed = ed_with("aaaa");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('r'));
+        ed.handle_key(key('x')); // replace 3 chars
+        assert_eq!(ed.buffer.line(0), Some("xxxa"));
+    }
+
+    #[test]
+    fn count_tilde_toggles_n_chars() {
+        let mut ed = ed_with("abcd");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('~')); // toggle 3 chars
+        assert_eq!(ed.buffer.line(0), Some("ABCd"));
+        assert_eq!(ed.cursor.col, 3);
+    }
+
+    #[test]
+    fn shift_operator_with_motion() {
+        let mut ed = ed_with("a\nb\nc");
+        ed.handle_key(key('>'));
+        ed.handle_key(key('j')); // indent 2 lines
+        assert_eq!(ed.buffer.line(0), Some("    a"));
+        assert_eq!(ed.buffer.line(1), Some("    b"));
+        assert_eq!(ed.buffer.line(2), Some("c"));
+    }
+
+    #[test]
+    fn count_shift_lines() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.handle_key(key('3'));
+        ed.handle_key(key('>'));
+        ed.handle_key(key('>')); // 3>> indent 3 lines
+        assert_eq!(ed.buffer.line(0), Some("    a"));
+        assert_eq!(ed.buffer.line(2), Some("    c"));
+        assert_eq!(ed.buffer.line(3), Some("d"));
+    }
+
+    #[test]
+    fn visual_x_deletes_selection() {
+        let mut ed = ed_with("hello");
+        ed.handle_key(key('v'));
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // select "hel"
+        ed.handle_key(key('x'));
+        assert_eq!(ed.buffer.line(0), Some("lo"));
+    }
+
+    #[test]
+    fn text_object_a_big_w() {
+        let mut ed = ed_with("foo.bar baz");
+        ed.handle_key(key('d'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('W')); // delete a WORD "foo.bar " incl trailing space
+        assert_eq!(ed.buffer.line(0), Some("baz"));
+    }
+
+    #[test]
+    fn change_word_behaves_like_ce() {
+        // vim: `cw` acts like `ce` — it does NOT eat the trailing space.
         let mut ed = ed_with("foo bar");
         ed.handle_key(key('c'));
-        ed.handle_key(key('w')); // change "foo " -> insert
+        ed.handle_key(key('w'));
         assert_eq!(ed.mode, Mode::Insert);
         ed.handle_key(key('X'));
-        assert_eq!(ed.buffer.line(0), Some("Xbar"));
+        assert_eq!(ed.buffer.line(0), Some("X bar"));
     }
 
     #[test]
