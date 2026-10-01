@@ -145,6 +145,7 @@ pub fn render(
     theme: &Theme,
     syntax: &Registry,
     tabs: &[TabEntry],
+    in_block_top: bool,
 ) -> io::Result<()> {
     let (cols, rows) = crossterm::terminal::size()?;
     let show_tabline = tabs.len() > 1;
@@ -173,10 +174,9 @@ pub fn render(
     let search = editor.search_regex();
     let paren = editor.match_highlight();
 
-    // Carry block-comment state from the top of the buffer to the first visible
-    // line, then thread it through the visible rows.
-    let mut in_block =
-        syntax.block_state_at(editor.language, editor.buffer.lines(), editor.top);
+    // Block-comment state feeding the first visible line (computed by the caller,
+    // memoized), then threaded through the visible rows.
+    let mut in_block = in_block_top;
 
     for y in 0..layout.text_rows {
         let row = editor.top + y as usize;

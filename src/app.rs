@@ -25,6 +25,11 @@ pub struct App {
     plugins: PluginManager,
     quit: bool,
     want_mouse: bool,
+    /// Memo for the block-comment fold feeding the first visible line, keyed by
+    /// (buffer revision, language, top row). Avoids re-folding from the top of the
+    /// buffer every frame when the view hasn't changed (e.g. cursor moving
+    /// on-screen).
+    block_memo: Option<(u64, Language, usize, bool)>,
 }
 
 impl App {
@@ -38,6 +43,7 @@ impl App {
             plugins: PluginManager::with_builtins(),
             quit: false,
             want_mouse: false,
+            block_memo: None,
         }
     }
 
@@ -198,6 +204,22 @@ impl App {
         self.editor.message = parts.join("  |  ");
     }
 
+    /// The block-comment fold state feeding the first visible line, memoized by
+    /// (buffer revision, language, top row) so an unchanged view is O(1).
+    fn block_state_top(&mut self) -> bool {
+        let rev = self.editor.buffer.revision();
+        let lang = self.editor.language;
+        let top = self.editor.top;
+        match self.block_memo {
+            Some((r, l, t, v)) if r == rev && l == lang && t == top => v,
+            _ => {
+                let v = self.syntax.block_state_at(lang, self.editor.buffer.lines(), top);
+                self.block_memo = Some((rev, lang, top, v));
+                v
+            }
+        }
+    }
+
     /// Run the interactive event loop until the user quits.
     pub fn run(&mut self) -> io::Result<()> {
         let mut guard = TerminalGuard::enter()?;
@@ -228,7 +250,18 @@ impl App {
             self.editor
                 .set_viewport(layout.text_rows as usize, layout.text_cols as usize);
 
-            ui::render(&mut out, &self.editor, self.themes.current(), &self.syntax, &tabs)?;
+            // Block-comment state feeding the first visible line, memoized so an
+            // unchanged view doesn't re-fold from the top of the buffer each frame.
+            let in_block_top = self.block_state_top();
+
+            ui::render(
+                &mut out,
+                &self.editor,
+                self.themes.current(),
+                &self.syntax,
+                &tabs,
+                in_block_top,
+            )?;
 
             match event::read()? {
                 Event::Key(key) => {
@@ -807,6 +840,20 @@ mod tests {
         assert!(!app.quit);
         app.run_ex("q!");
         assert!(app.quit);
+    }
+
+    #[test]
+    fn block_state_top_memoizes_and_recomputes() {
+        let mut app = App::new();
+        app.editor.buffer =
+            crate::buffer::Buffer::from_text("/* comment\nstill in\n*/\ncode");
+        app.editor.set_language(crate::syntax::Language::Rust);
+        app.editor.top = 1;
+        assert!(app.block_state_top()); // line 1 is inside the block comment
+        assert!(app.block_memo.is_some()); // result cached
+        assert!(app.block_state_top()); // cached path returns the same
+        app.editor.top = 3;
+        assert!(!app.block_state_top()); // line 3 ("code") is outside the block
     }
 
     #[test]
