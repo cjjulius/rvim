@@ -3392,6 +3392,11 @@ impl Editor {
     /// Store yanked text: unnamed register + the yank register `"0` (or the
     /// pending named register if one was given, e.g. `"ayy`).
     fn store_yank(&mut self, text: String, linewise: bool) {
+        // The black-hole register "_ discards without touching any register.
+        if self.pending_register == Some('_') {
+            self.pending_register = None;
+            return;
+        }
         let reg = Register { text, linewise };
         if let Some(name) = self.pending_register.take() {
             self.registers.insert(name, reg.clone());
@@ -3405,6 +3410,11 @@ impl Editor {
     /// register, the numbered ring `"1`–`"9` (line-wise / multi-line deletes), or
     /// the small-delete register `"-` (within-line deletes). Mirrors vim.
     fn store_delete(&mut self, text: String, linewise: bool) {
+        // The black-hole register "_ discards without touching any register.
+        if self.pending_register == Some('_') {
+            self.pending_register = None;
+            return;
+        }
         let reg = Register { text, linewise };
         if let Some(name) = self.pending_register.take() {
             self.registers.insert(name, reg.clone());

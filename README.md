@@ -93,7 +93,8 @@ Press `:help` inside the editor for a keybinding cheatsheet, and `:q` to quit.
 - **Registers:** `"a`–`"z` prefix any yank/delete/paste to use a named register
   (e.g. `"ayy` … `"ap`). Vim's read-only registers are populated automatically:
   `"0` (last yank), `"1`–`"9` (recent line/multi-line deletes, shifted), and
-  `"-` (last small delete). The unnamed register is used when none is given.
+  `"-` (last small delete). The unnamed register is used when none is given. The
+  black-hole register `"_` (e.g. `"_dd`) deletes without disturbing any register.
 - **Marks:** `m<letter>` sets a mark, `` `<letter> `` jumps to it (exact),
   `'<letter>` jumps to its line; `` `` `` / `''` return to the previous position
   (also set by `G`, `gg`, and searches). Automatic marks: `` `. `` (last change),
@@ -368,7 +369,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **341 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **342 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
