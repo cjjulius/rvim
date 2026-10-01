@@ -863,7 +863,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t0 / ^ / $ / g_      line start / first-nonblank / end / last-nonblank\n\
          \t+ / - / _  |        line first-nonblank down/up/down   | = column\n\
          \tgg / G             top / bottom (or <n>G, :<n>)\n\
-         \tH / M / L          top / middle / bottom of screen\n\
+         \tH / M / L          top / middle / bottom of screen (<n>H/<n>L count in)\n\
          \tzz / zt / zb       center / top / bottom current line\n\
          \tz. / z<CR> / z-    same, then move to first non-blank\n\
          \tCtrl-d / Ctrl-u    half-page down / up\n\
