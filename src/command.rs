@@ -80,6 +80,8 @@ pub enum ExCommand {
     SetTabStop(usize),
     /// `:set scrolloff=N` — minimum lines of context kept above/below the cursor.
     SetScrollOff(usize),
+    /// `:set sidescrolloff=N` — minimum columns of context kept left/right.
+    SetSideScrollOff(usize),
     /// `:set textwidth=N` — wrap column for `gq` reflow (0 disables).
     SetTextWidth(usize),
     /// `:set ft=<lang>`
@@ -616,6 +618,14 @@ fn parse_set(rest: &str) -> ExCommand {
             {
                 match v.trim().parse::<usize>() {
                     Ok(n) if n > 0 => ExCommand::SetTabStop(n),
+                    _ => unknown_set(opt),
+                }
+            } else if let Some(v) = opt
+                .strip_prefix("sidescrolloff=")
+                .or_else(|| opt.strip_prefix("siso="))
+            {
+                match v.trim().parse::<usize>() {
+                    Ok(n) => ExCommand::SetSideScrollOff(n),
                     _ => unknown_set(opt),
                 }
             } else if let Some(v) = opt

@@ -550,6 +550,10 @@ impl App {
                 self.editor.scrolloff = n;
                 self.editor.message = format!("scrolloff={n}");
             }
+            ExCommand::SetSideScrollOff(n) => {
+                self.editor.sidescrolloff = n;
+                self.editor.message = format!("sidescrolloff={n}");
+            }
             ExCommand::SetTextWidth(n) => {
                 self.editor.textwidth = n;
                 self.editor.message = format!("textwidth={n}");
@@ -915,6 +919,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set number|nonumber   :set relativenumber|nornu\n\
          \t:set autoindent|noai   :set expandtab|noet\n\
          \t:set shiftwidth=N  :set tabstop=N  :set scrolloff=N  :set textwidth=N\n\
+         \t:set sidescrolloff=N   horizontal context columns\n\
          \t:set ignorecase|noic   :set smartcase|noscs   (search case)\n\
          \t:set incsearch|nois    preview match while typing /?\n\
          \t:set list|nolist       show tabs / trailing whitespace\n\

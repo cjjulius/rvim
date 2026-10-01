@@ -199,6 +199,19 @@
     }
 
     #[test]
+    fn sidescrolloff_keeps_horizontal_context() {
+        let mut ed = ed_with(&"x".repeat(100));
+        ed.view_cols = 20;
+        ed.sidescrolloff = 4;
+        ed.cursor.col = 50;
+        ed.scroll_into_view();
+        assert_eq!(ed.left, 35); // 4 cols of context to the right
+        ed.cursor.col = 36;
+        ed.scroll_into_view();
+        assert_eq!(ed.left, 32); // 4 cols of context to the left
+    }
+
+    #[test]
     fn scrolloff_keeps_context_below_cursor() {
         let mut ed = big_buffer(100); // view_rows = 10
         ed.scrolloff = 3;
