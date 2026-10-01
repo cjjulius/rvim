@@ -84,6 +84,16 @@
     }
 
     #[test]
+    fn set_multiple_options_in_one_command() {
+        let mut app = App::new();
+        app.editor.show_line_numbers = false;
+        app.run_ex("set number shiftwidth=2 tabstop=8 nonumber");
+        assert_eq!(app.editor.shiftwidth, 2);
+        assert_eq!(app.editor.tabstop, 8);
+        assert!(!app.editor.show_line_numbers); // last of number/nonumber wins
+    }
+
+    #[test]
     fn help_preserves_current_buffer() {
         let path = std::env::temp_dir().join(format!("rvim_help_{}.txt", std::process::id()));
         std::fs::write(&path, "my work\n").unwrap();

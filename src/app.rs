@@ -435,6 +435,18 @@ impl App {
 
     /// Execute a parsed ex-command.
     pub fn run_ex(&mut self, input: &str) {
+        // `:set a b c` — apply each space-separated option in turn (vim allows
+        // several options per `:set`). Each token is itself a valid `:set` command.
+        let trimmed = input.trim();
+        if let Some(rest) = trimmed.strip_prefix("set ").or_else(|| trimmed.strip_prefix("se ")) {
+            let opts: Vec<&str> = rest.split_whitespace().collect();
+            if opts.len() > 1 {
+                for opt in opts {
+                    self.run_ex(&format!("set {opt}"));
+                }
+                return;
+            }
+        }
         match command::parse(input) {
             ExCommand::Empty => {}
             ExCommand::Write(arg) => {
