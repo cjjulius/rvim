@@ -3732,6 +3732,44 @@
     }
 
     #[test]
+    fn retab_expands_tabs_to_spaces() {
+        let mut ed = ed_with("\tx\na\tb");
+        ed.expandtab = true;
+        ed.tabstop = 4;
+        ed.retab(None);
+        assert_eq!(ed.buffer.line(0), Some("    x")); // leading tab -> 4 spaces
+        assert_eq!(ed.buffer.line(1), Some("a   b")); // tab at col 1 -> to col 4
+    }
+
+    #[test]
+    fn retab_sets_tabstop_argument() {
+        let mut ed = ed_with("\tx");
+        ed.expandtab = true;
+        ed.tabstop = 4;
+        ed.retab(Some(2)); // narrows tabstop to 2 first
+        assert_eq!(ed.tabstop, 2);
+        assert_eq!(ed.buffer.line(0), Some("  x"));
+    }
+
+    #[test]
+    fn retab_tabifies_leading_spaces_when_noexpandtab() {
+        let mut ed = ed_with("        code"); // 8 leading spaces
+        ed.expandtab = false;
+        ed.tabstop = 4;
+        ed.retab(None);
+        assert_eq!(ed.buffer.line(0), Some("\t\tcode")); // 8 spaces -> 2 tabs
+    }
+
+    #[test]
+    fn retab_reports_no_change() {
+        let mut ed = ed_with("plain text");
+        ed.expandtab = true;
+        ed.tabstop = 4;
+        ed.retab(None);
+        assert!(ed.message.contains("no change"));
+    }
+
+    #[test]
     fn options_listing_all_includes_every_option() {
         let ed = ed_with("hi");
         let all = ed.options_listing(true);

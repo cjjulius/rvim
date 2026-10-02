@@ -248,6 +248,7 @@ quits without saving (like `:q!`).
 `:[addr]pu[t] [reg]` (put a register as lines) · `:[range]norm[al] {keys}` (run Normal-mode keys, per line over a range) ·
 `:r[ead] <file>` (insert a file below the cursor) · `:e`/`:e!` (reload current file) ·
 `:marks` · `:registers`/`:reg` · `:jumps` · `:changes` · `:history [:|/|all]` (introspection listings) · `:earlier [N]`/`:later [N]` (undo/redo N) ·
+`:retab [N]` (normalise tabs/spaces to `tabstop`) ·
 `:source <file>` · `:help` · `:version`
 
 Several `:set` options can be combined in one command, e.g.
@@ -447,7 +448,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **513 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **519 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

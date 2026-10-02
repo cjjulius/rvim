@@ -1566,7 +1566,7 @@ impl Editor {
         "files", "global", "help", "history", "hlsearch", "ignorecase", "incsearch",
         "join", "jumps", "list", "marks", "move", "nohlsearch", "normal",
         "number", "put", "quit", "quitall", "read", "registers",
-        "relativenumber", "set", "smartcase", "sort", "source", "substitute",
+        "relativenumber", "retab", "set", "smartcase", "sort", "source", "substitute",
         "theme", "version", "vglobal", "wall", "wq", "wqall", "write", "yank",
     ];
 
@@ -5117,6 +5117,78 @@ impl Editor {
         self.cursor.row = a.min(self.buffer.line_count().saturating_sub(1));
         self.move_first_nonblank();
         self.clamp_cursor(false);
+    }
+
+    /// Expand every tab in `line` to spaces, column-aware, for a tab stop of `ts`.
+    fn expand_tabs(line: &str, ts: usize) -> String {
+        let mut out = String::new();
+        let mut col = 0;
+        for c in line.chars() {
+            if c == '\t' {
+                let next = (col / ts + 1) * ts;
+                for _ in col..next {
+                    out.push(' ');
+                }
+                col = next;
+            } else {
+                out.push(c);
+                col += 1;
+            }
+        }
+        out
+    }
+
+    /// Re-tabulate a line's leading whitespace into tabs (+ remainder spaces) for
+    /// a tab stop of `ts`, leaving the rest of the line untouched.
+    fn tabify_leading(line: &str, ts: usize) -> String {
+        let mut width = 0;
+        let mut rest_start = line.len();
+        for (i, c) in line.char_indices() {
+            match c {
+                ' ' => width += 1,
+                '\t' => width = (width / ts + 1) * ts,
+                _ => {
+                    rest_start = i;
+                    break;
+                }
+            }
+        }
+        let mut out = "\t".repeat(width / ts);
+        out.push_str(&" ".repeat(width % ts));
+        out.push_str(&line[rest_start..]);
+        out
+    }
+
+    /// `:retab [N]` — normalise indentation to the current `tabstop` (set to `N`
+    /// first when given) and `expandtab`: with `expandtab` every tab becomes
+    /// spaces; otherwise each line's leading whitespace is re-tabulated into tabs.
+    pub fn retab(&mut self, new_ts: Option<usize>) {
+        if let Some(n) = new_ts.filter(|&n| n > 0) {
+            self.tabstop = n;
+        }
+        let ts = self.tabstop.max(1);
+        let edits: Vec<(usize, String)> = (0..self.buffer.line_count())
+            .filter_map(|row| {
+                let line = self.buffer.line(row).unwrap_or("");
+                let new = if self.expandtab {
+                    Self::expand_tabs(line, ts)
+                } else {
+                    Self::tabify_leading(line, ts)
+                };
+                (new != line).then_some((row, new))
+            })
+            .collect();
+        if edits.is_empty() {
+            self.message = "retab: no change".into();
+            return;
+        }
+        self.checkpoint();
+        let count = edits.len();
+        for (row, new) in edits {
+            self.buffer.set_line(row, new);
+        }
+        self.clamp_cursor(false);
+        self.message = format!("retab: {count} line(s) changed");
     }
 
     #[allow(clippy::too_many_arguments)]

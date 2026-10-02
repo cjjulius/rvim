@@ -248,6 +248,13 @@
     }
 
     #[test]
+    fn retab_parse() {
+        assert_eq!(parse("retab"), ExCommand::Retab(None));
+        assert_eq!(parse("retab 2"), ExCommand::Retab(Some(2)));
+        assert_eq!(parse("ret 8"), ExCommand::Retab(Some(8)));
+    }
+
+    #[test]
     fn earlier_later_parse() {
         assert_eq!(parse("earlier 3"), ExCommand::Earlier(3));
         assert_eq!(parse("earlier"), ExCommand::Earlier(1));

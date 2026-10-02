@@ -240,6 +240,16 @@
     }
 
     #[test]
+    fn retab_command_expands_tabs() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("\thi");
+        app.editor.expandtab = true;
+        app.editor.tabstop = 4;
+        app.run_ex("retab");
+        assert_eq!(app.editor.buffer.line(0), Some("    hi"));
+    }
+
+    #[test]
     fn set_all_opens_options_listing() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("x\ny");
