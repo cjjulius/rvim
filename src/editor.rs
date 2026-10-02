@@ -883,6 +883,38 @@ impl Editor {
         self.resolve_range(range)
     }
 
+    /// `:delmarks {marks}` — delete the named marks. `"!"` clears all lowercase
+    /// marks; otherwise `spec` lists marks to drop, with ranges like `a-d`.
+    pub fn delete_marks(&mut self, spec: &str) {
+        let spec = spec.trim();
+        if spec.is_empty() {
+            self.message = "E471: Argument required".into();
+            return;
+        }
+        if spec == "!" {
+            self.marks.retain(|&k, _| !k.is_ascii_lowercase());
+            self.message = "deleted all lowercase marks".into();
+            return;
+        }
+        let chars: Vec<char> = spec.chars().filter(|c| !c.is_whitespace()).collect();
+        let mut targets: Vec<char> = Vec::new();
+        let mut i = 0;
+        while i < chars.len() {
+            if i + 2 < chars.len() && chars[i + 1] == '-' {
+                let (a, b) = (chars[i], chars[i + 2]);
+                if a <= b {
+                    targets.extend(a..=b);
+                }
+                i += 3;
+            } else {
+                targets.push(chars[i]);
+                i += 1;
+            }
+        }
+        let n = targets.iter().filter(|c| self.marks.remove(c).is_some()).count();
+        self.message = format!("deleted {n} mark(s)");
+    }
+
     /// A `:marks` listing: each mark with its line, column, and line text.
     pub fn marks_listing(&self) -> String {
         let mut entries: Vec<(char, Position)> =
@@ -1571,7 +1603,7 @@ impl Editor {
     /// Ex-command names offered for `:`-line Tab completion.
     const EX_COMMANDS: &'static [&'static str] = &[
         "autoindent", "bdelete", "bnext", "bprevious", "buffer", "buffers",
-        "changes", "colorscheme", "copy", "cursorline", "delete", "edit", "expandtab",
+        "changes", "colorscheme", "copy", "cursorline", "delete", "delmarks", "edit", "expandtab",
         "files", "global", "help", "history", "hlsearch", "ignorecase", "incsearch",
         "join", "jumps", "list", "marks", "move", "nohlsearch", "normal",
         "number", "put", "quit", "quitall", "read", "registers",

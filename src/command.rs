@@ -204,6 +204,8 @@ pub enum ExCommand {
     Jumps,
     /// `:changes` — list the change list.
     Changes,
+    /// `:delmarks {marks}` — delete marks (`"!"` deletes all lowercase marks).
+    DelMarks(String),
     /// `:history [:|/|all]` — list command-line / search history.
     History(HistoryKind),
     /// `:earlier [N]` — undo N times (default 1).
@@ -337,6 +339,8 @@ pub fn parse(input: &str) -> ExCommand {
         "reg" | "registers" | "display" | "di" => ExCommand::Registers,
         "ju" | "jumps" => ExCommand::Jumps,
         "changes" => ExCommand::Changes,
+        "delmarks!" | "delm!" => ExCommand::DelMarks("!".into()),
+        "delmarks" | "delm" => ExCommand::DelMarks(arg.unwrap_or_default()),
         "retab" | "ret" => {
             ExCommand::Retab(arg.as_deref().and_then(|a| a.trim().parse::<usize>().ok()))
         }

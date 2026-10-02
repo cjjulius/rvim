@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Ex commands
+- `:delmarks {marks}` deletes the named marks (ranges like `a-d` are supported);
+  `:delmarks!` clears all lowercase marks.
+
 ### Search & replace
 - An empty `:s` pattern now reuses the last search pattern — `/foo` then
   `:%s//bar/g` replaces every `foo`. Running `:s` also sets the current search
