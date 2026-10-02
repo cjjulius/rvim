@@ -200,10 +200,15 @@ pub fn render(
             } else {
                 None
             };
+            let cur_match = if row == editor.cursor.row {
+                editor.current_match()
+            } else {
+                None
+            };
             draw_text_line(
                 out, line, &tokens, theme, &layout, editor.left, row, line_bg, sel, linewise,
                 search, editor.tabstop.max(1), block, match_col, editor.list, color_col,
-                cursor_col,
+                cursor_col, cur_match,
             )?;
         } else {
             // Past end of buffer: tilde like vim.
@@ -338,6 +343,7 @@ fn draw_text_line(
     list: bool,
     color_col: Option<usize>,
     cursor_col: Option<usize>,
+    cur_match: Option<(usize, usize)>,
 ) -> io::Result<()> {
     let chars: Vec<(usize, char)> = line.char_indices().collect();
     let matches = search.map(|re| crate::pattern::match_ranges(re, line)).unwrap_or_default();
@@ -380,13 +386,16 @@ fn draw_text_line(
             .map(|(rmin, rmax, cmin, cmax)| row >= rmin && row <= rmax && ci >= cmin && ci <= cmax)
             .unwrap_or(false);
         let in_match = matches.iter().any(|&(s, e)| ci >= s && ci < e);
+        let in_cur_match = cur_match.map(|(s, e)| ci >= s && ci < e).unwrap_or(false);
         let is_paren = match_col == Some(ci);
-        // Priority: selection/block > matching bracket > search match > line.
-        // The matched bracket is drawn in reverse video so it reads on any theme.
+        // Priority: selection/block > matching bracket > current search match >
+        // other search match > line. The matched bracket uses reverse video.
         let (mut cfg, bg) = if selected || in_block {
             (fg[ci], theme.selection_bg)
         } else if is_paren {
             (line_bg, fg[ci])
+        } else if in_cur_match {
+            (fg[ci], theme.cur_search_bg)
         } else if in_match {
             (fg[ci], theme.search_bg)
         } else if color_col == Some(ci) {
@@ -398,7 +407,7 @@ fn draw_text_line(
         };
         // Compute the glyph(s) for this cell, substituting list markers for
         // whitespace. Widths are preserved so selection/search columns stay exact.
-        let plain = !(selected || in_block || is_paren || in_match);
+        let plain = !(selected || in_block || is_paren || in_match || in_cur_match);
         let glyph: String = if ch == '\t' {
             if list {
                 if plain {
@@ -903,7 +912,7 @@ mod tests {
         let mut buf: Vec<u8> = Vec::new();
         draw_text_line(
             &mut buf, "a\tb  ", &[], &theme, &layout, 0, 0, theme.bg, None, false, None, 4,
-            None, None, true, None, None,
+            None, None, true, None, None, None,
         )
         .unwrap();
         let out = String::from_utf8_lossy(&buf);
@@ -919,7 +928,7 @@ mod tests {
         let mut buf: Vec<u8> = Vec::new();
         draw_text_line(
             &mut buf, "a\tb  ", &[], &theme, &layout, 0, 0, theme.bg, None, false, None, 4,
-            None, None, false, None, None,
+            None, None, false, None, None, None,
         )
         .unwrap();
         let out = String::from_utf8_lossy(&buf);

@@ -3845,6 +3845,28 @@ impl Editor {
 
     /// Find the bracket matching the one at (or next on the line after) the
     /// cursor. Matches `()`, `[]`, `{}` with nesting, scanning across lines.
+    /// The char range `[start, end)` of the search match the cursor is currently
+    /// on (its own row), for the distinct current-match highlight. `None` when
+    /// highlighting is off or the cursor isn't inside a match.
+    pub fn current_match(&self) -> Option<(usize, usize)> {
+        if !self.hlsearch {
+            return None;
+        }
+        let re = self.search_re.as_ref()?;
+        let line = self.buffer.line(self.cursor.row)?;
+        for m in re.find_iter(line) {
+            if m.start() == m.end() {
+                continue;
+            }
+            let s = line[..m.start()].chars().count();
+            let e = line[..m.end()].chars().count();
+            if self.cursor.col >= s && self.cursor.col < e {
+                return Some((s, e));
+            }
+        }
+        None
+    }
+
     /// For matchparen highlighting: if the cursor sits exactly on a bracket,
     /// return the position of its match (not the next bracket on the line, unlike
     /// `%`). `None` when the cursor isn't on a bracket or the pair is unbalanced.

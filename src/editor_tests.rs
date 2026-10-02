@@ -2329,6 +2329,21 @@
     }
 
     #[test]
+    fn current_match_identifies_match_under_cursor() {
+        let mut ed = ed_with("foo bar foo");
+        ed.set_search("foo".into());
+        ed.cursor = Position::new(0, 8); // on the second "foo"
+        assert_eq!(ed.current_match(), Some((8, 11)));
+        ed.cursor = Position::new(0, 0); // on the first "foo"
+        assert_eq!(ed.current_match(), Some((0, 3)));
+        ed.cursor = Position::new(0, 4); // on "bar", not a match
+        assert_eq!(ed.current_match(), None);
+        ed.hlsearch = false; // highlighting off -> no current match
+        ed.cursor = Position::new(0, 0);
+        assert_eq!(ed.current_match(), None);
+    }
+
+    #[test]
     fn split_search_offset_parses_specs() {
         assert_eq!(split_search_offset("foo/e"), ("foo".into(), Some(SearchOffset::End(0))));
         assert_eq!(split_search_offset("foo/e+1"), ("foo".into(), Some(SearchOffset::End(1))));

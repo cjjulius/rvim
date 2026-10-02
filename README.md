@@ -178,7 +178,8 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   **regular expressions** (e.g. `/\bfn\s+\w+`). `*`/`#` search the word under the
   cursor (whole word) forward/back; `g*`/`g#` do so as a substring; `gd`/`gD`
   jump to the identifier's definition (nearest earlier use / first in file). All matches
-  are highlighted — clear with `:noh` (`:set hlsearch`/`nohlsearch`). Case
+  are highlighted — with the match the cursor is on shown in a brighter colour —
+  clear with `:noh` (`:set hlsearch`/`nohlsearch`). Case
   handling follows `:set ignorecase` and `:set smartcase` (an uppercase letter in
   the pattern forces a case-sensitive search), with per-pattern `\c`/`\C` overrides.
   With `:set incsearch` (on by default) the first match is previewed as you type;
@@ -438,7 +439,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **492 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **493 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
