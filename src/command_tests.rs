@@ -343,6 +343,17 @@
     }
 
     #[test]
+    fn history_command_parses_kinds() {
+        use crate::command::HistoryKind;
+        assert_eq!(parse("history"), ExCommand::History(HistoryKind::Cmd));
+        assert_eq!(parse("his"), ExCommand::History(HistoryKind::Cmd));
+        assert_eq!(parse("history :"), ExCommand::History(HistoryKind::Cmd));
+        assert_eq!(parse("history /"), ExCommand::History(HistoryKind::Search));
+        assert_eq!(parse("history search"), ExCommand::History(HistoryKind::Search));
+        assert_eq!(parse("history all"), ExCommand::History(HistoryKind::All));
+    }
+
+    #[test]
     fn buffer_commands() {
         assert_eq!(parse("ls"), ExCommand::BufferList);
         assert_eq!(parse("buffers"), ExCommand::BufferList);

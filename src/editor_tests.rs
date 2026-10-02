@@ -3657,6 +3657,35 @@
     }
 
     #[test]
+    fn history_listing_separates_cmd_and_search() {
+        use crate::command::HistoryKind;
+        let mut ed = ed_with("hello world\nfoo bar");
+        // Submit a command-line entry.
+        ed.handle_key(key(':'));
+        for c in "set nu".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Enter));
+        // Submit a search entry.
+        ed.handle_key(key('/'));
+        for c in "foo".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Enter));
+
+        let cmd = ed.history_listing(HistoryKind::Cmd);
+        assert!(cmd.contains(":set nu"));
+        assert!(!cmd.contains("/foo"));
+
+        let search = ed.history_listing(HistoryKind::Search);
+        assert!(search.contains("/foo"));
+        assert!(!search.contains(":set nu"));
+
+        let all = ed.history_listing(HistoryKind::All);
+        assert!(all.contains(":set nu") && all.contains("/foo"));
+    }
+
+    #[test]
     fn changelist_empty_reports_message() {
         let mut ed = ed_with("hi");
         ed.handle_key(key('g'));

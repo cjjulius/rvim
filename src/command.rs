@@ -37,6 +37,17 @@ pub enum AlignKind {
     Center,
 }
 
+/// Which history list `:history` should show.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HistoryKind {
+    /// `:` ex-command history (the default).
+    Cmd,
+    /// `/` search-pattern history.
+    Search,
+    /// Both lists (`:history all`).
+    All,
+}
+
 /// A parsed `:s/pattern/replacement/flags` command (literal matching).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SubstituteSpec {
@@ -189,6 +200,8 @@ pub enum ExCommand {
     Jumps,
     /// `:changes` — list the change list.
     Changes,
+    /// `:history [:|/|all]` — list command-line / search history.
+    History(HistoryKind),
     /// `:earlier [N]` — undo N times (default 1).
     Earlier(usize),
     /// `:later [N]` — redo N times (default 1).
@@ -314,6 +327,15 @@ pub fn parse(input: &str) -> ExCommand {
         "reg" | "registers" | "display" | "di" => ExCommand::Registers,
         "ju" | "jumps" => ExCommand::Jumps,
         "changes" => ExCommand::Changes,
+        "his" | "history" => {
+            let kind = match arg.as_deref().map(str::trim) {
+                Some("/") | Some("search") => HistoryKind::Search,
+                Some("all") => HistoryKind::All,
+                // `:`, `cmd`, empty, or anything else -> command history.
+                _ => HistoryKind::Cmd,
+            };
+            ExCommand::History(kind)
+        }
         "earlier" | "ea" => ExCommand::Earlier(parse_count_arg(&arg)),
         "later" | "lat" => ExCommand::Later(parse_count_arg(&arg)),
         "help" | "h" => ExCommand::Help,
