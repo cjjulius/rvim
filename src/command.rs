@@ -29,6 +29,14 @@ pub enum SubRange {
     Range(LineAddr, LineAddr),
 }
 
+/// Text alignment for `:left` / `:right` / `:center`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AlignKind {
+    Left,
+    Right,
+    Center,
+}
+
 /// A parsed `:s/pattern/replacement/flags` command (literal matching).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SubstituteSpec {
@@ -98,6 +106,12 @@ pub enum ExCommand {
     Source(String),
     /// `:set {option}?` — show the option's current value.
     SetQuery(String),
+    /// `:[range]left [indent]` / `:right [width]` / `:center [width]`.
+    Align {
+        range: SubRange,
+        kind: AlignKind,
+        width: Option<usize>,
+    },
     /// `:g/re/cmd`, `:g!/re/cmd`, `:v/re/cmd` — run `command` on lines matching
     /// (or, when `invert`, not matching) `pattern`.
     Global {
@@ -218,6 +232,11 @@ pub fn parse(input: &str) -> ExCommand {
     // Sort, with an optional leading range (`sort`, `%sort n`, `'<,'>sort u`).
     if let Some(s) = parse_sort(trimmed) {
         return s;
+    }
+
+    // Text alignment, with an optional leading range (`center`, `1,5right 60`).
+    if let Some(al) = parse_align(trimmed) {
+        return al;
     }
 
     // `:[range]normal {keys}` — run keys as Normal-mode input.
@@ -493,6 +512,47 @@ fn parse_line_op(trimmed: &str) -> Option<ExCommand> {
         "j" | "join" => Some(ExCommand::JoinLines { range, raw: bang }),
         _ => None,
     }
+}
+
+/// Parse `:[range]left [indent]`, `:[range]right [width]`, `:[range]center
+/// [width]`. Returns `None` to fall through unless the word is present and
+/// properly terminated.
+fn parse_align(trimmed: &str) -> Option<ExCommand> {
+    let i = range_prefix_len(trimmed);
+    let range_str = &trimmed[..i];
+    let after = &trimmed[i..];
+    // (canonical word, min abbreviation length, kind)
+    let variants = [
+        ("center", 2, AlignKind::Center),
+        ("right", 2, AlignKind::Right),
+        ("left", 2, AlignKind::Left),
+    ];
+    for (word, min, kind) in variants {
+        // Match the full word or any prefix down to `min` chars (`ce`..`center`).
+        let matched_len = (min..=word.len())
+            .rev()
+            .find(|&n| after.starts_with(&word[..n]));
+        let Some(n) = matched_len else { continue };
+        let tail = &after[n..];
+        // Must end here or be followed by whitespace (rejects `centern`, `rightx`).
+        match tail.chars().next() {
+            None | Some(' ') | Some('\t') => {}
+            _ => continue,
+        }
+        let arg = tail.trim();
+        let width = if arg.is_empty() {
+            None
+        } else {
+            Some(arg.parse::<usize>().ok()?)
+        };
+        let range = if range_str.is_empty() {
+            SubRange::CurrentLine
+        } else {
+            parse_range(range_str)?
+        };
+        return Some(ExCommand::Align { range, kind, width });
+    }
+    None
 }
 
 /// Parse `:[range]sort[!] [flags]`. Bare `:sort` sorts the whole file; a leading

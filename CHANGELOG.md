@@ -11,6 +11,8 @@ All notable changes to rvim are recorded here. Versions follow
   occurrence (local-declaration heuristic). Records a jump for `Ctrl-o`.
 
 ### Ex commands
+- `:[range]center [w]`, `:[range]right [w]`, `:[range]left [indent]` align the
+  range's lines (width defaults to `textwidth`, or 80 when unset).
 - `:set {option}?` reports an option's current value (e.g. `:set sw?` →
   `shiftwidth=4`, `:set nu?` → `number`/`nonumber`).
 - `:sort /pat/` sorts by the text following the first match of `pat` on each line

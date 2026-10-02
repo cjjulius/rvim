@@ -6,7 +6,7 @@
 //! an [`Action`] the [`crate::app::App`] executes.
 
 use crate::buffer::{Buffer, Position};
-use crate::command::{LineAddr, SubRange, SubstituteSpec};
+use crate::command::{AlignKind, LineAddr, SubRange, SubstituteSpec};
 use crate::menu::{MenuOutcome, MenuState};
 use crate::mode::Mode;
 use crate::pattern;
@@ -4870,6 +4870,33 @@ impl Editor {
     /// Sort the lines in `range` in place. `reverse`/`unique`/`numeric`/`ignorecase`
     /// are vim's `:sort` flags. `unique` may shrink the range, pulling later lines
     /// up.
+    /// `:left` / `:right` / `:center` — align each line in the range. For `Left`
+    /// `width` is the indent (default 0); for `Right`/`Center` it is the target
+    /// width (default `textwidth`, or 80 when unset).
+    pub fn align_lines(&mut self, range: SubRange, kind: AlignKind, width: Option<usize>) {
+        let (a, b) = self.resolve_range(range);
+        let target = width.unwrap_or(if self.textwidth == 0 { 80 } else { self.textwidth });
+        self.checkpoint();
+        for row in a..=b {
+            let line = self.buffer.line(row).unwrap_or("");
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                self.buffer.set_line(row, String::new());
+                continue;
+            }
+            let len = trimmed.chars().count();
+            let pad = match kind {
+                AlignKind::Left => width.unwrap_or(0),
+                AlignKind::Right => target.saturating_sub(len),
+                AlignKind::Center => target.saturating_sub(len) / 2,
+            };
+            self.buffer.set_line(row, format!("{}{}", " ".repeat(pad), trimmed));
+        }
+        self.cursor.row = a.min(self.buffer.line_count().saturating_sub(1));
+        self.move_first_nonblank();
+        self.clamp_cursor(false);
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn sort_lines(
         &mut self,

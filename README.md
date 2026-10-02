@@ -237,6 +237,7 @@ quits without saving (like `:q!`).
 `:[range]m[ove] {addr}` / `:[range]t`|`:[range]co[py] {addr}` (move / copy lines) ·
 `:[range]d[elete]` / `:[range]y[ank]` / `:[range]>`|`:[range]<` (delete / yank / shift lines) ·
 `:[range]j[oin][!]` (join lines; `!` keeps whitespace) ·
+`:[range]ce[nter] [w]` / `:[range]ri[ght] [w]` / `:[range]le[ft] [indent]` (align lines; width defaults to `textwidth`) ·
 `:[addr]pu[t] [reg]` (put a register as lines) · `:[range]norm[al] {keys}` (run Normal-mode keys, per line over a range) ·
 `:r[ead] <file>` (insert a file below the cursor) · `:e`/`:e!` (reload current file) ·
 `:marks` · `:registers`/`:reg` · `:jumps` (introspection listings) · `:earlier [N]`/`:later [N]` (undo/redo N) ·
@@ -437,7 +438,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **489 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **492 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
