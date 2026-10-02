@@ -152,7 +152,8 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
 - **Repeat:** `.` repeats the last change (a delete, paste, replace, indent, or a
   whole insert/change session); a count repeats it that many times (`3.`).
 - **Info:** `Ctrl-g` shows the file name, modified flag, line count and position;
-  `ga` shows the character under the cursor as decimal / hex / octal.
+  `g Ctrl-g` reports word / character / byte counts; `ga` shows the character
+  under the cursor as decimal / hex / octal.
 - **Numbers:** `Ctrl-a` / `Ctrl-x` increment / decrement the number under (or
   next on) the line, with a count (`10Ctrl-a`); handles negatives, and
   recognizes hexadecimal (`0x1f`) and binary (`0b1010`) literals — preserving
@@ -440,7 +441,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **496 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **499 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
