@@ -66,6 +66,8 @@ All notable changes to rvim are recorded here. Versions follow
   whole screen — a vertical companion to `cursorline` for tracking alignment.
 
 ### Motions & text objects
+- Text objects work in visual mode: `i`/`a` + an object key selects it (`viw`,
+  `vi(`, `vap`, `vi"`, …) instead of entering insert.
 - Sentence motions `(` / `)` move backward / forward by sentence (counted,
   across lines), bounded by `.`/`!`/`?` punctuation and blank lines.
 - Sentence text objects `is` / `as` (e.g. `das`, `cis`) select the sentence

@@ -2041,6 +2041,44 @@
     }
 
     #[test]
+    fn visual_text_object_viw() {
+        let mut ed = ed_with("foo bar baz");
+        ed.cursor = Position::new(0, 4); // on "bar"
+        ed.handle_key(key('v'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('w')); // viw selects "bar"
+        assert_eq!(ed.mode, Mode::Visual);
+        assert_eq!(ed.visual_anchor, Position::new(0, 4));
+        assert_eq!(ed.cursor, Position::new(0, 6));
+        ed.handle_key(key('d'));
+        assert_eq!(ed.buffer.line(0), Some("foo  baz"));
+    }
+
+    #[test]
+    fn visual_text_object_vi_parens() {
+        let mut ed = ed_with("foo(bar)baz");
+        ed.cursor = Position::new(0, 5); // inside parens
+        ed.handle_key(key('v'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('(')); // vi( selects "bar"
+        assert_eq!(ed.visual_anchor, Position::new(0, 4));
+        assert_eq!(ed.cursor, Position::new(0, 6));
+        ed.handle_key(key('d'));
+        assert_eq!(ed.buffer.line(0), Some("foo()baz"));
+    }
+
+    #[test]
+    fn visual_text_object_vap_spans_paragraph() {
+        let mut ed = ed_with("a\nb\n\nc");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('v'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('p')); // vap selects the paragraph + trailing blank
+        assert_eq!(ed.visual_anchor, Position::new(0, 0));
+        assert_eq!(ed.cursor.row, 2);
+    }
+
+    #[test]
     fn text_object_a_big_w() {
         let mut ed = ed_with("foo.bar baz");
         ed.handle_key(key('d'));

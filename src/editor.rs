@@ -130,6 +130,8 @@ pub struct Editor {
     pending_op_count: Option<usize>,
     /// After `d`/`y`/`c` + `i`/`a`: the (operator, i-or-a) awaiting an object char.
     pending_textobj: Option<(char, char)>,
+    /// In visual mode, `i`/`a` awaiting an object char (e.g. `viw`, `vi(`).
+    pending_vis_obj: Option<char>,
     /// After `d`/`y`/`c` + `g`: the operator awaiting the second `g` (e.g. `dgg`).
     pending_op_gg: Option<char>,
     /// After `gu`/`gU`/`g~`: a case operator awaiting a motion/object.
@@ -293,6 +295,7 @@ impl Editor {
             pending_op: None,
             pending_op_count: None,
             pending_textobj: None,
+            pending_vis_obj: None,
             pending_op_gg: None,
             pending_case: None,
             pending_case_obj: None,
@@ -1371,6 +1374,7 @@ impl Editor {
             && !self.pending_replace
             && self.pending_find.is_none()
             && self.pending_op_find.is_none()
+            && self.pending_vis_obj.is_none()
             && self.pending_bracket.is_none()
             && !self.pending_z_quit
             && self.pending_mark.is_none()
@@ -2288,6 +2292,37 @@ impl Editor {
             return Action::None;
         }
 
+        // Object char after visual-mode `i`/`a` (e.g. `viw`, `vi(`, `vap`): set
+        // the selection to span the text object.
+        if let Some(iora) = self.pending_vis_obj.take() {
+            if let KeyCode::Char(obj) = key.code {
+                if let Some(t) = self.text_object(iora, obj) {
+                    match t {
+                        OpTarget::Chars(s, e) => {
+                            self.visual_anchor = Position::new(self.cursor.row, s);
+                            self.cursor = Position::new(self.cursor.row, e.saturating_sub(1));
+                        }
+                        OpTarget::Lines(a, b) => {
+                            self.visual_anchor = Position::new(a, 0);
+                            let ec = self
+                                .buffer
+                                .line(b)
+                                .map(|l| l.chars().count().saturating_sub(1))
+                                .unwrap_or(0);
+                            self.cursor = Position::new(b, ec);
+                        }
+                        OpTarget::Span(s, e) => {
+                            self.visual_anchor = s;
+                            self.cursor = e;
+                        }
+                    }
+                    self.clamp_cursor(true);
+                    self.scroll_into_view();
+                }
+            }
+            return Action::None;
+        }
+
         // Object char after `d`/`y`/`c`/`>`/`<` + `i`/`a` (e.g. `diw`, `ci(`, `>ip`).
         if let Some((op, iora)) = self.pending_textobj.take() {
             if let KeyCode::Char(obj) = key.code {
@@ -2630,15 +2665,23 @@ impl Editor {
                 }
             }
             KeyCode::Char('i') => {
-                self.enter_insert_here();
-                self.insert_repeat = count;
-                self.insert_entry = 'i';
+                if self.mode.is_visual() {
+                    self.pending_vis_obj = Some('i'); // viw, vi(, …
+                } else {
+                    self.enter_insert_here();
+                    self.insert_repeat = count;
+                    self.insert_entry = 'i';
+                }
             }
             KeyCode::Char('a') => {
-                self.move_right(1, true);
-                self.enter_insert_here();
-                self.insert_repeat = count;
-                self.insert_entry = 'a';
+                if self.mode.is_visual() {
+                    self.pending_vis_obj = Some('a'); // vaw, va(, …
+                } else {
+                    self.move_right(1, true);
+                    self.enter_insert_here();
+                    self.insert_repeat = count;
+                    self.insert_entry = 'a';
+                }
             }
             KeyCode::Char('I') => {
                 if self.mode == Mode::VisualBlock {
