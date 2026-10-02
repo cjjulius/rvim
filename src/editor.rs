@@ -2888,9 +2888,18 @@ impl Editor {
             }
             KeyCode::Char('v') => self.toggle_visual(Mode::Visual),
             KeyCode::Char('V') => self.toggle_visual(Mode::VisualLine),
-            // `n` repeats in the last search's direction; `N` reverses it.
-            KeyCode::Char('n') => self.search_repeat(self.search_forward),
-            KeyCode::Char('N') => self.search_repeat(!self.search_forward),
+            // `n` repeats in the last search's direction; `N` reverses it. A
+            // count repeats that many times (`3n` -> the 3rd next match).
+            KeyCode::Char('n') => {
+                for _ in 0..count {
+                    self.search_repeat(self.search_forward);
+                }
+            }
+            KeyCode::Char('N') => {
+                for _ in 0..count {
+                    self.search_repeat(!self.search_forward);
+                }
+            }
             KeyCode::Char('&') => self.repeat_substitute(),
             KeyCode::Char('*') => {
                 if self.mode.is_visual() {

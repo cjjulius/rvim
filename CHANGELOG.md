@@ -5,6 +5,14 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Search
+- `n` / `N` take a count, so `3n` jumps to the third next match and `2N` to the
+  second previous one.
+
+### Docs
+- Reorganised the command-line reference in the README into short, grouped
+  sections instead of one long run-on list.
+
 ### Editing
 - External filter: `!{motion}` / `!!` (and visual `!`) prefill a range on the
   command line to pipe those lines through a shell command, replacing them with

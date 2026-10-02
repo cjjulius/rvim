@@ -155,6 +155,19 @@
     }
 
     #[test]
+    fn counted_search_repeat() {
+        let mut ed = ed_with("m0\nX\nX\nX\nm4");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('/'));
+        ed.handle_key(key('X'));
+        ed.handle_key(special(KeyCode::Enter));
+        assert_eq!(ed.cursor.row, 1); // first match
+        ed.handle_key(key('2'));
+        ed.handle_key(key('n')); // two matches forward
+        assert_eq!(ed.cursor.row, 3);
+    }
+
+    #[test]
     fn colon_enters_command_mode_and_returns_action() {
         let mut ed = ed_with("");
         ed.handle_key(key(':'));
