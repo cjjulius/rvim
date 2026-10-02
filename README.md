@@ -282,6 +282,11 @@ the current pick highlighted, scrolling to keep it in view on a narrow terminal.
 | `:2,5s/foo/bar/`   | first `foo` per line, lines 2–5               |
 | `:.,$s/foo//g`     | delete every `foo` from the cursor line to EOF|
 | `:%s/foo//n`       | count matches of `foo` (the `n` flag; no change) |
+| `/foo` then `:%s//bar/g` | empty pattern reuses the last search pattern |
+
+An empty `:s` pattern reuses the last search pattern, so `/foo` followed by
+`:%s//bar/g` replaces every `foo` — and running `:s` also sets that search
+pattern, so a following `n` jumps to the next occurrence.
 
 Patterns are **regular expressions**, and the replacement uses **vim-style
 backreferences** — `\1`–`\9` for groups and `&` for the whole match — e.g.
@@ -456,7 +461,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **532 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **535 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
