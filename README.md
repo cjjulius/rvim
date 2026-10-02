@@ -466,4 +466,4 @@ commands, config, pattern, plugins, modes, and UI layout.
 
 ## License
 
-MIT.
+Released under the [MIT License](LICENSE). © 2026 Charlton Julius.

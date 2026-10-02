@@ -5,7 +5,7 @@ edition = "2021"
 description = "A modular, vim-emulating terminal text editor written in Rust."
 authors = ["rvim contributors"]
 license = "MIT"
-repository = "local"
+repository = "https://github.com/cjjulius/rvim"
 readme = "README.md"
 
 [[bin]]
