@@ -355,6 +355,42 @@
     }
 
     #[test]
+    fn operator_screen_motion_d_l() {
+        let mut ed = ed_with("0\n1\n2\n3\n4\n5\n6\n7\n8\n9");
+        ed.view_rows = 5;
+        ed.top = 0;
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('d'));
+        ed.handle_key(key('L')); // delete cursor..bottom-of-screen (rows 0-4)
+        assert_eq!(ed.buffer.line(0), Some("5"));
+        assert_eq!(ed.buffer.line_count(), 5);
+    }
+
+    #[test]
+    fn operator_screen_motion_d_h() {
+        let mut ed = ed_with("0\n1\n2\n3\n4\n5\n6\n7\n8\n9");
+        ed.view_rows = 5;
+        ed.top = 2;
+        ed.cursor = Position::new(4, 0);
+        ed.handle_key(key('d'));
+        ed.handle_key(key('H')); // delete top-of-screen..cursor (rows 2-4)
+        assert_eq!(ed.buffer.line(2), Some("5"));
+        assert_eq!(ed.buffer.line_count(), 7);
+    }
+
+    #[test]
+    fn operator_screen_motion_d_m() {
+        let mut ed = ed_with("0\n1\n2\n3\n4\n5");
+        ed.view_rows = 5;
+        ed.top = 0;
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('d'));
+        ed.handle_key(key('M')); // delete cursor..middle-of-screen (rows 0-2)
+        assert_eq!(ed.buffer.line(0), Some("3"));
+        assert_eq!(ed.buffer.line_count(), 3);
+    }
+
+    #[test]
     fn ctrl_e_and_y_scroll_one_line() {
         let mut ed = big_buffer(100);
         ed.top = 10;

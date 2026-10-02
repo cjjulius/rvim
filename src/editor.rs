@@ -2953,6 +2953,16 @@ impl Editor {
             }
             KeyCode::Char('_') => OpTarget::Lines(row, (row + count - 1).min(last)),
             KeyCode::Char('G') => OpTarget::Lines(row, last),
+            // Screen motions are line-wise operator targets (`dH`, `dL`, `dM`).
+            KeyCode::Char('H') => {
+                let bottom = (self.top + self.view_rows.saturating_sub(1)).min(last);
+                OpTarget::Lines((self.top + count.saturating_sub(1)).min(bottom), row)
+            }
+            KeyCode::Char('M') => OpTarget::Lines(row, (self.top + self.view_rows / 2).min(last)),
+            KeyCode::Char('L') => {
+                let bottom = (self.top + self.view_rows.saturating_sub(1)).min(last);
+                OpTarget::Lines(row, bottom.saturating_sub(count.saturating_sub(1)).max(self.top))
+            }
             // `%` — operate from the cursor to the matching bracket, inclusive
             // (charwise, may cross lines). `d%`, `y%`, `c%`.
             KeyCode::Char('%') => {
