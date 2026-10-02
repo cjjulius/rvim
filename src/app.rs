@@ -125,8 +125,11 @@ impl App {
     }
 
     /// `:e <file>` — edit a file, switching to it if already open.
-    fn edit_file(&mut self, path: &str) {
+    fn edit_file(&mut self, path: &str, line: Option<usize>) {
         if self.editor.buffer.path().map(|p| p.display().to_string()).as_deref() == Some(path) {
+            if let Some(n) = line {
+                self.editor.goto_line(n);
+            }
             self.editor.message = format!("already editing \"{path}\"");
             return;
         }
@@ -137,6 +140,9 @@ impl App {
         {
             self.remember_alternate();
             std::mem::swap(&mut self.editor, &mut self.others[i]);
+            if let Some(n) = line {
+                self.editor.goto_line(n);
+            }
             self.editor.message = format!("\"{path}\" (buffer switched)");
             return;
         }
@@ -148,6 +154,9 @@ impl App {
                 let old = std::mem::replace(&mut self.editor, ed);
                 if old.buffer.path().is_some() || old.buffer.is_dirty() {
                     self.others.push(old);
+                }
+                if let Some(n) = line {
+                    self.editor.goto_line(n);
                 }
                 self.editor.message = format!("\"{path}\" {lines} lines");
             }
@@ -494,7 +503,7 @@ impl App {
                         format!("{failed} buffer(s) could not be written (add ! to override)");
                 }
             }
-            ExCommand::Edit(path) => self.edit_file(&path),
+            ExCommand::Edit { path, line } => self.edit_file(&path, line),
             ExCommand::Reload { force } => self.reload_file(force),
             ExCommand::ReadFile(path) => match std::fs::read_to_string(&path) {
                 Ok(text) => self.editor.read_lines_below(&text),
@@ -974,7 +983,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t  offsets: /pat/e (match end) /pat/s±N (start) /pat/±N (lines)\n\
          \t* / #  g* / g#     search word under cursor (whole / substring)\n\
          \tgd / gD            go to definition (nearest above / first in file)\n\
-         \tgf                 open the file name under the cursor\n\
+         \tgf / gF            open the file name under the cursor (gF: at :line)\n\
          \tgn / gN            select next / prev match (cgn + . to repeat)\n\
          \t&  / g&            repeat last :s on current line / whole file\n\
          \tm<x> `<x> '<x>     set mark / jump exact / jump line   `` prev pos\n\

@@ -77,8 +77,8 @@ pub enum ExCommand {
     WriteAll,
     /// `:wqa` / `:xa` / `:wqall` — write all buffers, then quit.
     WriteQuitAll { force: bool },
-    /// `:e file`
-    Edit(String),
+    /// `:e file` (optionally `:e +N file` to open at line N).
+    Edit { path: String, line: Option<usize> },
     /// `:r[ead] file` — insert the file's contents below the cursor line.
     ReadFile(String),
     /// `:e` / `:e!` with no file — reload the current file (`force` discards changes).
@@ -289,11 +289,17 @@ pub fn parse(input: &str) -> ExCommand {
         "wqa" | "xa" | "wqall" | "xall" => ExCommand::WriteQuitAll { force: false },
         "wqa!" | "xa!" | "wqall!" | "xall!" => ExCommand::WriteQuitAll { force: true },
         "e" | "edit" => match arg {
-            Some(a) => ExCommand::Edit(a),
+            Some(a) => {
+                let (path, line) = parse_edit_arg(&a);
+                ExCommand::Edit { path, line }
+            }
             None => ExCommand::Reload { force: false },
         },
         "e!" | "edit!" => match arg {
-            Some(a) => ExCommand::Edit(a),
+            Some(a) => {
+                let (path, line) = parse_edit_arg(&a);
+                ExCommand::Edit { path, line }
+            }
             None => ExCommand::Reload { force: true },
         },
         "r" | "re" | "read" => match arg {
@@ -362,6 +368,24 @@ fn parse_count_arg(arg: &Option<String>) -> usize {
         .and_then(|a| a.trim().parse::<usize>().ok())
         .filter(|&n| n > 0)
         .unwrap_or(1)
+}
+
+/// Split an `:edit` argument into a path and an optional `+N` line prefix
+/// (vim's `:e +N file`). Without a valid `+N` the whole argument is the path.
+fn parse_edit_arg(arg: &str) -> (String, Option<usize>) {
+    let a = arg.trim();
+    if let Some(rest) = a.strip_prefix('+') {
+        let mut it = rest.splitn(2, char::is_whitespace);
+        if let (Some(num), Some(path)) = (it.next(), it.next()) {
+            if let Ok(n) = num.parse::<usize>() {
+                let path = path.trim();
+                if !path.is_empty() {
+                    return (path.to_string(), Some(n));
+                }
+            }
+        }
+    }
+    (a.to_string(), None)
 }
 
 /// Try to parse a `:g`/`:v` global command.

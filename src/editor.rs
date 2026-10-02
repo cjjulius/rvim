@@ -2530,9 +2530,10 @@ impl Editor {
                 self.pending_op_gg = Some(op);
                 return Action::None;
             }
-            // `gf` — open the file whose name is under the cursor.
-            if op == 'g' && code == KeyCode::Char('f') {
-                return self.goto_file();
+            // `gf` / `gF` — open the file whose name is under the cursor (`gF`
+            // also jumps to a trailing `:line` number).
+            if op == 'g' && matches!(code, KeyCode::Char('f') | KeyCode::Char('F')) {
+                return self.goto_file(code == KeyCode::Char('F'));
             }
             // `f`/`F`/`t`/`T` after d/y/c awaits the target char (e.g. dfx, ct)).
             if matches!(op, 'd' | 'y' | 'c')
@@ -5531,10 +5532,11 @@ impl Editor {
     /// cursor. `gD` goes to its first whole-word occurrence in the whole file;
     /// `gd` goes to the nearest earlier occurrence (a local-declaration
     /// heuristic), falling back to the first in the file.
-    /// The file-name token under the cursor, for `gf`. Scans outward over
-    /// characters valid in a path (letters, digits, and `/\._-+#$%~=`). `:` is
-    /// excluded so a trailing `:line` suffix or a prose colon isn't swept in.
-    fn file_under_cursor(&self) -> Option<String> {
+    /// The file-name token under the cursor (and its end char index on the row),
+    /// for `gf`/`gF`. Scans outward over characters valid in a path (letters,
+    /// digits, and `/\._-+#$%~=`). `:` is excluded so a trailing `:line` suffix or
+    /// a prose colon isn't swept into the name.
+    fn file_under_cursor(&self) -> Option<(String, usize)> {
         let chars: Vec<char> = self.buffer.line(self.cursor.row)?.chars().collect();
         if chars.is_empty() {
             return None;
@@ -5553,23 +5555,41 @@ impl Editor {
             e += 1;
         }
         let name: String = chars[s..e].iter().collect();
-        (!name.is_empty()).then_some(name)
+        (!name.is_empty()).then_some((name, e))
     }
 
-    /// `gf` — open the file whose name is under the cursor. Tries the name as
-    /// given (cwd-relative or absolute), then relative to the current file's
-    /// directory; opens the first that exists, else reports it is not found.
-    fn goto_file(&mut self) -> Action {
-        let Some(name) = self.file_under_cursor() else {
+    /// `gf` / `gF` — open the file whose name is under the cursor. Tries the name
+    /// as given (cwd-relative or absolute), then relative to the current file's
+    /// directory; opens the first that exists, else reports it is not found. When
+    /// `with_line`, a trailing `:N` after the name opens the file at line N (`gF`).
+    fn goto_file(&mut self, with_line: bool) -> Action {
+        let Some((name, end)) = self.file_under_cursor() else {
             self.message = "E446: No file name under the cursor".into();
             return Action::None;
         };
+        // `gF`: a `:N` suffix immediately after the name gives a target line.
+        let line = with_line
+            .then(|| {
+                let chars: Vec<char> = self.buffer.line(self.cursor.row)?.chars().collect();
+                if chars.get(end) != Some(&':') {
+                    return None;
+                }
+                let digits: String = chars[end + 1..].iter().take_while(|c| c.is_ascii_digit()).collect();
+                digits.parse::<usize>().ok()
+            })
+            .flatten();
         let mut candidates = vec![std::path::PathBuf::from(&name)];
         if let Some(dir) = self.buffer.path().and_then(|p| p.parent()) {
             candidates.push(dir.join(&name));
         }
         match candidates.iter().find(|p| p.exists()) {
-            Some(found) => Action::RunEx(format!("edit {}", found.to_string_lossy())),
+            Some(found) => {
+                let p = found.to_string_lossy();
+                match line {
+                    Some(n) => Action::RunEx(format!("edit +{n} {p}")),
+                    None => Action::RunEx(format!("edit {p}")),
+                }
+            }
             None => {
                 self.message = format!("E447: Can't find file \"{name}\"");
                 Action::None

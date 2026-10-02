@@ -1927,6 +1927,26 @@
     }
 
     #[test]
+    fn g_shift_f_opens_file_at_line() {
+        // gF on "Cargo.toml:5" opens the file at line 5.
+        let mut ed = ed_with("edit Cargo.toml:5 here");
+        ed.cursor = Position::new(0, 7); // inside "Cargo.toml"
+        ed.handle_key(key('g'));
+        let act = ed.handle_key(special(KeyCode::Char('F')));
+        assert_eq!(act, Action::RunEx("edit +5 Cargo.toml".into()));
+    }
+
+    #[test]
+    fn gf_ignores_trailing_line_suffix() {
+        // Plain gf on "Cargo.toml:5" opens the file, ignoring the :5.
+        let mut ed = ed_with("edit Cargo.toml:5 here");
+        ed.cursor = Position::new(0, 7);
+        ed.handle_key(key('g'));
+        let act = ed.handle_key(key('f'));
+        assert_eq!(act, Action::RunEx("edit Cargo.toml".into()));
+    }
+
+    #[test]
     fn gf_reports_missing_file() {
         let mut ed = ed_with("open no_such_file_zzz.xyz now");
         ed.cursor = Position::new(0, 10); // inside the (nonexistent) name
