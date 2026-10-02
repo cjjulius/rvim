@@ -9,6 +9,8 @@ All notable changes to rvim are recorded here. Versions follow
 - Whole-line completion: `Ctrl-x Ctrl-l` completes the current line from other
   buffer lines that start with the text before the cursor, with `Ctrl-n` /
   `Ctrl-p` cycling the candidates.
+- Filename completion: `Ctrl-x Ctrl-f` completes the path before the cursor from
+  the filesystem; directory candidates get a trailing `/`.
 
 ### UI
 - Mode indicator (vim's `showmode`): the bottom line now shows `-- INSERT --`,

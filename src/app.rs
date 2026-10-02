@@ -949,7 +949,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t  (insert) C-w/C-u delete word-before / to line-start\n\
          \t  (insert) C-r<r>  paste register   C-t / C-d  indent / dedent\n\
          \t  (insert) C-n/C-p keyword completion (cycle matches in buffer)\n\
-         \t  (insert) C-x C-l  whole-line completion\n\
+         \t  (insert) C-x C-l  whole-line completion   C-x C-f  filename\n\
          \t  (insert) C-k<2>  digraph, e.g. C-k a: -> ä, C-k -> arrow\n\
          \t  (insert) C-o     run one Normal command, then resume insert\n\
          \t  (insert) C-a     re-insert the last inserted text (\". register)\n\

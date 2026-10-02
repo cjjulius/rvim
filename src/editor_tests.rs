@@ -4386,6 +4386,23 @@
     }
 
     #[test]
+    fn insert_file_completion_completes_path() {
+        let dir = std::env::temp_dir().join(format!("rvim_fc_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("alpha.txt"), "x").unwrap();
+        let base = dir.display().to_string().replace('\\', "/");
+        let prefix = format!("{base}/al");
+        let mut ed = ed_with(&prefix);
+        ed.cursor = Position::new(0, prefix.chars().count());
+        ed.mode = Mode::Insert;
+        ed.handle_key(ctrl('x'));
+        ed.handle_key(ctrl('f'));
+        let got = ed.buffer.line(0).unwrap();
+        assert!(got.ends_with("alpha.txt"), "got: {got}");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
     fn insert_line_completion_no_match_leaves_line() {
         let mut ed = ed_with("hello\nzzz");
         ed.cursor = Position::new(1, 3);
