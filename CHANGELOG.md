@@ -11,6 +11,8 @@ All notable changes to rvim are recorded here. Versions follow
   occurrence (local-declaration heuristic). Records a jump for `Ctrl-o`.
 
 ### Ex commands
+- `:set {option}?` reports an option's current value (e.g. `:set sw?` →
+  `shiftwidth=4`, `:set nu?` → `number`/`nonumber`).
 - `:sort /pat/` sorts by the text following the first match of `pat` on each line
   (non-matching lines sort first); the `r` flag (`:sort /pat/ r`) sorts by the
   matched text itself. Combines with the existing `n`/`i`/`u`/`!` flags.

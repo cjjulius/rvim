@@ -636,6 +636,33 @@ impl Editor {
         Some((&c.matches, c.idx))
     }
 
+    /// Format the current value of an option for `:set {option}?`.
+    pub fn option_value(&self, name: &str) -> String {
+        let flag = |b: bool, n: &str| if b { n.to_string() } else { format!("no{n}") };
+        match name {
+            "number" | "nu" => flag(self.show_line_numbers, "number"),
+            "relativenumber" | "rnu" => flag(self.relative_numbers, "relativenumber"),
+            "hlsearch" | "hls" => flag(self.hlsearch, "hlsearch"),
+            "ignorecase" | "ic" => flag(self.ignorecase, "ignorecase"),
+            "smartcase" | "scs" => flag(self.smartcase, "smartcase"),
+            "incsearch" | "is" => flag(self.incsearch, "incsearch"),
+            "autoindent" | "ai" => flag(self.autoindent, "autoindent"),
+            "expandtab" | "et" => flag(self.expandtab, "expandtab"),
+            "list" => flag(self.list, "list"),
+            "wrapscan" | "ws" => flag(self.wrapscan, "wrapscan"),
+            "cursorline" | "cul" => flag(self.cursorline, "cursorline"),
+            "cursorcolumn" | "cuc" => flag(self.cursorcolumn, "cursorcolumn"),
+            "shiftwidth" | "sw" => format!("shiftwidth={}", self.shiftwidth),
+            "tabstop" | "ts" => format!("tabstop={}", self.tabstop),
+            "scrolloff" | "so" => format!("scrolloff={}", self.scrolloff),
+            "sidescrolloff" | "siso" => format!("sidescrolloff={}", self.sidescrolloff),
+            "textwidth" | "tw" => format!("textwidth={}", self.textwidth),
+            "colorcolumn" | "cc" => format!("colorcolumn={}", self.colorcolumn),
+            "filetype" | "ft" | "syntax" => format!("filetype={}", self.language.name()),
+            other => format!("E518: Unknown option: {other}"),
+        }
+    }
+
     /// The prefix character shown before the command line (`:`, `/`, `?`).
     pub fn cmdline_prefix(&self) -> char {
         match self.line_kind {

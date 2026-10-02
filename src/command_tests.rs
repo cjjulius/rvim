@@ -210,6 +210,12 @@
     }
 
     #[test]
+    fn set_query_parse() {
+        assert_eq!(parse("set sw?"), ExCommand::SetQuery("sw".into()));
+        assert_eq!(parse("set number?"), ExCommand::SetQuery("number".into()));
+    }
+
+    #[test]
     fn earlier_later_parse() {
         assert_eq!(parse("earlier 3"), ExCommand::Earlier(3));
         assert_eq!(parse("earlier"), ExCommand::Earlier(1));

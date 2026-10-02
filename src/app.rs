@@ -518,6 +518,9 @@ impl App {
                 let text = self.editor.jumps_listing();
                 self.open_scratch(&text, "jumps —", "jumps — :bd to close");
             }
+            ExCommand::SetQuery(name) => {
+                self.editor.message = self.editor.option_value(&name);
+            }
             ExCommand::Earlier(n) => self.editor.undo_times(n),
             ExCommand::Later(n) => self.editor.redo_times(n),
             ExCommand::SetTheme(arg) => match arg {
@@ -985,6 +988,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set autoindent|noai   :set expandtab|noet\n\
          \t:set shiftwidth=N  :set tabstop=N  :set scrolloff=N  :set textwidth=N\n\
          \t:set sidescrolloff=N   horizontal context columns\n\
+         \t:set {{option}}?        show an option's current value\n\
          \t:set ignorecase|noic   :set smartcase|noscs   (search case)\n\
          \t:set incsearch|nois    preview match while typing /?\n\
          \t:set list|nolist       show tabs / trailing whitespace\n\
