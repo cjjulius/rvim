@@ -239,27 +239,46 @@ quits without saving (like `:q!`).
 > and browse every command with its shortcut — see *Menu bar* below.
 
 ### Command line (ex commands)
-`:w [file]` · `:q` · `:q!` · `:wq` · `:x` · `:qa`/`:wa`/`:wqa` (all buffers) · `:e <file>` · `:ls` · `:bn`/`:bp`/`:b <n>`/`:bd` · `Ctrl-^`/`:b#` (alternate buffer) · `:<n>` (goto line) ·
-`:s/pat/rep/[g]` (search & replace) · `:theme <name>` · `:set number|nonumber` ·
-`:set relativenumber|norelativenumber` · `:set ft=<lang>` · `:set mouse|nomouse` ·
-`:set autoindent` · `:set expandtab|noexpandtab` · `:set shiftwidth=N` ·
-`:set tabstop=N` · `:set scrolloff=N` (keep N lines of context around the cursor) ·
-`:set textwidth=N` (wrap column for `gq`) · `:set sidescrolloff=N` (horizontal context) ·
-`:set ignorecase|noignorecase` · `:set smartcase|nosmartcase` · `:set incsearch|noincsearch` ·
-`:set list|nolist` (show whitespace) · `:set wrapscan|nowrapscan` · `:set cursorline|nocursorline` · `:set cursorcolumn|nocursorcolumn` ·
-`:set colorcolumn=N` (column guide) · `:set {option}?` (show an option's current value) ·
-`:noh` / `:set hlsearch|nohlsearch` · `:[range]sort[!] [u][n][i] [/pat/ [r]]` (reverse / unique / numeric / ignore-case; sort by text after `/pat/`, or the match itself with `r`; range-aware) ·
-`:[range]m[ove] {addr}` / `:[range]t`|`:[range]co[py] {addr}` (move / copy lines) ·
-`:[range]d[elete]` / `:[range]y[ank]` / `:[range]>`|`:[range]<` (delete / yank / shift lines) ·
-`:[range]j[oin][!]` (join lines; `!` keeps whitespace) ·
-`:[range]ce[nter] [w]` / `:[range]ri[ght] [w]` / `:[range]le[ft] [indent]` (align lines; width defaults to `textwidth`) ·
-`:[addr]pu[t] [reg]` (put a register as lines) · `:[range]norm[al] {keys}` (run Normal-mode keys, per line over a range) ·
-`:r[ead] <file>` (insert a file below the cursor) · `:e`/`:e!` (reload current file) ·
-`:marks` · `:registers`/`:reg` · `:jumps` · `:changes` · `:history [:|/|all]` (introspection listings) ·
-`:delmarks a b` / `:delmarks!` (delete named / all marks) · `:earlier [N]`/`:later [N]` (undo/redo N) ·
-`:retab [N]` (normalise tabs/spaces to `tabstop`) ·
-`:[range]!cmd` (filter lines through a shell command) ·
-`:source <file>` · `:help` · `:version`
+Grouped by what they do. Most line commands accept a leading range such as
+`:%` (whole file) or `:2,5` (lines 2 to 5).
+
+**Files and buffers**
+
+- `:w [file]`, `:wq`, `:x`, `:q`, `:q!` — write and quit (`!` discards changes).
+- `:qa` / `:wa` / `:wqa` — quit or write every buffer at once.
+- `:e <file>` opens a file; `:e` / `:e!` reloads the current one; `:r <file>` inserts a file below the cursor.
+- `:ls` lists buffers; `:bn` / `:bp` / `:b <n>` / `:bd` switch or close them; `Ctrl-^` (or `:b#`) returns to the previous buffer.
+- `:<n>` jumps to line `n`.
+
+**Search and replace**
+
+- `:s/pat/rep/[g]` substitutes on the current line; add `g` for every match and a range for more (see the table below).
+- `:noh` clears the search highlight (`:set hlsearch` / `nohlsearch` toggles it).
+
+**Working with lines**
+
+- `:m {addr}` and `:t` / `:co {addr}` move or copy lines.
+- `:d` / `:y` delete or yank; `:>` / `:<` shift the indent.
+- `:j[oin][!]` joins lines (`!` keeps the whitespace).
+- `:ce[nter]` / `:ri[ght]` / `:le[ft]` align lines to `textwidth`.
+- `:sort[!] [u][n][i] [/pat/ [r]]` sorts (reverse, unique, numeric, ignore-case, or by the text after a pattern).
+- `:put [reg]` inserts a register as lines; `:normal {keys}` runs Normal-mode keys on each line.
+- `:retab [N]` normalises tabs and spaces; `:[range]!cmd` filters lines through a shell command.
+
+**Marks, registers, history**
+
+- `:marks`, `:registers` (`:reg`), `:jumps`, `:changes`, `:history [:|/|all]` each open a listing.
+- `:delmarks a b` / `:delmarks!` delete named or all marks.
+- `:earlier [N]` / `:later [N]` step back and forward through changes.
+
+**Appearance and options**
+
+- `:theme <name>` switches the color theme.
+- `:set <option>` toggles or sets an option; `:set {option}?` shows a value, and `:set all` lists them all. Common ones: `number`, `relativenumber`, `ignorecase`, `smartcase`, `incsearch`, `expandtab`, `shiftwidth=N`, `tabstop=N`, `cursorline`, `colorcolumn=N`, `scrolloff=N`, `textwidth=N`, `list`, `mouse`.
+
+**Other**
+
+- `:source <file>` runs commands from a file; `:help` and `:version` show help and the version.
 
 Several `:set` options can be combined in one command, e.g.
 `:set number expandtab shiftwidth=2`. `:set {option}?` shows one option's value;
@@ -469,7 +488,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **545 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **546 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
