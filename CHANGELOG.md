@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Search & replace
+- `:s/pat/rep/c` confirms each replacement interactively: the cursor stops on the
+  match and `y` replaces, `n` skips, `a` does all remaining, `l` replaces one and
+  stops, `q`/Esc quits. The whole run is a single undo.
+
 ### Editing
 - `U` (normal mode) restores the most recently changed line to its state before
   that change, and repeating `U` toggles it back. The restore is itself undoable

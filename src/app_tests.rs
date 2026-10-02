@@ -250,6 +250,17 @@
     }
 
     #[test]
+    fn substitute_confirm_end_to_end() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("foo foo");
+        app.run_ex("s/foo/X/gc"); // current line, global, confirm
+        assert!(app.editor.substitute_confirm_active());
+        app.feed_normal_keys("yy"); // confirm both matches
+        assert!(!app.editor.substitute_confirm_active());
+        assert_eq!(app.editor.buffer.line(0), Some("X X"));
+    }
+
+    #[test]
     fn substitute_empty_pattern_reuses_previous() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("foo bar foo");

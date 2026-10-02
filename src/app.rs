@@ -711,6 +711,9 @@ impl App {
                     format!("{subs} substitution{s_p} on {lines} line{l_p}")
                 };
             }
+            ExCommand::SubstituteConfirm(spec) => {
+                self.editor.substitute_confirm_start(&spec);
+            }
             ExCommand::Global {
                 pattern,
                 invert,
@@ -1041,7 +1044,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:changes           list the change list (g; / g, navigate it)\n\
          \t:delmarks a b / !  delete the named marks (! clears all a-z marks)\n\
          \t:history [:|/|all] list command-line / search history\n\
-         \t:s/pat/rep/[gin]   substitute (g all, i ignore-case, n count only)\n\
+         \t:s/pat/rep/[ginc]  substitute (g all, i ignore-case, n count, c confirm)\n\
          \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///, normal)\n\
          \t:[range]norm {{keys}}  run Normal-mode keys (per line over a range)\n\
          \t:theme <name>      themes: {themes}\n\
