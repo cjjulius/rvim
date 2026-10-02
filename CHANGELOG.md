@@ -9,6 +9,9 @@ All notable changes to rvim are recorded here. Versions follow
 - `:changes` lists the change list (the positions `g;` / `g,` navigate), with a
   `>` marking the current slot — a companion to the existing `:marks`,
   `:registers`, and `:jumps` listings.
+- `:history` lists the command-line history; `:history /` (or `search`) lists the
+  search-pattern history, and `:history all` shows both — matching vim's
+  `:history`, with entries numbered oldest-first.
 
 ### Info
 - `g Ctrl-g` reports the document's word, character, and byte counts along with

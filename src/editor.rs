@@ -6,7 +6,7 @@
 //! an [`Action`] the [`crate::app::App`] executes.
 
 use crate::buffer::{Buffer, Position};
-use crate::command::{AlignKind, LineAddr, SubRange, SubstituteSpec};
+use crate::command::{AlignKind, HistoryKind, LineAddr, SubRange, SubstituteSpec};
 use crate::menu::{MenuOutcome, MenuState};
 use crate::mode::Mode;
 use crate::pattern;
@@ -913,6 +913,26 @@ impl Editor {
         out
     }
 
+    /// A `:history` listing of the command-line and/or search history, oldest
+    /// first with a 1-based index (newest entry has the highest number), matching
+    /// vim's `:history`.
+    pub fn history_listing(&self, kind: HistoryKind) -> String {
+        let mut out = String::from("history — :bd to close\n");
+        let mut section = |title: &str, items: &[String], prefix: char| {
+            out.push_str(&format!("\n  #  {title} history\n"));
+            for (i, entry) in items.iter().enumerate() {
+                out.push_str(&format!(" {:>3}  {prefix}{entry}\n", i + 1));
+            }
+        };
+        if matches!(kind, HistoryKind::Cmd | HistoryKind::All) {
+            section("cmd", &self.cmd_history, ':');
+        }
+        if matches!(kind, HistoryKind::Search | HistoryKind::All) {
+            section("search", &self.search_history, '/');
+        }
+        out
+    }
+
     fn resolve_range(&self, range: SubRange) -> (usize, usize) {
         let last = self.buffer.line_count().saturating_sub(1);
         match range {
@@ -1514,7 +1534,7 @@ impl Editor {
     const EX_COMMANDS: &'static [&'static str] = &[
         "autoindent", "bdelete", "bnext", "bprevious", "buffer", "buffers",
         "changes", "colorscheme", "copy", "cursorline", "delete", "edit", "expandtab",
-        "files", "global", "help", "hlsearch", "ignorecase", "incsearch",
+        "files", "global", "help", "history", "hlsearch", "ignorecase", "incsearch",
         "join", "jumps", "list", "marks", "move", "nohlsearch", "normal",
         "number", "put", "quit", "quitall", "read", "registers",
         "relativenumber", "set", "smartcase", "sort", "source", "substitute",
