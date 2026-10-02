@@ -67,6 +67,8 @@ pub struct SubstituteSpec {
 pub enum ExCommand {
     /// `:w [file]`
     Write(Option<String>),
+    /// `:[range]w[rite][!] file` — write a line range to a file.
+    WriteRange { range: SubRange, file: Option<String> },
     /// `:q` / `:q!`
     Quit { force: bool },
     /// `:wq [file]` / `:x`
@@ -236,6 +238,12 @@ pub fn parse(input: &str) -> ExCommand {
     // Filter / run (`!cmd`, `%!sort`, `1,5!cmd`).
     if let Some(f) = parse_filter(trimmed) {
         return f;
+    }
+
+    // Range write (`1,5w file`, `%w file`). A bare `:w`/`:w file` falls through
+    // to the generic word match below.
+    if let Some(w) = parse_write_range(trimmed) {
+        return w;
     }
 
     // Substitution, possibly with a leading range (`s/`, `%s/`, `1,5s/`).
@@ -460,6 +468,33 @@ fn range_prefix_len(s: &str) -> usize {
         }
     }
     i
+}
+
+/// Parse `:[range]w[rite][!] [file]` — write a range of lines to a file. Returns
+/// `None` when there is no leading range (so the bare `:w` / `:w file` handling
+/// applies) or the word after the range isn't `w`/`write`.
+fn parse_write_range(trimmed: &str) -> Option<ExCommand> {
+    let i = range_prefix_len(trimmed);
+    if i == 0 {
+        return None;
+    }
+    let after = &trimmed[i..];
+    let rest = if let Some(r) = after.strip_prefix("write") {
+        r
+    } else if after.starts_with('w')
+        && after[1..].chars().next().is_none_or(|c| c == '!' || c.is_whitespace())
+    {
+        &after[1..]
+    } else {
+        return None;
+    };
+    let rest = rest.strip_prefix('!').unwrap_or(rest);
+    let file = rest.trim();
+    let range = parse_range(&trimmed[..i])?;
+    Some(ExCommand::WriteRange {
+        range,
+        file: (!file.is_empty()).then(|| file.to_string()),
+    })
 }
 
 /// Parse `:[range]!cmd` (filter the range through a shell command) and bare

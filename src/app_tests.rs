@@ -259,6 +259,17 @@
     }
 
     #[test]
+    fn write_range_writes_only_those_lines() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("l1\nl2\nl3\nl4");
+        let path = std::env::temp_dir().join(format!("rvim_wr_{}.txt", std::process::id()));
+        app.run_ex(&format!("2,3w {}", path.display()));
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content, "l2\nl3\n");
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
     fn filter_command_sorts_lines() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("b\na\nc");

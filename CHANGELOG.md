@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Ex commands
+- `:[range]w file` writes just the range's lines to a file (vimtutor 5.3).
+- `:r !cmd` inserts a shell command's output below the cursor (vimtutor 5.4).
+
 ### Search
 - `n` / `N` take a count, so `3n` jumps to the third next match and `2N` to the
   second previous one.

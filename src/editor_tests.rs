@@ -3952,6 +3952,21 @@
     }
 
     #[test]
+    fn read_command_inserts_output_below() {
+        let mut ed = ed_with("top\nbottom");
+        ed.cursor = Position::new(0, 0);
+        #[cfg(windows)]
+        let cmd = "echo A& echo B";
+        #[cfg(not(windows))]
+        let cmd = "printf 'A\\nB\\n'";
+        ed.read_command(cmd);
+        assert_eq!(ed.buffer.line(0), Some("top"));
+        assert_eq!(ed.buffer.line(1), Some("A"));
+        assert_eq!(ed.buffer.line(2), Some("B"));
+        assert_eq!(ed.buffer.line(3), Some("bottom"));
+    }
+
+    #[test]
     fn splice_lines_replaces_range() {
         let mut ed = ed_with("a\nb\nc\nd");
         ed.splice_lines(1, 2, &["X".into(), "Y".into(), "Z".into()]);
