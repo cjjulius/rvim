@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Info
+- `g Ctrl-g` reports the document's word, character, and byte counts along with
+  the cursor's line and column.
+
 ### Navigation
 - `gd` / `gD` jump to the definition of the identifier under the cursor — `gD`
   to its first whole-word occurrence in the file, `gd` to the nearest earlier

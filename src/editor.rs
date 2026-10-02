@@ -2407,7 +2407,14 @@ impl Editor {
                     return Action::None;
                 }
                 KeyCode::Char('g') => {
-                    self.show_file_info();
+                    // `g Ctrl-g` reports document counts; `Ctrl-g` alone, file info.
+                    if self.pending_op == Some('g') {
+                        self.pending_op = None;
+                        self.pending_op_count = None;
+                        self.show_cursor_counts();
+                    } else {
+                        self.show_file_info();
+                    }
                     return Action::None;
                 }
                 _ => {}
@@ -5769,6 +5776,37 @@ impl Editor {
         self.message = format!(
             "\"{name}\"{modified} {lines} lines --{pct}%--  line {} of {lines}",
             self.cursor.row + 1
+        );
+    }
+
+    /// Total `(words, chars, bytes)` in the buffer (newlines count as one char /
+    /// byte each). Used by `g Ctrl-g`.
+    pub fn document_stats(&self) -> (usize, usize, usize) {
+        let n = self.buffer.line_count();
+        let mut words = 0;
+        let mut chars = 0;
+        let mut bytes = 0;
+        for row in 0..n {
+            let line = self.buffer.line(row).unwrap_or("");
+            words += line.split_whitespace().count();
+            chars += line.chars().count();
+            bytes += line.len();
+            if row + 1 < n {
+                chars += 1; // the line break
+                bytes += 1;
+            }
+        }
+        (words, chars, bytes)
+    }
+
+    /// `g Ctrl-g` — show cursor position and document word/char/byte counts.
+    fn show_cursor_counts(&mut self) {
+        let (words, chars, bytes) = self.document_stats();
+        let lines = self.buffer.line_count();
+        self.message = format!(
+            "line {} of {lines}  col {}  —  {words} words, {chars} chars, {bytes} bytes",
+            self.cursor.row + 1,
+            self.cursor.col + 1,
         );
     }
 

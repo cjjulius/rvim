@@ -3579,6 +3579,33 @@
     }
 
     #[test]
+    fn document_stats_counts() {
+        let ed = ed_with("foo bar\nbaz");
+        // 3 words; chars = 7 + newline + 3 = 11; bytes = 11.
+        assert_eq!(ed.document_stats(), (3, 11, 11));
+    }
+
+    #[test]
+    fn g_ctrl_g_reports_counts() {
+        let mut ed = ed_with("foo bar\nbaz");
+        ed.cursor = Position::new(1, 1);
+        ed.handle_key(key('g'));
+        ed.handle_key(ctrl('g'));
+        assert!(ed.message.contains("3 words"), "{}", ed.message);
+        assert!(ed.message.contains("11 chars"));
+        assert!(ed.message.contains("line 2 of 2"));
+    }
+
+    #[test]
+    fn gg_still_jumps_to_top() {
+        let mut ed = ed_with("a\nb\nc");
+        ed.cursor = Position::new(2, 0);
+        ed.handle_key(key('g'));
+        ed.handle_key(key('g'));
+        assert_eq!(ed.cursor.row, 0);
+    }
+
+    #[test]
     fn changelist_navigates_edit_positions() {
         let mut ed = ed_with("one\ntwo\nthree\nfour");
         ed.cursor = Position::new(0, 0);
