@@ -544,6 +544,7 @@ impl App {
                 self.open_scratch(&text, "options (", "options — :bd to close");
             }
             ExCommand::Retab(n) => self.editor.retab(n),
+            ExCommand::Filter { range, cmd } => self.editor.filter_range(range, &cmd),
             ExCommand::Align { range, kind, width } => {
                 self.editor.align_lines(range, kind, width);
             }
@@ -1024,6 +1025,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set {{option}}?        show an option's current value\n\
          \t:set / :set all        list modified / all options\n\
          \t:retab [N]             normalise tabs/spaces to tabstop (set to N)\n\
+         \t!{{motion}} / :range!cmd  filter lines through a shell command\n\
          \t:set ignorecase|noic   :set smartcase|noscs   (search case)\n\
          \t:set incsearch|nois    preview match while typing /?\n\
          \t:set list|nolist       show tabs / trailing whitespace\n\

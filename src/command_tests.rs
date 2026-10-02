@@ -248,6 +248,22 @@
     }
 
     #[test]
+    fn filter_parse() {
+        assert_eq!(
+            parse("%!sort"),
+            ExCommand::Filter { range: Some(SubRange::WholeFile), cmd: "sort".into() }
+        );
+        assert_eq!(
+            parse("1,3!sort"),
+            ExCommand::Filter {
+                range: Some(SubRange::Range(LineAddr::Num(1), LineAddr::Num(3))),
+                cmd: "sort".into()
+            }
+        );
+        assert_eq!(parse("!ls"), ExCommand::Filter { range: None, cmd: "ls".into() });
+    }
+
+    #[test]
     fn retab_parse() {
         assert_eq!(parse("retab"), ExCommand::Retab(None));
         assert_eq!(parse("retab 2"), ExCommand::Retab(Some(2)));

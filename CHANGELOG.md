@@ -5,6 +5,13 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Editing
+- External filter: `!{motion}` / `!!` (and visual `!`) prefill a range on the
+  command line to pipe those lines through a shell command, replacing them with
+  its output; `:[range]!cmd` does it directly and a bare `:!cmd` just runs the
+  command. Input is sent with the platform-native line ending so tools like
+  `sort` behave correctly on Windows.
+
 ### Ex commands
 - `:delmarks {marks}` deletes the named marks (ranges like `a-d` are supported);
   `:delmarks!` clears all lowercase marks.

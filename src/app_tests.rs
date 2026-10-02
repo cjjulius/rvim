@@ -259,6 +259,16 @@
     }
 
     #[test]
+    fn filter_command_sorts_lines() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("b\na\nc");
+        app.run_ex("%!sort");
+        assert_eq!(app.editor.buffer.line(0), Some("a"));
+        assert_eq!(app.editor.buffer.line(1), Some("b"));
+        assert_eq!(app.editor.buffer.line(2), Some("c"));
+    }
+
+    #[test]
     fn retab_command_expands_tabs() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("\thi");
