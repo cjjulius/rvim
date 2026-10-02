@@ -3030,6 +3030,22 @@
     }
 
     #[test]
+    fn global_empty_pattern_reuses_last_search() {
+        let mut ed = ed_with("keep\nDROP me\nkeep\nDROP again");
+        ed.last_search = "DROP".into();
+        let affected = ed.global("", false, "d"); // empty pattern -> reuse "DROP"
+        assert_eq!(affected, 2);
+        assert_eq!(ed.buffer.line_count(), 2);
+    }
+
+    #[test]
+    fn global_sets_last_search() {
+        let mut ed = ed_with("alpha\nbeta\nalpha");
+        ed.global("alpha", false, "d");
+        assert_eq!(ed.last_search, "alpha"); // :g records the search pattern
+    }
+
+    #[test]
     fn global_invert_delete() {
         let mut ed = ed_with("a\nkeep1\nb\nkeep2");
         ed.global("keep", true, "d"); // delete non-matching

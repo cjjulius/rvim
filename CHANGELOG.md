@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Global command
+- `:g//cmd` (and `:v//cmd`) with an empty pattern reuse the last search pattern,
+  so `/foo` then `:g//d` deletes every `foo` line. Running `:g/pat/…` also records
+  `pat` as the current search pattern.
+
 ### UI
 - `:set listchars=tab:xy,trail:z` customises the `:set list` markers (the tab
   head/fill and the trailing-space glyph); `:set listchars?` shows the current
