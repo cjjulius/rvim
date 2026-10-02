@@ -575,7 +575,13 @@ impl Editor {
     /// `:s` substitution. Returns the number of lines/substitutions affected.
     /// The 0-based rows matching `pattern` (or not, when `invert`), for `:g`/`:v`.
     pub fn global_rows(&self, pattern: &str, invert: bool) -> Vec<usize> {
-        let Some(re) = pattern::build(pattern) else {
+        // An empty pattern reuses the last search pattern (vim's `:g//cmd`).
+        let pat = if pattern.is_empty() {
+            self.last_search.as_str()
+        } else {
+            pattern
+        };
+        let Some(re) = pattern::build(pat) else {
             return Vec::new();
         };
         (0..self.buffer.line_count())
@@ -584,6 +590,10 @@ impl Editor {
     }
 
     pub fn global(&mut self, pattern: &str, invert: bool, command: &str) -> usize {
+        // Running `:g/pat/…` makes `pat` the current search pattern, as vim does.
+        if !pattern.is_empty() {
+            self.last_search = pattern.to_string();
+        }
         let matches = self.global_rows(pattern, invert);
         if matches.is_empty() {
             return 0;
