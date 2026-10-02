@@ -166,6 +166,10 @@ pub struct Editor {
     pub textwidth: usize,
     /// `:set list` — show tabs and trailing whitespace with markers.
     pub list: bool,
+    /// `:set listchars` — the tab marker `(head, fill)` and the trailing-space
+    /// marker used when `list` is on.
+    pub listchars_tab: (char, char),
+    pub listchars_trail: char,
     /// `:set cursorline` — highlight the line the cursor is on (default on).
     pub cursorline: bool,
     /// `:set cursorcolumn` — highlight the column the cursor is on (default off).
@@ -341,6 +345,8 @@ impl Editor {
             pending_format_obj: None,
             textwidth: 0,
             list: false,
+            listchars_tab: ('▸', '·'),
+            listchars_trail: '·',
             cursorline: true,
             cursorcolumn: false,
             colorcolumn: 0,
@@ -699,6 +705,10 @@ impl Editor {
             "autoindent" | "ai" => flag(self.autoindent, "autoindent"),
             "expandtab" | "et" => flag(self.expandtab, "expandtab"),
             "list" => flag(self.list, "list"),
+            "listchars" | "lcs" => format!(
+                "listchars=tab:{}{},trail:{}",
+                self.listchars_tab.0, self.listchars_tab.1, self.listchars_trail
+            ),
             "wrapscan" | "ws" => flag(self.wrapscan, "wrapscan"),
             "cursorline" | "cul" => flag(self.cursorline, "cursorline"),
             "cursorcolumn" | "cuc" => flag(self.cursorcolumn, "cursorcolumn"),
@@ -711,6 +721,35 @@ impl Editor {
             "filetype" | "ft" | "syntax" => format!("filetype={}", self.language.name()),
             other => format!("E518: Unknown option: {other}"),
         }
+    }
+
+    /// The `list` markers `(tab_head, tab_fill, trail)` for rendering.
+    pub fn listchars(&self) -> (char, char, char) {
+        (self.listchars_tab.0, self.listchars_tab.1, self.listchars_trail)
+    }
+
+    /// `:set listchars=tab:xy,trail:z` — configure the `list` markers. `tab:` takes
+    /// two characters (head + fill); `trail:` takes one. Unknown keys are ignored.
+    pub fn set_listchars(&mut self, spec: &str) {
+        for item in spec.split(',') {
+            let Some((key, val)) = item.split_once(':') else {
+                continue;
+            };
+            let vchars: Vec<char> = val.chars().collect();
+            match key.trim() {
+                "tab" if vchars.len() >= 2 => {
+                    self.listchars_tab = (vchars[0], vchars[1]);
+                }
+                "trail" if vchars.len() == 1 => {
+                    self.listchars_trail = vchars[0];
+                }
+                _ => {}
+            }
+        }
+        self.message = format!(
+            "listchars=tab:{}{},trail:{}",
+            self.listchars_tab.0, self.listchars_tab.1, self.listchars_trail
+        );
     }
 
     /// vim's `showmode` text for the bottom line — `-- INSERT --`, `-- VISUAL --`,
@@ -732,7 +771,7 @@ impl Editor {
         "number", "relativenumber", "hlsearch", "ignorecase", "smartcase",
         "incsearch", "autoindent", "expandtab", "list", "wrapscan", "cursorline",
         "cursorcolumn", "shiftwidth", "tabstop", "scrolloff", "sidescrolloff",
-        "textwidth", "colorcolumn", "filetype",
+        "textwidth", "colorcolumn", "listchars", "filetype",
     ];
 
     /// A `:set` / `:set all` listing: one option per line with its current value.
@@ -1925,7 +1964,7 @@ impl Editor {
     /// variants, and value options by bare name).
     const SET_OPTIONS: &'static [&'static str] = &[
         "all", "autoindent", "colorcolumn", "cursorcolumn", "cursorline", "expandtab",
-        "filetype", "hlsearch", "ignorecase", "incsearch", "list", "noautoindent",
+        "filetype", "hlsearch", "ignorecase", "incsearch", "list", "listchars", "noautoindent",
         "nocursorcolumn", "nocursorline", "noexpandtab", "nohlsearch",
         "noignorecase", "noincsearch", "nolist", "nonumber", "norelativenumber",
         "nosmartcase", "nowrapscan", "number", "relativenumber", "scrolloff",

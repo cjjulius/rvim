@@ -4214,6 +4214,23 @@
     }
 
     #[test]
+    fn set_listchars_updates_markers() {
+        let mut ed = ed_with("x");
+        assert_eq!(ed.listchars(), ('▸', '·', '·')); // defaults
+        ed.set_listchars("tab:>-,trail:~");
+        assert_eq!(ed.listchars(), ('>', '-', '~'));
+        assert_eq!(ed.option_value("listchars"), "listchars=tab:>-,trail:~");
+    }
+
+    #[test]
+    fn set_listchars_ignores_bad_values() {
+        let mut ed = ed_with("x");
+        ed.set_listchars("tab:X,trail:YZ,bogus:Q"); // tab needs 2, trail needs 1
+        // tab had only 1 char -> unchanged; trail had 2 -> unchanged; defaults kept
+        assert_eq!(ed.listchars(), ('▸', '·', '·'));
+    }
+
+    #[test]
     fn options_listing_all_includes_every_option() {
         let ed = ed_with("hi");
         let all = ed.options_listing(true);

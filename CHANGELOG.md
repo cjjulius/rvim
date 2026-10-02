@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### UI
+- `:set listchars=tab:xy,trail:z` customises the `:set list` markers (the tab
+  head/fill and the trailing-space glyph); `:set listchars?` shows the current
+  values.
+
 ### Visual mode
 - Ragged-right block append: in visual-block mode `$` extends the selection to
   each line's own end, so `$A` appends the typed text at the end of every line

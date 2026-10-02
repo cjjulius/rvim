@@ -202,6 +202,15 @@
     }
 
     #[test]
+    fn set_listchars_parse() {
+        assert_eq!(
+            parse("set listchars=tab:>-,trail:~"),
+            ExCommand::SetListchars("tab:>-,trail:~".into())
+        );
+        assert_eq!(parse("set lcs=trail:."), ExCommand::SetListchars("trail:.".into()));
+    }
+
+    #[test]
     fn set_cursorline() {
         assert_eq!(parse("set cursorline"), ExCommand::ToggleCursorLine(true));
         assert_eq!(parse("set cul"), ExCommand::ToggleCursorLine(true));

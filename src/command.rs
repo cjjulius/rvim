@@ -172,6 +172,8 @@ pub enum ExCommand {
     ToggleCursorColumn(bool),
     /// `:set colorcolumn=N` — highlight column N as a guide (0 disables).
     SetColorColumn(usize),
+    /// `:set listchars=tab:xy,trail:z` — configure the `:set list` markers.
+    SetListchars(String),
     /// `:sort` / `:sort!` / `:sort u` — sort buffer lines.
     Sort {
         range: SubRange,
@@ -901,6 +903,11 @@ fn parse_set(rest: &str) -> ExCommand {
         "nocursorcolumn" | "nocuc" => ExCommand::ToggleCursorColumn(false),
         _ => {
             if let Some(v) = opt
+                .strip_prefix("listchars=")
+                .or_else(|| opt.strip_prefix("lcs="))
+            {
+                ExCommand::SetListchars(v.to_string())
+            } else if let Some(v) = opt
                 .strip_prefix("ft=")
                 .or_else(|| opt.strip_prefix("filetype="))
                 .or_else(|| opt.strip_prefix("syntax="))
