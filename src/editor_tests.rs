@@ -3939,6 +3939,48 @@
     }
 
     #[test]
+    fn splice_lines_replaces_range() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.splice_lines(1, 2, &["X".into(), "Y".into(), "Z".into()]);
+        assert_eq!(ed.buffer.line(0), Some("a"));
+        assert_eq!(ed.buffer.line(1), Some("X"));
+        assert_eq!(ed.buffer.line(2), Some("Y"));
+        assert_eq!(ed.buffer.line(3), Some("Z"));
+        assert_eq!(ed.buffer.line(4), Some("d"));
+    }
+
+    #[test]
+    fn filter_range_through_sort() {
+        let mut ed = ed_with("banana\napple\ncherry");
+        ed.filter_range(Some(SubRange::WholeFile), "sort");
+        assert_eq!(ed.buffer.line(0), Some("apple"));
+        assert_eq!(ed.buffer.line(1), Some("banana"));
+        assert_eq!(ed.buffer.line(2), Some("cherry"));
+        assert_eq!(ed.buffer.line_count(), 3);
+    }
+
+    #[test]
+    fn bang_bang_prefills_filter_cmdline() {
+        let mut ed = ed_with("one\ntwo\nthree");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('!'));
+        ed.handle_key(key('!'));
+        assert_eq!(ed.mode, Mode::Command);
+        assert_eq!(ed.cmdline, "1,1!");
+    }
+
+    #[test]
+    fn visual_bang_prefills_selection_range() {
+        let mut ed = ed_with("a\nb\nc");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(special(KeyCode::Char('V'))); // visual line
+        ed.handle_key(key('j')); // extend to row 1
+        ed.handle_key(key('!'));
+        assert_eq!(ed.mode, Mode::Command);
+        assert_eq!(ed.cmdline, "1,2!");
+    }
+
+    #[test]
     fn retab_expands_tabs_to_spaces() {
         let mut ed = ed_with("\tx\na\tb");
         ed.expandtab = true;

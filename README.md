@@ -258,12 +258,19 @@ quits without saving (like `:q!`).
 `:marks` · `:registers`/`:reg` · `:jumps` · `:changes` · `:history [:|/|all]` (introspection listings) ·
 `:delmarks a b` / `:delmarks!` (delete named / all marks) · `:earlier [N]`/`:later [N]` (undo/redo N) ·
 `:retab [N]` (normalise tabs/spaces to `tabstop`) ·
+`:[range]!cmd` (filter lines through a shell command) ·
 `:source <file>` · `:help` · `:version`
 
 Several `:set` options can be combined in one command, e.g.
 `:set number expandtab shiftwidth=2`. `:set {option}?` shows one option's value;
 bare `:set` lists the options changed from their defaults, and `:set all` lists
 every option.
+
+**Filtering through a shell command.** `!` sends lines to an external command
+and replaces them with its output. Press `!` plus a motion (or `!!` for the
+current line), or select lines and press `!`; rvim prefills the range and waits
+for the command. `:%!sort` sorts the file, `!}sort` sorts to the next blank line.
+A bare `:!cmd` just runs the command.
 
 On the command line, `Up`/`Down` recall previous commands (`:` history) or
 searches (`/`/`?` history), and `Ctrl-w`/`Ctrl-u` delete the previous word / the
@@ -462,7 +469,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **539 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **545 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

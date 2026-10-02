@@ -121,6 +121,9 @@ pub enum ExCommand {
     ShowOptions(bool),
     /// `:retab [N]` — normalise tabs/spaces to `tabstop` (optionally set to N).
     Retab(Option<usize>),
+    /// `:[range]!cmd` — filter the range through a shell command (`range: None`
+    /// for a bare `:!cmd`, which just runs the command).
+    Filter { range: Option<SubRange>, cmd: String },
     /// `:[range]left [indent]` / `:right [width]` / `:center [width]`.
     Align {
         range: SubRange,
@@ -228,6 +231,11 @@ pub fn parse(input: &str) -> ExCommand {
     // Global command (`g/re/cmd`, `v/re/cmd`).
     if let Some(g) = parse_global(trimmed) {
         return g;
+    }
+
+    // Filter / run (`!cmd`, `%!sort`, `1,5!cmd`).
+    if let Some(f) = parse_filter(trimmed) {
+        return f;
     }
 
     // Substitution, possibly with a leading range (`s/`, `%s/`, `1,5s/`).
@@ -452,6 +460,25 @@ fn range_prefix_len(s: &str) -> usize {
         }
     }
     i
+}
+
+/// Parse `:[range]!cmd` (filter the range through a shell command) and bare
+/// `:!cmd` (run only, `range: None`). Returns `None` when there's no `!` right
+/// after an optional range prefix.
+fn parse_filter(trimmed: &str) -> Option<ExCommand> {
+    let i = range_prefix_len(trimmed);
+    let after = &trimmed[i..];
+    let cmd = after.strip_prefix('!')?;
+    let range_str = &trimmed[..i];
+    let range = if range_str.is_empty() {
+        None
+    } else {
+        Some(parse_range(range_str)?)
+    };
+    Some(ExCommand::Filter {
+        range,
+        cmd: cmd.trim().to_string(),
+    })
 }
 
 fn parse_substitute(trimmed: &str) -> Option<ExCommand> {

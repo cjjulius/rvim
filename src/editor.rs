@@ -2787,6 +2787,16 @@ impl Editor {
                     self.pending_op_count = Some(count);
                 }
             }
+            KeyCode::Char('!') => {
+                if let Some((s, e)) = self.selection() {
+                    // Visual `!` — prefill the filter command for the selection.
+                    self.mode = Mode::Normal;
+                    self.start_filter_cmdline(s.row, e.row);
+                } else {
+                    self.pending_op = Some('!');
+                    self.pending_op_count = Some(count);
+                }
+            }
             KeyCode::Char('i') => {
                 if self.mode.is_visual() {
                     self.pending_vis_obj = Some('i'); // viw, vi(, …
@@ -3058,6 +3068,19 @@ impl Editor {
                 };
                 if let Some((a, b)) = rows {
                     self.shift_range(a, b, op == '>');
+                }
+            }
+            '!' => {
+                // `!!` (current line, counted) or `!{motion}` prefill the filter
+                // command line with the matching range.
+                let last = self.buffer.line_count().saturating_sub(1);
+                let rows = if code == KeyCode::Char('!') {
+                    Some((self.cursor.row, (self.cursor.row + count - 1).min(last)))
+                } else {
+                    self.motion_target(code, count).map(|t| self.target_rows(t))
+                };
+                if let Some((a, b)) = rows {
+                    self.start_filter_cmdline(a, b);
                 }
             }
             'd' | 'y' | 'c' => {
@@ -5283,6 +5306,115 @@ impl Editor {
         self.cursor.row = a.min(self.buffer.line_count().saturating_sub(1));
         self.move_first_nonblank();
         self.clamp_cursor(false);
+    }
+
+    /// Run `cmd` through the platform shell, piping `input` to its stdin and
+    /// returning its stdout. `None` on spawn / IO failure.
+    fn run_shell_filter(cmd: &str, input: &str) -> Option<String> {
+        use std::io::Write;
+        use std::process::{Command, Stdio};
+        let (sh, flag) = if cfg!(windows) { ("cmd", "/C") } else { ("sh", "-c") };
+        let mut child = Command::new(sh)
+            .arg(flag)
+            .arg(cmd)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .ok()?;
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin.write_all(input.as_bytes()).ok()?;
+        }
+        let out = child.wait_with_output().ok()?;
+        Some(String::from_utf8_lossy(&out.stdout).into_owned())
+    }
+
+    /// Replace rows `a..=b` with `lines` (an empty `lines` deletes the rows,
+    /// keeping at least one line in the buffer).
+    fn splice_lines(&mut self, a: usize, b: usize, lines: &[String]) {
+        let total = self.buffer.line_count();
+        let covered_all = a == 0 && b + 1 >= total;
+        for row in (a..=b.min(total.saturating_sub(1))).rev() {
+            self.buffer.delete_line(row);
+        }
+        if covered_all {
+            // The buffer now holds a single empty guard line at index 0.
+            if let Some(first) = lines.first() {
+                self.buffer.set_line(0, first.clone());
+                for (i, line) in lines.iter().enumerate().skip(1) {
+                    self.buffer.insert_line(i, line.clone());
+                }
+            }
+        } else {
+            for (i, line) in lines.iter().enumerate() {
+                self.buffer.insert_line(a + i, line.clone());
+            }
+        }
+    }
+
+    /// Enter the command line prefilled with `{a+1},{b+1}!` so the user can type a
+    /// shell command to filter those lines (the `!{motion}` / `!!` / visual `!`).
+    fn start_filter_cmdline(&mut self, a: usize, b: usize) {
+        self.mode = Mode::Command;
+        self.line_kind = LineKind::Ex;
+        self.cmdline = format!("{},{}!", a + 1, b + 1);
+        self.hist_idx = None;
+    }
+
+    /// `:[range]!cmd` — replace the range's lines with the output of piping them
+    /// through the shell command `cmd`. With `range: None` (bare `:!cmd`) the
+    /// command is just run and the first line of its output shown.
+    pub fn filter_range(&mut self, range: Option<SubRange>, cmd: &str) {
+        let cmd = cmd.trim();
+        if cmd.is_empty() {
+            self.message = "E471: Argument required".into();
+            return;
+        }
+        let Some(range) = range else {
+            // Bare `:!cmd` — run without a range, report a line of output.
+            match Self::run_shell_filter(cmd, "") {
+                Some(out) => {
+                    let line = out.lines().next().unwrap_or("").trim_end();
+                    self.message = if line.is_empty() {
+                        format!("ran: {cmd}")
+                    } else {
+                        line.to_string()
+                    };
+                }
+                None => self.message = format!("E485: Can't run: {cmd}"),
+            }
+            return;
+        };
+        let (a, b) = self.resolve_range(range);
+        // Feed the shell the platform-native line ending — Windows tools such as
+        // `sort` mis-handle bare LF input. Output is split tolerantly below.
+        let eol = if cfg!(windows) { "\r\n" } else { "\n" };
+        let mut input = String::new();
+        for row in a..=b {
+            input.push_str(self.buffer.line(row).unwrap_or(""));
+            input.push_str(eol);
+        }
+        let Some(output) = Self::run_shell_filter(cmd, &input) else {
+            self.message = format!("E485: Can't run: {cmd}");
+            return;
+        };
+        // Split output into lines, dropping the trailing newline and any `\r`.
+        let mut lines: Vec<String> = output
+            .split('\n')
+            .map(|l| l.trim_end_matches('\r').to_string())
+            .collect();
+        if lines.last().map(|s| s.is_empty()).unwrap_or(false) {
+            lines.pop();
+        }
+        self.checkpoint();
+        let produced = lines.len();
+        self.splice_lines(a, b, &lines);
+        self.cursor.row = a.min(self.buffer.line_count().saturating_sub(1));
+        self.cursor.col = 0;
+        self.move_first_nonblank();
+        self.clamp_cursor(false);
+        self.scroll_into_view();
+        self.message = format!("filtered {produced} line(s) through: {cmd}");
     }
 
     /// Expand every tab in `line` to spaces, column-aware, for a tab stop of `ts`.
