@@ -15,5 +15,5 @@ Thumbs.db
 # Keep Cargo.lock for the binary crate (recommended for apps)
 !Cargo.lock
 
-# Claude Code harness scratch
+# Editor tooling / harness scratch
 .claude/
