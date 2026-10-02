@@ -77,7 +77,7 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   operator motion — `d%`/`y%`/`c%` act from the cursor to the match, across lines),
   `<n>%` (jump to n% of the file),
   `H`/`M`/`L` (top/middle/bottom of screen; `<n>H`/`<n>L` count in from the
-  edge), `Ctrl-d`/`Ctrl-u` (half-page).
+  edge; also line-wise operator motions — `dL`, `yH`), `Ctrl-d`/`Ctrl-u` (half-page).
 - **Scrolling:** `zz`/`zt`/`zb` (center/top/bottom the current line),
   `z.`/`z<CR>`/`z-` (same, then jump to first non-blank),
   `Ctrl-f`/`Ctrl-b` (full page forward/back, 2-line overlap, counted),
@@ -435,7 +435,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **482 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **485 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
