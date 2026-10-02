@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Ex commands
+- `:set` with no argument lists the options changed from their defaults, and
+  `:set all` lists every option with its current value (in a scratch buffer, like
+  `:marks` / `:changes`). Complements the existing `:set {option}?` query.
+
 ### Text objects
 - Indentation text objects `ii` / `ai` (vim-indent-object style): `ii` selects the
   contiguous run of lines indented at least as far as the cursor's line, keeping

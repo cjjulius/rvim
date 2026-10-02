@@ -669,6 +669,35 @@ impl Editor {
         }
     }
 
+    /// Canonical option names shown by `:set` / `:set all`, in display order.
+    const OPTION_NAMES: &'static [&'static str] = &[
+        "number", "relativenumber", "hlsearch", "ignorecase", "smartcase",
+        "incsearch", "autoindent", "expandtab", "list", "wrapscan", "cursorline",
+        "cursorcolumn", "shiftwidth", "tabstop", "scrolloff", "sidescrolloff",
+        "textwidth", "colorcolumn", "filetype",
+    ];
+
+    /// A `:set` / `:set all` listing: one option per line with its current value.
+    /// `all` lists every option; otherwise only those changed from their default
+    /// (vim's bare `:set`). Reuses [`option_value`](Editor::option_value).
+    pub fn options_listing(&self, all: bool) -> String {
+        let title = if all { "all options" } else { "modified options" };
+        let mut out = format!("options ({title}) — :bd to close\n\n");
+        let default = Editor::new();
+        let mut shown = 0;
+        for name in Self::OPTION_NAMES {
+            let val = self.option_value(name);
+            if all || val != default.option_value(name) {
+                out.push_str(&format!("  {val}\n"));
+                shown += 1;
+            }
+        }
+        if shown == 0 {
+            out.push_str("  (all options are at their default values)\n");
+        }
+        out
+    }
+
     /// The prefix character shown before the command line (`:`, `/`, `?`).
     pub fn cmdline_prefix(&self) -> char {
         match self.line_kind {
@@ -1544,7 +1573,7 @@ impl Editor {
     /// `:set` option names offered for Tab completion (toggles, their `no`
     /// variants, and value options by bare name).
     const SET_OPTIONS: &'static [&'static str] = &[
-        "autoindent", "colorcolumn", "cursorcolumn", "cursorline", "expandtab",
+        "all", "autoindent", "colorcolumn", "cursorcolumn", "cursorline", "expandtab",
         "filetype", "hlsearch", "ignorecase", "incsearch", "list", "noautoindent",
         "nocursorcolumn", "nocursorline", "noexpandtab", "nohlsearch",
         "noignorecase", "noincsearch", "nolist", "nonumber", "norelativenumber",

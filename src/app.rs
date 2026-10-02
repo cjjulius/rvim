@@ -529,6 +529,10 @@ impl App {
             ExCommand::SetQuery(name) => {
                 self.editor.message = self.editor.option_value(&name);
             }
+            ExCommand::ShowOptions(all) => {
+                let text = self.editor.options_listing(all);
+                self.open_scratch(&text, "options (", "options — :bd to close");
+            }
             ExCommand::Align { range, kind, width } => {
                 self.editor.align_lines(range, kind, width);
             }
@@ -1005,6 +1009,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set shiftwidth=N  :set tabstop=N  :set scrolloff=N  :set textwidth=N\n\
          \t:set sidescrolloff=N   horizontal context columns\n\
          \t:set {{option}}?        show an option's current value\n\
+         \t:set / :set all        list modified / all options\n\
          \t:set ignorecase|noic   :set smartcase|noscs   (search case)\n\
          \t:set incsearch|nois    preview match while typing /?\n\
          \t:set list|nolist       show tabs / trailing whitespace\n\
