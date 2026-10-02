@@ -356,7 +356,10 @@ pub fn parse(input: &str) -> ExCommand {
             Some(a) => ExCommand::Unabbrev(a.trim().to_string()),
             None => ExCommand::AbbrevList,
         },
-        "nnoremap" | "nmap" | "noremap" | "map" => match arg {
+        // Only the precise non-recursive, Normal-mode `:nnoremap` is supported;
+        // `:map`/`:nmap`/`:noremap` are intentionally not aliased because they
+        // imply recursive and/or multi-mode semantics rvim does not provide.
+        "nnoremap" => match arg {
             Some(a) if a.trim().contains(char::is_whitespace) => {
                 let a = a.trim();
                 let (lhs, rhs) = a.split_once(char::is_whitespace).unwrap();
@@ -370,7 +373,7 @@ pub fn parse(input: &str) -> ExCommand {
             }
             _ => ExCommand::MapList,
         },
-        "nunmap" | "unmap" => match arg.as_deref().map(str::trim) {
+        "nunmap" => match arg.as_deref().map(str::trim) {
             Some(a) if a.chars().count() == 1 => ExCommand::Unmap(a.chars().next().unwrap()),
             _ => ExCommand::MapList,
         },
