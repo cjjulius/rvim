@@ -134,6 +134,12 @@ pub enum ExCommand {
     AbbrevList,
     /// `:unabbreviate lhs` — remove an abbreviation.
     Unabbrev(String),
+    /// `:nnoremap lhs rhs` — define a normal-mode key mapping (single-char lhs).
+    MapKey { lhs: char, rhs: String },
+    /// `:nnoremap` (no args) — list key mappings.
+    MapList,
+    /// `:nunmap lhs` — remove a normal-mode key mapping.
+    Unmap(char),
     /// `:[range]left [indent]` / `:right [width]` / `:center [width]`.
     Align {
         range: SubRange,
@@ -349,6 +355,24 @@ pub fn parse(input: &str) -> ExCommand {
         "iunabbrev" | "iunab" | "unabbreviate" | "unab" | "una" => match arg {
             Some(a) => ExCommand::Unabbrev(a.trim().to_string()),
             None => ExCommand::AbbrevList,
+        },
+        "nnoremap" | "nmap" | "noremap" | "map" => match arg {
+            Some(a) if a.trim().contains(char::is_whitespace) => {
+                let a = a.trim();
+                let (lhs, rhs) = a.split_once(char::is_whitespace).unwrap();
+                match lhs.chars().next() {
+                    Some(c) if lhs.chars().count() == 1 => ExCommand::MapKey {
+                        lhs: c,
+                        rhs: rhs.trim().to_string(),
+                    },
+                    _ => ExCommand::MapList, // multi-char lhs unsupported; show list
+                }
+            }
+            _ => ExCommand::MapList,
+        },
+        "nunmap" | "unmap" => match arg.as_deref().map(str::trim) {
+            Some(a) if a.chars().count() == 1 => ExCommand::Unmap(a.chars().next().unwrap()),
+            _ => ExCommand::MapList,
         },
         "theme" | "colorscheme" | "colo" => ExCommand::SetTheme(arg),
         "source" | "so" => match arg {

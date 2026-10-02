@@ -5,6 +5,12 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Customisation
+- Key mappings: `:nnoremap {key} {keys}` remaps a single Normal-mode key to a
+  sequence (e.g. `:nnoremap Y y$`), with `<CR>`/`<Esc>`/`<Space>`/`<Tab>`/`<BS>`/
+  `<C-x>` notation in the right-hand side. Mappings are non-recursive; `:nunmap`
+  removes one and bare `:nnoremap` lists them. Works from `~/.rvimrc`.
+
 ### Insert mode
 - Abbreviations: `:iabbrev lhs rhs` (also `:ab`) defines an insert-mode
   abbreviation that expands when the next non-keyword char is typed;

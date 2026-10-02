@@ -405,6 +405,16 @@
     }
 
     #[test]
+    fn nmap_parse() {
+        assert_eq!(
+            parse("nnoremap Y y$"),
+            ExCommand::MapKey { lhs: 'Y', rhs: "y$".into() }
+        );
+        assert_eq!(parse("nnoremap"), ExCommand::MapList);
+        assert_eq!(parse("nunmap Y"), ExCommand::Unmap('Y'));
+    }
+
+    #[test]
     fn abbrev_parse() {
         assert_eq!(
             parse("iabbrev teh the"),

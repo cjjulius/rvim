@@ -382,6 +382,12 @@ Skip it with `rvim --no-config`. A CLI `--theme` overrides the config file.
 You can also load a settings file at runtime with `:source <file>`. See
 [`examples/rvimrc.example`](examples/rvimrc.example).
 
+**Key mappings.** `:nnoremap {key} {keys}` remaps a single Normal-mode key to a
+sequence, for example `:nnoremap Y y$` or `:nnoremap ; :`. The right-hand side
+understands `<CR>`, `<Esc>`, `<Space>`, `<Tab>`, `<BS>`, and `<C-x>` (control).
+Mappings are non-recursive; `:nunmap {key}` removes one and bare `:nnoremap`
+lists them. Put them in `~/.rvimrc` to make them permanent.
+
 ### Color theming
 Three built-in themes, switchable live with `:theme <name>` (or cycle with a
 bare `:theme`):
@@ -511,7 +517,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **573 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **579 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

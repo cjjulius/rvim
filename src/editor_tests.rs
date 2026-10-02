@@ -4386,6 +4386,46 @@
     }
 
     #[test]
+    fn nmap_expands_sequence() {
+        let mut ed = ed_with("aaa\nbbb");
+        ed.set_nmap('x', "dd"); // shadow x with dd (delete line)
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('x'));
+        assert_eq!(ed.buffer.line(0), Some("bbb"));
+    }
+
+    #[test]
+    fn nmap_is_non_recursive() {
+        // Mapping x -> "xx" must not loop forever; the inner x deletes chars.
+        let mut ed = ed_with("hello");
+        ed.set_nmap('x', "xx"); // each inner x is the builtin delete-char
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('x'));
+        assert_eq!(ed.buffer.line(0), Some("llo")); // two chars deleted, no loop
+    }
+
+    #[test]
+    fn nmap_rhs_special_keys() {
+        let mut ed = ed_with("hi");
+        ed.set_nmap('q', "A!<Esc>"); // append '!' at end of line, then leave insert
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('q'));
+        assert_eq!(ed.buffer.line(0), Some("hi!"));
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn nmap_only_fires_at_rest() {
+        // With a pending operator, the mapped key is taken literally by the op.
+        let mut ed = ed_with("hello");
+        ed.set_nmap('l', "0"); // map l -> 0 (line start)
+        ed.cursor = Position::new(0, 2);
+        ed.handle_key(key('d'));
+        ed.handle_key(key('l')); // dl deletes one char (builtin l), mapping skipped
+        assert_eq!(ed.buffer.line(0), Some("helo"));
+    }
+
+    #[test]
     fn abbrev_expands_on_nonword_char() {
         let mut ed = ed_with("");
         ed.set_abbrev("teh", "the");
