@@ -9,6 +9,8 @@ All notable changes to rvim are recorded here. Versions follow
 - `gf` opens the file whose name is under the cursor, resolving it against the
   current working directory and then the current file's own directory. Reports
   `E446`/`E447` when there is no name under the cursor or the file can't be found.
+- `gF` does the same but also jumps to a trailing `:line` number (e.g. on
+  `src/editor.rs:120`), and `:edit +N file` opens a file directly at line `N`.
 
 ### Ex commands
 - `:set` with no argument lists the options changed from their defaults, and

@@ -311,8 +311,18 @@
 
     #[test]
     fn edit_and_reload() {
-        assert_eq!(parse("e main.rs"), ExCommand::Edit("main.rs".into()));
-        assert_eq!(parse("e! main.rs"), ExCommand::Edit("main.rs".into()));
+        assert_eq!(
+            parse("e main.rs"),
+            ExCommand::Edit { path: "main.rs".into(), line: None }
+        );
+        assert_eq!(
+            parse("e! main.rs"),
+            ExCommand::Edit { path: "main.rs".into(), line: None }
+        );
+        assert_eq!(
+            parse("e +42 main.rs"),
+            ExCommand::Edit { path: "main.rs".into(), line: Some(42) }
+        );
         assert_eq!(parse("e"), ExCommand::Reload { force: false });
         assert_eq!(parse("e!"), ExCommand::Reload { force: true });
         assert_eq!(parse("edit!"), ExCommand::Reload { force: true });
