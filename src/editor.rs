@@ -2758,6 +2758,8 @@ impl Editor {
                 KeyCode::Char('#') => self.search_word(false, false),
                 KeyCode::Char('e') => self.move_word_end_back(count, false),
                 KeyCode::Char('E') => self.move_word_end_back(count, true),
+                KeyCode::Char('d') => self.goto_declaration(false),
+                KeyCode::Char('D') => self.goto_declaration(true),
                 KeyCode::Char('i') => {
                     // gi — resume insert at the last insert position.
                     let last = self.buffer.line_count().saturating_sub(1);
@@ -5154,6 +5156,70 @@ impl Editor {
             end += 1;
         }
         Some(chars[start..end].iter().collect())
+    }
+
+    /// `gd` / `gD` — jump to the "declaration" of the identifier under the
+    /// cursor. `gD` goes to its first whole-word occurrence in the whole file;
+    /// `gd` goes to the nearest earlier occurrence (a local-declaration
+    /// heuristic), falling back to the first in the file.
+    fn goto_declaration(&mut self, from_top: bool) {
+        let Some(word) = self.word_under_cursor() else {
+            self.message = "No word under cursor".into();
+            return;
+        };
+        let Some(re) = pattern::build(&format!(r"\b{}\b", regex::escape(&word))) else {
+            return;
+        };
+        let found = if from_top {
+            self.first_match_in_file(&re)
+        } else {
+            self.nearest_match_above(&re).or_else(|| self.first_match_in_file(&re))
+        };
+        match found {
+            Some(pos) => {
+                self.record_jump();
+                self.cursor = pos;
+                self.clamp_cursor(false);
+                self.scroll_into_view();
+            }
+            None => self.message = format!("Not found: {word}"),
+        }
+    }
+
+    /// The first match of `re` scanning the buffer top to bottom.
+    fn first_match_in_file(&self, re: &Regex) -> Option<Position> {
+        for row in 0..self.buffer.line_count() {
+            let line = self.buffer.line(row).unwrap_or("");
+            if let Some(m) = re.find(line) {
+                return Some(Position::new(row, line[..m.start()].chars().count()));
+            }
+        }
+        None
+    }
+
+    /// The nearest match of `re` at or above the cursor (scanning upward), before
+    /// the cursor column on the cursor's own line.
+    fn nearest_match_above(&self, re: &Regex) -> Option<Position> {
+        for row in (0..=self.cursor.row).rev() {
+            let line = self.buffer.line(row).unwrap_or("");
+            let limit = if row == self.cursor.row {
+                byte_at_col(line, self.cursor.col)
+            } else {
+                line.len()
+            };
+            let mut best = None;
+            for m in re.find_iter(line) {
+                if m.start() < limit {
+                    best = Some(m.start());
+                } else {
+                    break;
+                }
+            }
+            if let Some(b) = best {
+                return Some(Position::new(row, line[..b].chars().count()));
+            }
+        }
+        None
     }
 
     /// `*`/`#` (whole word) and `g*`/`g#` (substring): search for the word under

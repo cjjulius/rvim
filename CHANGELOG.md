@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Navigation
+- `gd` / `gD` jump to the definition of the identifier under the cursor — `gD`
+  to its first whole-word occurrence in the file, `gd` to the nearest earlier
+  occurrence (local-declaration heuristic). Records a jump for `Ctrl-o`.
+
 ### Ex commands
 - `:sort /pat/` sorts by the text following the first match of `pat` on each line
   (non-matching lines sort first); the `r` flag (`:sort /pat/ r`) sorts by the

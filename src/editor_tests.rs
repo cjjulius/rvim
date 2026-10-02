@@ -2686,6 +2686,35 @@
     }
 
     #[test]
+    fn g_upper_d_jumps_to_first_occurrence() {
+        let mut ed = ed_with("let foo = 1;\nbar();\nfoo + foo");
+        ed.cursor = Position::new(2, 6); // on a later "foo"
+        ed.handle_key(key('g'));
+        ed.handle_key(key('D'));
+        assert_eq!(ed.cursor, Position::new(0, 4)); // first "foo"
+    }
+
+    #[test]
+    fn gd_jumps_to_nearest_occurrence_above() {
+        let mut ed = ed_with("foo\nfoo\nfoo");
+        ed.cursor = Position::new(2, 0); // on the 3rd "foo"
+        ed.handle_key(key('g'));
+        ed.handle_key(key('d'));
+        assert_eq!(ed.cursor, Position::new(1, 0)); // nearest above
+    }
+
+    #[test]
+    fn gd_records_a_jump() {
+        let mut ed = ed_with("foo\nx\nx\nfoo");
+        ed.cursor = Position::new(3, 0);
+        ed.handle_key(key('g'));
+        ed.handle_key(key('d')); // -> line 0
+        assert_eq!(ed.cursor.row, 0);
+        ed.handle_key(ctrl('o')); // jump back
+        assert_eq!(ed.cursor.row, 3);
+    }
+
+    #[test]
     fn star_uses_word_boundaries() {
         let mut ed = ed_with("foo foobar foo");
         // whole-word "foo" is only at 0 and 11; from col 0, next is 11
