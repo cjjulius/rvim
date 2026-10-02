@@ -970,6 +970,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t  (insert) C-e/C-y copy the char below / above the cursor\n\
          \tv / V / Ctrl-v     visual / visual-line / visual-block\n\
          \t  (v-block) d I A c  delete / insert / append / change rectangle\n\
+         \t  (v-block) $A      append at each line's own end (ragged-right)\n\
          \t  (visual) J / gJ  join the selected lines (with / without space)\n\
          \t  (visual) r<c>    replace every selected char with c\n\
          \t  (visual) C-a/C-x increment / decrement number on each line\n\

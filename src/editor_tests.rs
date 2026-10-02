@@ -1380,6 +1380,22 @@
     }
 
     #[test]
+    fn block_append_ragged_right_with_dollar() {
+        let mut ed = ed_with("a\nbbbb\ncc");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(ctrl('v')); // visual block
+        ed.handle_key(key('j'));
+        ed.handle_key(key('j')); // rows 0..2
+        ed.handle_key(key('$')); // extend to each line's own end
+        ed.handle_key(key('A'));
+        ed.handle_key(key('X'));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("aX"));
+        assert_eq!(ed.buffer.line(1), Some("bbbbX"));
+        assert_eq!(ed.buffer.line(2), Some("ccX"));
+    }
+
+    #[test]
     fn ctrl_a_increments_number() {
         let mut ed = ed_with("value = 41");
         ed.handle_key(ctrl('a')); // cursor at 0; finds 41 -> 42

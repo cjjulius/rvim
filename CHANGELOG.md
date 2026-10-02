@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Visual mode
+- Ragged-right block append: in visual-block mode `$` extends the selection to
+  each line's own end, so `$A` appends the typed text at the end of every line
+  regardless of length (vim's `$`-block behavior).
+
 ### Customisation
 - Key mappings: `:nnoremap {key} {keys}` remaps a single Normal-mode key to a
   sequence (e.g. `:nnoremap Y y$`), with `<CR>`/`<Esc>`/`<Space>`/`<Tab>`/`<BS>`/

@@ -201,9 +201,12 @@ pub struct Editor {
     last_insert_text: String,
     /// Active `Ctrl-n`/`Ctrl-p` keyword completion session, if any.
     completion: Option<Completion>,
-    /// Active block insert (`Ctrl-v` then `I`/`A`): (rmin, rmax, col, append).
-    /// Applied to every row on Esc.
-    block_insert: Option<(usize, usize, usize, bool)>,
+    /// Active block insert (`Ctrl-v` then `I`/`A`): (rmin, rmax, col, append,
+    /// to_eol). Applied to every row on Esc; `to_eol` appends at each line's own
+    /// end (ragged-right `$A`).
+    block_insert: Option<(usize, usize, usize, bool, bool)>,
+    /// Set by `$` in visual-block: a following `A` appends at each line's end.
+    block_dollar: bool,
     pending_find: Option<char>,
     /// The count that preceded a pending `f`/`F`/`t`/`T` (e.g. `3fx`).
     pending_find_count: usize,
@@ -356,6 +359,7 @@ impl Editor {
             last_insert_text: String::new(),
             completion: None,
             block_insert: None,
+            block_dollar: false,
             pending_find: None,
             pending_find_count: 1,
             pending_op_find: None,
@@ -1686,6 +1690,11 @@ impl Editor {
         if let Some(v) = pre_visual {
             if !self.mode.is_visual() {
                 self.last_visual = Some(v);
+                // `$`-to-eol block state only applies to the active block; if we
+                // left visual without an `A`, drop it so it can't leak.
+                if self.mode != Mode::Insert {
+                    self.block_dollar = false;
+                }
             }
         }
 
@@ -3133,7 +3142,14 @@ impl Editor {
             KeyCode::Char('j') | KeyCode::Down => self.move_down(count),
             KeyCode::Char('k') | KeyCode::Up => self.move_up(count),
             KeyCode::Char('0') | KeyCode::Home => self.cursor.col = 0,
-            KeyCode::Char('$') | KeyCode::End => self.move_line_end(),
+            KeyCode::Char('$') | KeyCode::End => {
+                // In visual-block, `$` extends the block to each line's own end,
+                // so a following `A` appends ragged-right.
+                if self.mode == Mode::VisualBlock {
+                    self.block_dollar = true;
+                }
+                self.move_line_end();
+            }
             KeyCode::Char('^') => self.move_first_nonblank(),
             KeyCode::Char('+') | KeyCode::Enter => {
                 self.move_down(count);
@@ -6167,7 +6183,7 @@ impl Editor {
         self.checkpoint();
         self.remove_block_columns(rmin, rmax, cmin, cmax);
         self.begin_insert_session();
-        self.block_insert = Some((rmin, rmax, cmin, false));
+        self.block_insert = Some((rmin, rmax, cmin, false, false));
         self.cursor = Position::new(rmin, cmin.min(self.buffer.line_len(rmin)));
         self.mode = Mode::Insert;
     }
@@ -6177,18 +6193,30 @@ impl Editor {
         let Some((rmin, rmax, cmin, cmax)) = self.block_rect() else {
             return;
         };
-        let col = if append { cmax + 1 } else { cmin };
+        // Ragged-right append (`$A`): start at the top row's own end, and on Esc
+        // append at each row's own end rather than a fixed column.
+        let to_eol = append && self.block_dollar;
+        self.block_dollar = false;
+        let col = if to_eol {
+            self.buffer.line_len(rmin)
+        } else if append {
+            cmax + 1
+        } else {
+            cmin
+        };
         self.checkpoint();
         self.begin_insert_session();
-        self.pad_line_to(rmin, col);
-        self.block_insert = Some((rmin, rmax, col, append));
+        if !to_eol {
+            self.pad_line_to(rmin, col);
+        }
+        self.block_insert = Some((rmin, rmax, col, append, to_eol));
         self.cursor = Position::new(rmin, col);
         self.mode = Mode::Insert;
     }
 
     /// Apply the just-typed block-insert text to the remaining rows (on Esc).
     fn finish_block_insert(&mut self) {
-        let Some((rmin, rmax, col, append)) = self.block_insert.take() else {
+        let Some((rmin, rmax, col, append, to_eol)) = self.block_insert.take() else {
             return;
         };
         // Only replicate single-line inserts typed on the top row.
@@ -6202,7 +6230,10 @@ impl Editor {
         }
         for r in (rmin + 1)..=rmax {
             let len = self.buffer.line_len(r);
-            if append {
+            if to_eol {
+                // Append at this row's own end (ragged-right).
+                self.buffer.insert_str(Position::new(r, len), &text);
+            } else if append {
                 self.pad_line_to(r, col);
                 self.buffer.insert_str(Position::new(r, col), &text);
             } else if col <= len {

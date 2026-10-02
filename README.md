@@ -192,7 +192,8 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   on the selected lines. `p`/`P` over a selection replaces it with the register
   (the replaced text goes to the unnamed register).
 - **Visual block (`Ctrl-v`):** select a rectangle, then `d`/`x` to delete it,
-  `I`/`A` to insert/append text on every row, or `c` to change the block.
+  `I`/`A` to insert/append text on every row, or `c` to change the block. `$`
+  extends the block to each line's own end, so `$A` appends ragged-right.
 - **Search:** `/pattern`, `?pattern`, `n`/`N` (repeat in the last search's
   direction / reversed; wraps around); patterns are
   **regular expressions** (e.g. `/\bfn\s+\w+`). `*`/`#` search the word under the
@@ -517,7 +518,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **579 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **580 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
