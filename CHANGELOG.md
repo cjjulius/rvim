@@ -40,6 +40,9 @@ All notable changes to rvim are recorded here. Versions follow
   [N]` step back / forward through N changes.
 
 ### Search
+- The search match the cursor is currently on is highlighted in a distinct
+  colour (vim's CurSearch), so it stands out from the other matches. Added a
+  `cur_search_bg` colour to every theme.
 - Search offsets: `/pat/e[±N]` (end of match), `/pat/s[±N]` / `/pat/b[±N]`
   (start of match), and `/pat/±N` (N lines from the match). The offset is reused
   by `n` / `N`.
