@@ -171,6 +171,7 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   build an incrementing sequence (1, 2, 3, … — with `{count}` as the step).
 - **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history), counted
   (`3u`, `2Ctrl-r`); `:earlier [N]` / `:later [N]` step back/forward N changes.
+  `U` restores the most recently changed line (press it again to toggle).
 - **Visual mode:** `v`/`V` then `d`/`x`, `y`, `c`/`s`, `>`/`<` (indent),
   `J`/`gJ` (join the selected lines), `r<c>` (replace every selected char with
   `c`), and `u`/`U`/`~`
@@ -488,7 +489,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **550 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **554 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

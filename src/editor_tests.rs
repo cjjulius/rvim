@@ -85,6 +85,44 @@
     }
 
     #[test]
+    fn line_undo_restores_line() {
+        let mut ed = ed_with("hello world\nsecond");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('x')); // "ello world"
+        ed.handle_key(key('x')); // "llo world"
+        ed.handle_key(key('U')); // restore the whole line
+        assert_eq!(ed.buffer.line(0), Some("hello world"));
+    }
+
+    #[test]
+    fn line_undo_toggles() {
+        let mut ed = ed_with("hello world");
+        ed.handle_key(key('x'));
+        ed.handle_key(key('x')); // "llo world"
+        ed.handle_key(key('U')); // -> "hello world"
+        assert_eq!(ed.buffer.line(0), Some("hello world"));
+        ed.handle_key(key('U')); // toggle back -> "llo world"
+        assert_eq!(ed.buffer.line(0), Some("llo world"));
+    }
+
+    #[test]
+    fn plain_u_undoes_a_line_undo() {
+        let mut ed = ed_with("hello world");
+        ed.handle_key(key('x'));
+        ed.handle_key(key('x')); // "llo world"
+        ed.handle_key(key('U')); // "hello world"
+        ed.handle_key(key('u')); // undo the U -> "llo world"
+        assert_eq!(ed.buffer.line(0), Some("llo world"));
+    }
+
+    #[test]
+    fn line_undo_without_changes_reports() {
+        let mut ed = ed_with("untouched");
+        ed.handle_key(key('U'));
+        assert!(ed.message.contains("No line changes"));
+    }
+
+    #[test]
     fn count_undo_reverts_several_changes() {
         let mut ed = ed_with("abcdef");
         ed.handle_key(key('x'));
