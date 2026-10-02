@@ -207,8 +207,8 @@ pub fn render(
             };
             draw_text_line(
                 out, line, &tokens, theme, &layout, editor.left, row, line_bg, sel, linewise,
-                search, editor.tabstop.max(1), block, match_col, editor.list, color_col,
-                cursor_col, cur_match,
+                search, editor.tabstop.max(1), block, match_col, editor.list,
+                editor.listchars(), color_col, cursor_col, cur_match,
             )?;
         } else {
             // Past end of buffer: tilde like vim.
@@ -341,6 +341,7 @@ fn draw_text_line(
     block: Option<(usize, usize, usize, usize)>,
     match_col: Option<usize>,
     list: bool,
+    listchars: (char, char, char),
     color_col: Option<usize>,
     cursor_col: Option<usize>,
     cur_match: Option<(usize, usize)>,
@@ -413,8 +414,8 @@ fn draw_text_line(
                 if plain {
                     cfg = theme.gutter_fg;
                 }
-                let mut s = String::from('▸');
-                s.push_str(&"·".repeat(tab_width.saturating_sub(1)));
+                let mut s = String::from(listchars.0);
+                s.push_str(&listchars.1.to_string().repeat(tab_width.saturating_sub(1)));
                 s
             } else {
                 " ".repeat(tab_width)
@@ -423,7 +424,7 @@ fn draw_text_line(
             if plain {
                 cfg = theme.gutter_fg;
             }
-            "·".to_string()
+            listchars.2.to_string()
         } else {
             ch.to_string()
         };
@@ -915,7 +916,7 @@ mod tests {
         let mut buf: Vec<u8> = Vec::new();
         draw_text_line(
             &mut buf, "a\tb  ", &[], &theme, &layout, 0, 0, theme.bg, None, false, None, 4,
-            None, None, true, None, None, None,
+            None, None, true, ('▸', '·', '·'), None, None, None,
         )
         .unwrap();
         let out = String::from_utf8_lossy(&buf);
@@ -931,7 +932,7 @@ mod tests {
         let mut buf: Vec<u8> = Vec::new();
         draw_text_line(
             &mut buf, "a\tb  ", &[], &theme, &layout, 0, 0, theme.bg, None, false, None, 4,
-            None, None, false, None, None, None,
+            None, None, false, ('▸', '·', '·'), None, None, None,
         )
         .unwrap();
         let out = String::from_utf8_lossy(&buf);

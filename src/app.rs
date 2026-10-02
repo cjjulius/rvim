@@ -648,6 +648,7 @@ impl App {
                 self.editor.list = on;
                 self.editor.message = format!("list {}", if on { "on" } else { "off" });
             }
+            ExCommand::SetListchars(spec) => self.editor.set_listchars(&spec),
             ExCommand::ToggleWrapScan(on) => {
                 self.editor.wrapscan = on;
                 self.editor.message = format!("wrapscan {}", if on { "on" } else { "off" });
@@ -1075,6 +1076,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set ignorecase|noic   :set smartcase|noscs   (search case)\n\
          \t:set incsearch|nois    preview match while typing /?\n\
          \t:set list|nolist       show tabs / trailing whitespace\n\
+         \t:set listchars=tab:xy,trail:z   customise list markers\n\
          \t:set cursorline|nocul  highlight the cursor's line\n\
          \t:set cursorcolumn|nocuc  highlight the cursor's column\n\
          \t:set colorcolumn=N     highlight column N (cc=0 off)\n\
