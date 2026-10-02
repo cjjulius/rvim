@@ -2329,6 +2329,54 @@
     }
 
     #[test]
+    fn split_search_offset_parses_specs() {
+        assert_eq!(split_search_offset("foo/e"), ("foo".into(), Some(SearchOffset::End(0))));
+        assert_eq!(split_search_offset("foo/e+1"), ("foo".into(), Some(SearchOffset::End(1))));
+        assert_eq!(split_search_offset("foo/+2"), ("foo".into(), Some(SearchOffset::Line(2))));
+        assert_eq!(split_search_offset("foo/s-1"), ("foo".into(), Some(SearchOffset::Start(-1))));
+        assert_eq!(split_search_offset("a/b"), ("a".into(), Some(SearchOffset::Start(0))));
+        assert_eq!(split_search_offset("plain"), ("plain".into(), None));
+    }
+
+    #[test]
+    fn search_offset_end_lands_on_last_char() {
+        let mut ed = ed_with("xx foo yy");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('/'));
+        for c in "foo/e".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Enter));
+        assert_eq!(ed.cursor.col, 5); // last char of "foo"
+    }
+
+    #[test]
+    fn search_offset_line_jumps_below() {
+        let mut ed = ed_with("a\nbar\nc\nd");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('/'));
+        for c in "bar/+1".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Enter));
+        assert_eq!(ed.cursor.row, 2); // one line below the match
+    }
+
+    #[test]
+    fn search_offset_reused_by_n() {
+        let mut ed = ed_with("foo x\nfoo y\nfoo z");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('/'));
+        for c in "foo/e".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Enter));
+        assert_eq!(ed.cursor, Position::new(1, 2)); // first match after origin, at end
+        ed.handle_key(key('n'));
+        assert_eq!(ed.cursor, Position::new(2, 2)); // offset reapplied
+    }
+
+    #[test]
     fn percent_matches_across_lines() {
         let mut ed = ed_with("foo(\n  bar\n)");
         // move cursor onto the '(' at row 0 col 3

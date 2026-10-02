@@ -122,6 +122,8 @@ pub struct Editor {
     last_insert: Position,
     last_search: String,
     search_re: Option<Regex>,
+    /// Search offset from `/pat/e`, `/pat/+N`, … reapplied by `n`/`N`.
+    search_offset: Option<SearchOffset>,
     last_subst: Option<SubstituteSpec>,
     pending_count: Option<usize>,
     pending_op: Option<char>,
@@ -285,6 +287,7 @@ impl Editor {
             last_insert: Position::default(),
             last_search: String::new(),
             search_re: None,
+            search_offset: None,
             last_subst: None,
             pending_count: None,
             pending_op: None,
@@ -1435,14 +1438,18 @@ impl Editor {
                         // doesn't make the search skip to the next match.
                         self.cursor = self.search_origin;
                         self.search_forward = true;
-                        self.set_search(text);
+                        let (pat, off) = split_search_offset(&text);
+                        self.search_offset = off;
+                        self.set_search(pat);
                         self.search(true);
                         Action::None
                     }
                     LineKind::SearchBack => {
                         self.cursor = self.search_origin;
                         self.search_forward = false;
-                        self.set_search(text);
+                        let (pat, off) = split_search_offset(&text);
+                        self.search_offset = off;
+                        self.set_search(pat);
                         self.search(false);
                         Action::None
                     }
@@ -5272,6 +5279,7 @@ impl Editor {
         } else {
             escaped
         };
+        self.search_offset = None;
         self.set_search(pat);
         self.search_forward = forward;
         self.search_repeat(forward);
@@ -5336,6 +5344,7 @@ impl Editor {
         }
         // Search from the selection start so the current occurrence is skipped.
         self.cursor = start;
+        self.search_offset = None;
         self.set_search(regex::escape(&text));
         self.search_forward = forward;
         self.search_repeat(forward);
@@ -5459,11 +5468,41 @@ impl Editor {
                     }
                 }
                 self.cursor = pos;
+                self.apply_search_offset(&re);
                 let sigil = if forward { '/' } else { '?' };
                 let count = self.search_count(&re);
                 self.message = format!("{sigil}{needle}{count}");
             }
             None => self.message = format!("Pattern not found: {needle}"),
+        }
+    }
+
+    /// Apply the active search offset (`/pat/e`, `/pat/+N`, …) after the cursor
+    /// has landed on a match's start.
+    fn apply_search_offset(&mut self, re: &Regex) {
+        let Some(off) = self.search_offset else {
+            return;
+        };
+        match off {
+            SearchOffset::Line(n) => {
+                let last = self.buffer.line_count().saturating_sub(1) as isize;
+                self.cursor.row = (self.cursor.row as isize + n).clamp(0, last) as usize;
+                self.move_first_nonblank();
+            }
+            SearchOffset::Start(n) => {
+                self.cursor.col = (self.cursor.col as isize + n).max(0) as usize;
+                self.clamp_cursor(false);
+            }
+            SearchOffset::End(n) => {
+                let line = self.buffer.line(self.cursor.row).unwrap_or("").to_string();
+                let b = byte_at_col(&line, self.cursor.col);
+                if let Some(m) = re.find(&line[b..]) {
+                    let mlen = line[b + m.start()..b + m.end()].chars().count();
+                    let end = self.cursor.col + mlen.saturating_sub(1);
+                    self.cursor.col = (end as isize + n).max(0) as usize;
+                    self.clamp_cursor(false);
+                }
+            }
         }
     }
 
@@ -5534,8 +5573,13 @@ impl Editor {
             self.scroll_into_view();
             return;
         }
-        let ic = self.effective_ignorecase(&self.cmdline);
-        if let Some(re) = pattern::build_opts(&self.cmdline, ic) {
+        // Preview only the pattern part; any trailing `/offset` is not a pattern.
+        let (pat, _) = split_search_offset(&self.cmdline);
+        if pat.is_empty() {
+            return;
+        }
+        let ic = self.effective_ignorecase(&pat);
+        if let Some(re) = pattern::build_opts(&pat, ic) {
             self.cursor = self
                 .find_match(&re, forward, self.search_origin)
                 .unwrap_or(self.search_origin);
@@ -5726,6 +5770,74 @@ enum CaseOp {
     Upper,
     Toggle,
     Rot13,
+}
+
+/// A search offset (`/pat/e`, `/pat/s-1`, `/pat/+2`): where the cursor lands
+/// relative to the match.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum SearchOffset {
+    /// `e[±N]` — the match's last character, shifted by N.
+    End(isize),
+    /// `s[±N]` / `b[±N]` — the match's first character, shifted by N.
+    Start(isize),
+    /// `[±]N` — N lines below/above the match, at the first non-blank.
+    Line(isize),
+}
+
+/// Split a typed search into `(pattern, offset)` at the last unescaped `/`,
+/// when the suffix is a valid offset spec. Otherwise the whole string is the
+/// pattern (so ordinary patterns containing `/` still work when the tail is not
+/// an offset).
+fn split_search_offset(text: &str) -> (String, Option<SearchOffset>) {
+    // Find the last `/` not preceded by a backslash.
+    let bytes = text.as_bytes();
+    let mut idx = None;
+    for (i, &b) in bytes.iter().enumerate() {
+        if b == b'/' && (i == 0 || bytes[i - 1] != b'\\') {
+            idx = Some(i);
+        }
+    }
+    let Some(i) = idx else {
+        return (text.to_string(), None);
+    };
+    let spec = &text[i + 1..];
+    match parse_search_offset(spec) {
+        Some(off) => (text[..i].to_string(), Some(off)),
+        None => (text.to_string(), None),
+    }
+}
+
+fn parse_search_offset(spec: &str) -> Option<SearchOffset> {
+    if spec.is_empty() {
+        return None;
+    }
+    let (kind, rest) = match spec.chars().next().unwrap() {
+        'e' => (Some(true), &spec[1..]),  // end
+        's' | 'b' => (Some(false), &spec[1..]), // start
+        _ => (None, spec),
+    };
+    let n = if rest.is_empty() {
+        0
+    } else {
+        // A bare sign means ±1; otherwise parse the signed number.
+        match rest {
+            "+" => 1,
+            "-" => -1,
+            _ => rest.parse::<isize>().ok()?,
+        }
+    };
+    match kind {
+        Some(true) => Some(SearchOffset::End(n)),
+        Some(false) => Some(SearchOffset::Start(n)),
+        None => {
+            // A line offset requires an explicit number or sign.
+            if rest.is_empty() {
+                None
+            } else {
+                Some(SearchOffset::Line(n))
+            }
+        }
+    }
 }
 
 /// An in-progress command-line Tab-completion cycle.
