@@ -2530,6 +2530,10 @@ impl Editor {
                 self.pending_op_gg = Some(op);
                 return Action::None;
             }
+            // `gf` — open the file whose name is under the cursor.
+            if op == 'g' && code == KeyCode::Char('f') {
+                return self.goto_file();
+            }
             // `f`/`F`/`t`/`T` after d/y/c awaits the target char (e.g. dfx, ct)).
             if matches!(op, 'd' | 'y' | 'c')
                 && matches!(
@@ -5527,6 +5531,52 @@ impl Editor {
     /// cursor. `gD` goes to its first whole-word occurrence in the whole file;
     /// `gd` goes to the nearest earlier occurrence (a local-declaration
     /// heuristic), falling back to the first in the file.
+    /// The file-name token under the cursor, for `gf`. Scans outward over
+    /// characters valid in a path (letters, digits, and `/\._-+#$%~=`). `:` is
+    /// excluded so a trailing `:line` suffix or a prose colon isn't swept in.
+    fn file_under_cursor(&self) -> Option<String> {
+        let chars: Vec<char> = self.buffer.line(self.cursor.row)?.chars().collect();
+        if chars.is_empty() {
+            return None;
+        }
+        let is_fname = |c: char| c.is_alphanumeric() || "/\\._-+#$%~=".contains(c);
+        let col = self.cursor.col.min(chars.len() - 1);
+        if !is_fname(chars[col]) {
+            return None;
+        }
+        let mut s = col;
+        while s > 0 && is_fname(chars[s - 1]) {
+            s -= 1;
+        }
+        let mut e = col + 1;
+        while e < chars.len() && is_fname(chars[e]) {
+            e += 1;
+        }
+        let name: String = chars[s..e].iter().collect();
+        (!name.is_empty()).then_some(name)
+    }
+
+    /// `gf` — open the file whose name is under the cursor. Tries the name as
+    /// given (cwd-relative or absolute), then relative to the current file's
+    /// directory; opens the first that exists, else reports it is not found.
+    fn goto_file(&mut self) -> Action {
+        let Some(name) = self.file_under_cursor() else {
+            self.message = "E446: No file name under the cursor".into();
+            return Action::None;
+        };
+        let mut candidates = vec![std::path::PathBuf::from(&name)];
+        if let Some(dir) = self.buffer.path().and_then(|p| p.parent()) {
+            candidates.push(dir.join(&name));
+        }
+        match candidates.iter().find(|p| p.exists()) {
+            Some(found) => Action::RunEx(format!("edit {}", found.to_string_lossy())),
+            None => {
+                self.message = format!("E447: Can't find file \"{name}\"");
+                Action::None
+            }
+        }
+    }
+
     fn goto_declaration(&mut self, from_top: bool) {
         let Some(word) = self.word_under_cursor() else {
             self.message = "No word under cursor".into();

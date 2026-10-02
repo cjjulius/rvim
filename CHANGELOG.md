@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Navigation
+- `gf` opens the file whose name is under the cursor, resolving it against the
+  current working directory and then the current file's own directory. Reports
+  `E446`/`E447` when there is no name under the cursor or the file can't be found.
+
 ### Ex commands
 - `:set` with no argument lists the options changed from their defaults, and
   `:set all` lists every option with its current value (in a scratch buffer, like
