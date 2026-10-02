@@ -117,6 +117,8 @@ pub enum ExCommand {
     Source(String),
     /// `:set {option}?` — show the option's current value.
     SetQuery(String),
+    /// `:set` (no args, `all` = false) or `:set all` (`all` = true) — list options.
+    ShowOptions(bool),
     /// `:[range]left [indent]` / `:right [width]` / `:center [width]`.
     Align {
         range: SubRange,
@@ -710,6 +712,13 @@ fn parse_addr(s: &str) -> Option<LineAddr> {
 
 fn parse_set(rest: &str) -> ExCommand {
     let opt = rest.trim();
+    // `:set` with no option lists modified options; `:set all` lists every option.
+    if opt.is_empty() {
+        return ExCommand::ShowOptions(false);
+    }
+    if opt == "all" {
+        return ExCommand::ShowOptions(true);
+    }
     // `:set opt?` queries the current value.
     if let Some(name) = opt.strip_suffix('?') {
         return ExCommand::SetQuery(name.trim().to_string());

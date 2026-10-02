@@ -240,6 +240,15 @@
     }
 
     #[test]
+    fn set_all_opens_options_listing() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("x\ny");
+        app.run_ex("set all");
+        assert!(app.editor.buffer.line(0).unwrap().contains("options"));
+        assert_eq!(app.others.len(), 1); // original buffer preserved
+    }
+
+    #[test]
     fn help_preserves_current_buffer() {
         let path = std::env::temp_dir().join(format!("rvim_help_{}.txt", std::process::id()));
         std::fs::write(&path, "my work\n").unwrap();

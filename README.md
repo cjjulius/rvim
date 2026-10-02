@@ -251,7 +251,9 @@ quits without saving (like `:q!`).
 `:source <file>` · `:help` · `:version`
 
 Several `:set` options can be combined in one command, e.g.
-`:set number expandtab shiftwidth=2`.
+`:set number expandtab shiftwidth=2`. `:set {option}?` shows one option's value;
+bare `:set` lists the options changed from their defaults, and `:set all` lists
+every option.
 
 On the command line, `Up`/`Down` recall previous commands (`:` history) or
 searches (`/`/`?` history), and `Ctrl-w`/`Ctrl-u` delete the previous word / the
@@ -445,7 +447,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **509 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **513 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

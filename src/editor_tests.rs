@@ -3732,6 +3732,30 @@
     }
 
     #[test]
+    fn options_listing_all_includes_every_option() {
+        let ed = ed_with("hi");
+        let all = ed.options_listing(true);
+        assert!(all.contains("all options"));
+        assert!(all.contains("shiftwidth=4"));
+        assert!(all.contains("tabstop=")); // value option listed
+        assert!(all.contains("noignorecase")); // a default-off boolean, shown in `all`
+        // Every canonical option appears (plus title + blank line).
+        assert!(all.lines().count() >= Editor::OPTION_NAMES.len());
+    }
+
+    #[test]
+    fn options_listing_modified_shows_only_changes() {
+        let mut ed = ed_with("hi");
+        ed.shiftwidth = 2;
+        ed.ignorecase = true;
+        let listing = ed.options_listing(false);
+        assert!(listing.contains("shiftwidth=2"));
+        assert!(listing.contains("ignorecase"));
+        // An unchanged default should not appear in the modified listing.
+        assert!(!listing.contains("nonumber"));
+    }
+
+    #[test]
     fn changelist_empty_reports_message() {
         let mut ed = ed_with("hi");
         ed.handle_key(key('g'));

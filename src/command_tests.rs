@@ -242,6 +242,12 @@
     }
 
     #[test]
+    fn set_show_options_parse() {
+        assert_eq!(parse("set"), ExCommand::ShowOptions(false));
+        assert_eq!(parse("set all"), ExCommand::ShowOptions(true));
+    }
+
+    #[test]
     fn earlier_later_parse() {
         assert_eq!(parse("earlier 3"), ExCommand::Earlier(3));
         assert_eq!(parse("earlier"), ExCommand::Earlier(1));
