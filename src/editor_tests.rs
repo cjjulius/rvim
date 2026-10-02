@@ -4386,6 +4386,42 @@
     }
 
     #[test]
+    fn abbrev_expands_on_nonword_char() {
+        let mut ed = ed_with("");
+        ed.set_abbrev("teh", "the");
+        ed.mode = Mode::Insert;
+        for c in "teh".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(key(' ')); // trigger
+        assert_eq!(ed.buffer.line(0), Some("the "));
+    }
+
+    #[test]
+    fn abbrev_multiword_rhs_on_enter() {
+        let mut ed = ed_with("");
+        ed.set_abbrev("btw", "by the way");
+        ed.mode = Mode::Insert;
+        for c in "btw".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Enter));
+        assert_eq!(ed.buffer.line(0), Some("by the way"));
+    }
+
+    #[test]
+    fn abbrev_only_matches_whole_word() {
+        let mut ed = ed_with("");
+        ed.set_abbrev("teh", "the");
+        ed.mode = Mode::Insert;
+        for c in "tehx".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(key(' '));
+        assert_eq!(ed.buffer.line(0), Some("tehx ")); // no expansion
+    }
+
+    #[test]
     fn insert_file_completion_completes_path() {
         let dir = std::env::temp_dir().join(format!("rvim_fc_{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();

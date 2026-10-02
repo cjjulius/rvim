@@ -6,6 +6,9 @@ All notable changes to rvim are recorded here. Versions follow
 ## [Unreleased]
 
 ### Insert mode
+- Abbreviations: `:iabbrev lhs rhs` (also `:ab`) defines an insert-mode
+  abbreviation that expands when the next non-keyword char is typed;
+  `:unabbreviate lhs` removes one and bare `:abbreviate` lists them.
 - Whole-line completion: `Ctrl-x Ctrl-l` completes the current line from other
   buffer lines that start with the text before the cursor, with `Ctrl-n` /
   `Ctrl-p` cycling the candidates.

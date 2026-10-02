@@ -128,6 +128,12 @@ pub enum ExCommand {
     Filter { range: Option<SubRange>, cmd: String },
     /// `:s/pat/rep/c` — substitute with interactive confirmation per match.
     SubstituteConfirm(SubstituteSpec),
+    /// `:iabbrev lhs rhs` — define an insert-mode abbreviation.
+    Abbrev { lhs: String, rhs: String },
+    /// `:abbreviate` (no args) — list abbreviations.
+    AbbrevList,
+    /// `:unabbreviate lhs` — remove an abbreviation.
+    Unabbrev(String),
     /// `:[range]left [indent]` / `:right [width]` / `:center [width]`.
     Align {
         range: SubRange,
@@ -328,6 +334,21 @@ pub fn parse(input: &str) -> ExCommand {
                 name: word.to_string(),
                 args: String::new(),
             },
+        },
+        "iabbrev" | "iab" | "abbreviate" | "abbr" | "ab" => match arg {
+            Some(a) if a.trim().contains(char::is_whitespace) => {
+                let a = a.trim();
+                let (lhs, rhs) = a.split_once(char::is_whitespace).unwrap();
+                ExCommand::Abbrev {
+                    lhs: lhs.to_string(),
+                    rhs: rhs.trim().to_string(),
+                }
+            }
+            _ => ExCommand::AbbrevList,
+        },
+        "iunabbrev" | "iunab" | "unabbreviate" | "unab" | "una" => match arg {
+            Some(a) => ExCommand::Unabbrev(a.trim().to_string()),
+            None => ExCommand::AbbrevList,
         },
         "theme" | "colorscheme" | "colo" => ExCommand::SetTheme(arg),
         "source" | "so" => match arg {

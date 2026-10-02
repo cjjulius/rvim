@@ -156,6 +156,9 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   candidates.
 - **Filename completion:** `Ctrl-x Ctrl-f` completes the path before the cursor
   from the filesystem (directories gain a trailing `/` so you can keep going).
+- **Abbreviations:** `:iabbrev teh the` expands `teh` to `the` as you type (on the
+  next space, punctuation, or Enter). `:unabbreviate teh` removes it, and bare
+  `:abbreviate` lists them.
 - **One-shot normal (`Ctrl-o`):** in insert mode, `Ctrl-o` runs a single
   Normal-mode command (e.g. `Ctrl-o dd`, `Ctrl-o 0`) and returns to insert.
 - **Copy adjacent char:** in insert mode, `Ctrl-e` / `Ctrl-y` insert the character
@@ -508,7 +511,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **568 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **573 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

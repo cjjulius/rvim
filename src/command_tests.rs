@@ -405,6 +405,20 @@
     }
 
     #[test]
+    fn abbrev_parse() {
+        assert_eq!(
+            parse("iabbrev teh the"),
+            ExCommand::Abbrev { lhs: "teh".into(), rhs: "the".into() }
+        );
+        assert_eq!(
+            parse("ab btw by the way"),
+            ExCommand::Abbrev { lhs: "btw".into(), rhs: "by the way".into() }
+        );
+        assert_eq!(parse("iabbrev"), ExCommand::AbbrevList);
+        assert_eq!(parse("unabbreviate teh"), ExCommand::Unabbrev("teh".into()));
+    }
+
+    #[test]
     fn delmarks_parse() {
         assert_eq!(parse("delmarks a b"), ExCommand::DelMarks("a b".into()));
         assert_eq!(parse("delm a-d"), ExCommand::DelMarks("a-d".into()));

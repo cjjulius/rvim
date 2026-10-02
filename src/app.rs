@@ -714,6 +714,12 @@ impl App {
             ExCommand::SubstituteConfirm(spec) => {
                 self.editor.substitute_confirm_start(&spec);
             }
+            ExCommand::Abbrev { lhs, rhs } => self.editor.set_abbrev(&lhs, &rhs),
+            ExCommand::Unabbrev(lhs) => self.editor.remove_abbrev(&lhs),
+            ExCommand::AbbrevList => {
+                let text = self.editor.abbrev_listing();
+                self.open_scratch(&text, "abbreviations —", "abbreviations — :bd to close");
+            }
             ExCommand::Global {
                 pattern,
                 invert,
@@ -950,6 +956,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t  (insert) C-r<r>  paste register   C-t / C-d  indent / dedent\n\
          \t  (insert) C-n/C-p keyword completion (cycle matches in buffer)\n\
          \t  (insert) C-x C-l  whole-line completion   C-x C-f  filename\n\
+         \t:iabbrev lhs rhs   insert abbreviation (:una lhs removes; :ab lists)\n\
          \t  (insert) C-k<2>  digraph, e.g. C-k a: -> ä, C-k -> arrow\n\
          \t  (insert) C-o     run one Normal command, then resume insert\n\
          \t  (insert) C-a     re-insert the last inserted text (\". register)\n\
