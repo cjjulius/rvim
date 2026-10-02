@@ -185,6 +185,8 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   `Enter` jumps to it, `Esc` returns to where you started. After a search (and on
   `n`/`N`) a `[index/total]` count shows where you are among the matches. Searches
   wrap around the file by default; `:set nowrapscan` stops at the last/first match.
+  Search offsets are supported and reused by `n`/`N`: `/pat/e[±N]` (end of match),
+  `/pat/s[±N]` / `/pat/b[±N]` (start of match), and `/pat/±N` (N lines away).
   `gn`/`gN` visually select the match under or after/before the cursor, and work
   as operator targets (`cgn`, `dgn`, `ygn`) — so `cgn` to change a match, then
   `.` to change the next, is the quick search-and-replace-by-hand workflow.
@@ -435,7 +437,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **485 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **489 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

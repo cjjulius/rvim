@@ -38,6 +38,9 @@ All notable changes to rvim are recorded here. Versions follow
   [N]` step back / forward through N changes.
 
 ### Search
+- Search offsets: `/pat/e[±N]` (end of match), `/pat/s[±N]` / `/pat/b[±N]`
+  (start of match), and `/pat/±N` (N lines from the match). The offset is reused
+  by `n` / `N`.
 - Visual-mode `*` / `#` search for the selected text (regex-escaped, so it
   matches literally) forward / backward.
 

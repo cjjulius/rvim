@@ -954,6 +954,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \n\
          SEARCH\n\
          \t/pat  ?pat         search fwd / back (regex)  n / N  next / prev\n\
+         \t  offsets: /pat/e (match end) /pat/s±N (start) /pat/±N (lines)\n\
          \t* / #  g* / g#     search word under cursor (whole / substring)\n\
          \tgd / gD            go to definition (nearest above / first in file)\n\
          \tgn / gN            select next / prev match (cgn + . to repeat)\n\
