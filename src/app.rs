@@ -720,6 +720,12 @@ impl App {
                 let text = self.editor.abbrev_listing();
                 self.open_scratch(&text, "abbreviations —", "abbreviations — :bd to close");
             }
+            ExCommand::MapKey { lhs, rhs } => self.editor.set_nmap(lhs, &rhs),
+            ExCommand::Unmap(lhs) => self.editor.remove_nmap(lhs),
+            ExCommand::MapList => {
+                let text = self.editor.nmap_listing();
+                self.open_scratch(&text, "mappings —", "mappings — :bd to close");
+            }
             ExCommand::Global {
                 pattern,
                 invert,
@@ -957,6 +963,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t  (insert) C-n/C-p keyword completion (cycle matches in buffer)\n\
          \t  (insert) C-x C-l  whole-line completion   C-x C-f  filename\n\
          \t:iabbrev lhs rhs   insert abbreviation (:una lhs removes; :ab lists)\n\
+         \t:nnoremap k keys   remap a Normal key (:nunmap k removes)\n\
          \t  (insert) C-k<2>  digraph, e.g. C-k a: -> ä, C-k -> arrow\n\
          \t  (insert) C-o     run one Normal command, then resume insert\n\
          \t  (insert) C-a     re-insert the last inserted text (\". register)\n\

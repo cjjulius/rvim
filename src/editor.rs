@@ -240,6 +240,11 @@ pub struct Editor {
     /// Insert-mode abbreviations (`:iabbrev lhs rhs`): lhs -> rhs, expanded when a
     /// non-keyword char is typed right after the lhs.
     abbreviations: HashMap<String, String>,
+    /// Normal-mode key mappings (`:nnoremap lhs rhs`): a single character to a
+    /// sequence of keys, expanded non-recursively from a resting state.
+    nmap: HashMap<char, String>,
+    /// Guard so an expanding mapping does not re-trigger itself.
+    mapping_active: bool,
     recording: Option<char>,
     macros: HashMap<char, Vec<KeyEvent>>,
     last_macro: Option<char>,
@@ -369,6 +374,8 @@ impl Editor {
             line_undo: None,
             subst_confirm: None,
             abbreviations: HashMap::new(),
+            nmap: HashMap::new(),
+            mapping_active: false,
             recording: None,
             macros: HashMap::new(),
             last_macro: None,
@@ -1571,6 +1578,31 @@ impl Editor {
             return self.handle_subst_confirm(key);
         }
 
+        // User-defined normal-mode mappings (`:nnoremap`). Expand only from a
+        // resting Normal state, for an unmodified mapped character, and never
+        // while already expanding a mapping (so mappings are non-recursive).
+        if !self.nmap.is_empty() && !self.mapping_active && self.at_rest() {
+            if let KeyCode::Char(c) = key.code {
+                if !key
+                    .modifiers
+                    .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
+                {
+                    if let Some(rhs) = self.nmap.get(&c).cloned() {
+                        self.mapping_active = true;
+                        let mut act = Action::None;
+                        for ev in Self::parse_map_rhs(&rhs) {
+                            let a = self.handle_key(ev);
+                            if !matches!(a, Action::None) {
+                                act = a;
+                            }
+                        }
+                        self.mapping_active = false;
+                        return act;
+                    }
+                }
+            }
+        }
+
         // The key after `q`/`@` selects the macro register (never recorded).
         if let Some(mm) = self.expect_macro.take() {
             if let KeyCode::Char(c) = key.code {
@@ -1874,8 +1906,8 @@ impl Editor {
         "abbreviate", "autoindent", "bdelete", "bnext", "bprevious", "buffer", "buffers",
         "changes", "colorscheme", "copy", "cursorline", "delete", "delmarks", "edit", "expandtab",
         "files", "global", "help", "history", "hlsearch", "iabbrev", "ignorecase", "incsearch",
-        "join", "jumps", "list", "marks", "move", "nohlsearch", "normal",
-        "number", "put", "quit", "quitall", "read", "registers",
+        "join", "jumps", "list", "marks", "move", "nnoremap", "nohlsearch", "normal",
+        "number", "nunmap", "put", "quit", "quitall", "read", "registers",
         "relativenumber", "retab", "set", "smartcase", "sort", "source", "substitute",
         "theme", "unabbreviate", "version", "vglobal", "wall", "wq", "wqall", "write", "yank",
     ];
@@ -2373,6 +2405,69 @@ impl Editor {
             idx,
         });
         self.apply_completion(0, &cand);
+    }
+
+    /// Define a normal-mode mapping (`:nnoremap lhs rhs`). `lhs` must be a single
+    /// character; `rhs` is a key sequence (see [`parse_map_rhs`]).
+    pub fn set_nmap(&mut self, lhs: char, rhs: &str) {
+        self.nmap.insert(lhs, rhs.to_string());
+        self.message = format!("map: {lhs} -> {rhs}");
+    }
+
+    /// Remove a normal-mode mapping (`:nunmap lhs`).
+    pub fn remove_nmap(&mut self, lhs: char) {
+        if self.nmap.remove(&lhs).is_some() {
+            self.message = format!("unmapped: {lhs}");
+        } else {
+            self.message = format!("E31: No such mapping: {lhs}");
+        }
+    }
+
+    /// A `:nnoremap` (no-arg) listing of the defined mappings.
+    pub fn nmap_listing(&self) -> String {
+        let mut entries: Vec<(&char, &String)> = self.nmap.iter().collect();
+        entries.sort_by_key(|(c, _)| **c);
+        let mut out = String::from("mappings — :bd to close\n\n lhs  rhs\n");
+        for (lhs, rhs) in entries {
+            out.push_str(&format!(" {lhs:<4} {rhs}\n"));
+        }
+        out
+    }
+
+    /// Translate a mapping's `rhs` into key events, recognising `<CR>`, `<Esc>`,
+    /// `<Space>`, `<Tab>`, `<BS>`, and `<C-x>` (control) notations.
+    fn parse_map_rhs(rhs: &str) -> Vec<KeyEvent> {
+        let chars: Vec<char> = rhs.chars().collect();
+        let mut out = Vec::new();
+        let mut i = 0;
+        while i < chars.len() {
+            if chars[i] == '<' {
+                if let Some(rel) = chars[i..].iter().position(|&c| c == '>') {
+                    let tag: String = chars[i + 1..i + rel].iter().collect();
+                    let low = tag.to_ascii_lowercase();
+                    let ev = match low.as_str() {
+                        "cr" | "enter" | "return" => Some(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)),
+                        "esc" => Some(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)),
+                        "space" => Some(KeyEvent::new(KeyCode::Char(' '), KeyModifiers::NONE)),
+                        "tab" => Some(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE)),
+                        "bs" | "backspace" => Some(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE)),
+                        _ if low.starts_with("c-") && tag.chars().count() == 3 => {
+                            let ch = tag.chars().nth(2).unwrap().to_ascii_lowercase();
+                            Some(KeyEvent::new(KeyCode::Char(ch), KeyModifiers::CONTROL))
+                        }
+                        _ => None,
+                    };
+                    if let Some(ev) = ev {
+                        out.push(ev);
+                        i += rel + 1;
+                        continue;
+                    }
+                }
+            }
+            out.push(KeyEvent::new(KeyCode::Char(chars[i]), KeyModifiers::NONE));
+            i += 1;
+        }
+        out
     }
 
     /// Define an insert-mode abbreviation (`:iabbrev lhs rhs`).

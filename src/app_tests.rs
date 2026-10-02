@@ -250,6 +250,15 @@
     }
 
     #[test]
+    fn nmap_end_to_end() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("one\ntwo");
+        app.run_ex("nnoremap x dd"); // shadow x -> delete line
+        app.feed_normal_keys("x");
+        assert_eq!(app.editor.buffer.line(0), Some("two"));
+    }
+
+    #[test]
     fn abbrev_end_to_end() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("");
