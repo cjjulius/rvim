@@ -331,6 +331,8 @@
             unique,
             numeric,
             ignorecase,
+            pattern: None,
+            use_match: false,
         };
         assert_eq!(parse("sort"), base(false, false, false, false));
         assert_eq!(parse("sort!"), base(true, false, false, false));
@@ -348,9 +350,37 @@
                 unique: false,
                 numeric: false,
                 ignorecase: false,
+                pattern: None,
+                use_match: false,
             }
         );
         assert!(matches!(parse("source foo"), ExCommand::Source(_)));
+
+        // `:sort /pat/` parses the pattern; the `r` flag sorts on the match.
+        assert_eq!(
+            parse("sort /\\d\\+/"),
+            ExCommand::Sort {
+                range: SubRange::WholeFile,
+                reverse: false,
+                unique: false,
+                numeric: false,
+                ignorecase: false,
+                pattern: Some("\\d\\+".into()),
+                use_match: false,
+            }
+        );
+        assert_eq!(
+            parse("sort /x/ r"),
+            ExCommand::Sort {
+                range: SubRange::WholeFile,
+                reverse: false,
+                unique: false,
+                numeric: false,
+                ignorecase: false,
+                pattern: Some("x".into()),
+                use_match: true,
+            }
+        );
     }
 
     #[test]
