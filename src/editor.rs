@@ -820,17 +820,26 @@ impl Editor {
     /// Execute a `:s` substitution (regex, with literal fallback). Replacement
     /// uses regex syntax for captures (`$1`, `${name}`). Returns
     /// `(substitutions, lines_changed)`.
-    pub fn substitute(&mut self, spec: &SubstituteSpec) -> (usize, usize) {
-        // An empty pattern reuses the last search pattern (vim's `:s//repl/`).
+    /// Resolve a `:s` spec's effective pattern — an empty pattern reuses the last
+    /// search (vim's `:s//repl/`) — compile it honoring the `i` flag plus
+    /// ignorecase/smartcase, and record it as the current search pattern. Returns
+    /// the compiled regex, or `None` when it cannot be built. Shared by
+    /// [`substitute`](Editor::substitute) and
+    /// [`substitute_confirm_start`](Editor::substitute_confirm_start).
+    fn resolve_substitute(&mut self, spec: &SubstituteSpec) -> Option<Regex> {
         let pat = if spec.pattern.is_empty() {
             self.last_search.clone()
         } else {
             spec.pattern.clone()
         };
-        // The `/i` flag forces insensitive; otherwise fall back to the
-        // ignorecase/smartcase options (as vim's `:s` does).
         let ic = spec.ignorecase || self.effective_ignorecase(&pat);
-        let Some(re) = pattern::build_opts(&pat, ic) else {
+        let re = pattern::build_opts(&pat, ic)?;
+        self.last_search = pat;
+        Some(re)
+    }
+
+    pub fn substitute(&mut self, spec: &SubstituteSpec) -> (usize, usize) {
+        let Some(re) = self.resolve_substitute(spec) else {
             return (0, 0);
         };
         let (start, end) = self.resolve_range(spec.range);
@@ -849,15 +858,13 @@ impl Editor {
                 }
             }
             self.search_re = Some(re);
-            self.last_search = pat;
             self.hlsearch = true;
             return (subs, lines);
         }
 
-        // Remember for `&` (repeat last substitution) and make the pattern the
-        // current search pattern (so `n` / `//` reuse it), as vim does.
+        // Remember for `&` (repeat last substitution); `resolve_substitute`
+        // already made the pattern the current search pattern.
         self.last_subst = Some(spec.clone());
-        self.last_search = pat.clone();
         // vim-style replacement (`\1`, `&`) -> regex crate syntax.
         let replacement = pattern::vim_replacement(&spec.replacement);
 
@@ -905,18 +912,11 @@ impl Editor {
     /// match and show its prompt. Subsequent y/n/a/q/l keys are handled by
     /// [`handle_subst_confirm`](Editor::handle_subst_confirm).
     pub fn substitute_confirm_start(&mut self, spec: &SubstituteSpec) {
-        let pat = if spec.pattern.is_empty() {
-            self.last_search.clone()
-        } else {
-            spec.pattern.clone()
-        };
-        let ic = spec.ignorecase || self.effective_ignorecase(&pat);
-        let Some(re) = pattern::build_opts(&pat, ic) else {
+        let Some(re) = self.resolve_substitute(spec) else {
             self.message = "E486: Pattern not found".into();
             return;
         };
         let (start, end) = self.resolve_range(spec.range);
-        self.last_search = pat;
         self.search_re = Some(re.clone());
         self.hlsearch = true;
         self.subst_confirm = Some(SubstConfirm {
