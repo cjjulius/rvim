@@ -2034,10 +2034,20 @@ impl Editor {
         // whole line; anything else aborts and is handled normally.
         if self.insert_ctrl_x {
             self.insert_ctrl_x = false;
-            if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('l') {
-                self.insert_line_completion(true);
-                self.scroll_into_view();
-                return;
+            if key.modifiers.contains(KeyModifiers::CONTROL) {
+                match key.code {
+                    KeyCode::Char('l') => {
+                        self.insert_line_completion(true);
+                        self.scroll_into_view();
+                        return;
+                    }
+                    KeyCode::Char('f') => {
+                        self.insert_file_completion(true);
+                        self.scroll_into_view();
+                        return;
+                    }
+                    _ => {}
+                }
             }
         }
         // Register name after Ctrl-r.
@@ -2354,6 +2364,57 @@ impl Editor {
             idx,
         });
         self.apply_completion(0, &cand);
+    }
+
+    /// `Ctrl-x Ctrl-f` — filename completion. Completes the path token before the
+    /// cursor from directory entries; directories gain a trailing `/` so you can
+    /// keep descending. Cycle with `Ctrl-n` / `Ctrl-p`.
+    fn insert_file_completion(&mut self, forward: bool) {
+        if self.completion.is_some() {
+            self.insert_completion(forward);
+            return;
+        }
+        let line: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+        let col = self.cursor.col.min(line.len());
+        let is_path = |c: char| c.is_alphanumeric() || "/\\._-+~:".contains(c);
+        let mut start = col;
+        while start > 0 && is_path(line[start - 1]) {
+            start -= 1;
+        }
+        let token: String = line[start..col].iter().collect();
+        let (dir, stem) = match token.rfind(['/', '\\']) {
+            Some(i) => (token[..=i].to_string(), token[i + 1..].to_string()),
+            None => (String::new(), token.clone()),
+        };
+        let read_from = if dir.is_empty() { ".".to_string() } else { dir.clone() };
+        let Ok(entries) = std::fs::read_dir(&read_from) else {
+            self.message = format!("E484: can't read \"{read_from}\"");
+            return;
+        };
+        let mut candidates: Vec<String> = entries
+            .flatten()
+            .filter_map(|e| {
+                let name = e.file_name().to_string_lossy().into_owned();
+                if !name.starts_with(&stem) {
+                    return None;
+                }
+                let slash = if e.path().is_dir() { "/" } else { "" };
+                Some(format!("{dir}{name}{slash}"))
+            })
+            .collect();
+        if candidates.is_empty() {
+            self.message = "No file match".into();
+            return;
+        }
+        candidates.sort();
+        let idx = if forward { 0 } else { candidates.len() - 1 };
+        let cand = candidates[idx].clone();
+        self.completion = Some(Completion {
+            start_col: start,
+            candidates,
+            idx,
+        });
+        self.apply_completion(start, &cand);
     }
 
     /// Replace the characters from `start` to the cursor on the current line with
