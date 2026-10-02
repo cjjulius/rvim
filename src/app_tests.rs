@@ -143,6 +143,33 @@
     }
 
     #[test]
+    fn align_center_right_left() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("hi");
+        app.run_ex("center 10");
+        assert_eq!(app.editor.buffer.line(0), Some("    hi")); // (10-2)/2 = 4
+        app.editor.buffer = crate::buffer::Buffer::from_text("hi");
+        app.run_ex("right 10");
+        assert_eq!(app.editor.buffer.line(0), Some("        hi")); // 10-2 = 8
+        app.editor.buffer = crate::buffer::Buffer::from_text("    hi");
+        app.run_ex("left 2");
+        assert_eq!(app.editor.buffer.line(0), Some("  hi"));
+        app.editor.buffer = crate::buffer::Buffer::from_text("    hi");
+        app.run_ex("left");
+        assert_eq!(app.editor.buffer.line(0), Some("hi"));
+    }
+
+    #[test]
+    fn align_center_over_range() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("a\nbb\nccc");
+        app.run_ex("1,3center 5");
+        assert_eq!(app.editor.buffer.line(0), Some("  a"));
+        assert_eq!(app.editor.buffer.line(1), Some(" bb"));
+        assert_eq!(app.editor.buffer.line(2), Some(" ccc"));
+    }
+
+    #[test]
     fn set_query_reports_values() {
         let mut app = App::new();
         app.run_ex("set shiftwidth=3");

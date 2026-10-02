@@ -521,6 +521,9 @@ impl App {
             ExCommand::SetQuery(name) => {
                 self.editor.message = self.editor.option_value(&name);
             }
+            ExCommand::Align { range, kind, width } => {
+                self.editor.align_lines(range, kind, width);
+            }
             ExCommand::Earlier(n) => self.editor.undo_times(n),
             ExCommand::Later(n) => self.editor.redo_times(n),
             ExCommand::SetTheme(arg) => match arg {
@@ -1003,6 +1006,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:[range]m {{addr}}   move lines    :[range]t/co {{addr}}  copy lines\n\
          \t:[range]d / y       delete / yank lines   :[range]> / <  shift lines\n\
          \t:[range]j[!]        join lines (! keeps whitespace)\n\
+         \t:[range]ce|ri|le [w]  center / right / left align lines\n\
          \t:[addr]pu [reg]     put a register as lines after addr\n\
          \t:noh               clear search highlight\n\
          \t:{{n}}               jump to line n\n\

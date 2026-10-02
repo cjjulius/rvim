@@ -210,6 +210,32 @@
     }
 
     #[test]
+    fn align_parse() {
+        assert_eq!(
+            parse("center 10"),
+            ExCommand::Align { range: SubRange::CurrentLine, kind: AlignKind::Center, width: Some(10) }
+        );
+        assert_eq!(
+            parse("ce"),
+            ExCommand::Align { range: SubRange::CurrentLine, kind: AlignKind::Center, width: None }
+        );
+        assert_eq!(
+            parse("1,5right 60"),
+            ExCommand::Align {
+                range: SubRange::Range(LineAddr::Num(1), LineAddr::Num(5)),
+                kind: AlignKind::Right,
+                width: Some(60),
+            }
+        );
+        assert_eq!(
+            parse("le 4"),
+            ExCommand::Align { range: SubRange::CurrentLine, kind: AlignKind::Left, width: Some(4) }
+        );
+        // Not an alignment command.
+        assert!(matches!(parse("centern"), ExCommand::Passthrough { .. }));
+    }
+
+    #[test]
     fn set_query_parse() {
         assert_eq!(parse("set sw?"), ExCommand::SetQuery("sw".into()));
         assert_eq!(parse("set number?"), ExCommand::SetQuery("number".into()));
