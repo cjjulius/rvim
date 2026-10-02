@@ -1917,6 +1917,36 @@
     }
 
     #[test]
+    fn gf_opens_file_under_cursor() {
+        // Tests run from the crate root, where Cargo.toml exists.
+        let mut ed = ed_with("see Cargo.toml for config");
+        ed.cursor = Position::new(0, 6); // inside "Cargo.toml"
+        ed.handle_key(key('g'));
+        let act = ed.handle_key(key('f'));
+        assert_eq!(act, Action::RunEx("edit Cargo.toml".into()));
+    }
+
+    #[test]
+    fn gf_reports_missing_file() {
+        let mut ed = ed_with("open no_such_file_zzz.xyz now");
+        ed.cursor = Position::new(0, 10); // inside the (nonexistent) name
+        ed.handle_key(key('g'));
+        let act = ed.handle_key(key('f'));
+        assert_eq!(act, Action::None);
+        assert!(ed.message.contains("Can't find file"));
+    }
+
+    #[test]
+    fn gf_no_name_under_cursor() {
+        let mut ed = ed_with("   ");
+        ed.cursor = Position::new(0, 1); // on whitespace
+        ed.handle_key(key('g'));
+        let act = ed.handle_key(key('f'));
+        assert_eq!(act, Action::None);
+        assert!(ed.message.contains("No file name"));
+    }
+
+    #[test]
     fn big_word_motions_w_b_e() {
         let mut ed = ed_with("foo.bar baz.qux");
         ed.handle_key(key('W')); // skip whole WORD "foo.bar" -> start of "baz.qux"
