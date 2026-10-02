@@ -2930,6 +2930,16 @@
     }
 
     #[test]
+    fn subst_confirm_zero_width_multibyte_terminates() {
+        // A pattern that can match empty, on a line with a multibyte char, must
+        // make forward progress on char boundaries and not panic or loop.
+        let mut ed = ed_with("a\u{e9}b");
+        ed.substitute_confirm_start(&confirm_spec("x*", "-", true));
+        ed.handle_key(key('a')); // replace all remaining
+        assert!(!ed.substitute_confirm_active());
+    }
+
+    #[test]
     fn subst_confirm_undo_reverts_all() {
         let mut ed = ed_with("foo foo");
         ed.substitute_confirm_start(&confirm_spec("foo", "X", true));

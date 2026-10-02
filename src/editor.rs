@@ -999,11 +999,21 @@ impl Editor {
                     self.checkpoint();
                     st.checkpointed = true;
                 }
+                // Resume after the inserted text. For a zero-width match, step
+                // over one following char so we don't re-match in place; past
+                // end-of-line, push byte_col beyond the line so seek moves on.
+                let after = s + expansion.len();
+                st.byte_col = if e == s {
+                    match new_line[after..].chars().next() {
+                        Some(c) => after + c.len_utf8(),
+                        None => new_line.len() + 1,
+                    }
+                } else {
+                    after
+                };
                 self.buffer.set_line(row, new_line);
                 st.count += 1;
                 st.lines.insert(row);
-                // Continue after the inserted text; guarantee forward progress.
-                st.byte_col = (s + expansion.len()).max(s + 1);
             }
             st.match_bytes = None;
         }
@@ -1024,15 +1034,26 @@ impl Editor {
 
     /// Advance past a skipped match (`n`). Returns false when exhausted.
     fn subst_advance_after_skip(&mut self) -> bool {
-        if let Some(st) = self.subst_confirm.as_mut() {
+        if let Some(mut st) = self.subst_confirm.take() {
             if let Some((s, e)) = st.match_bytes {
-                st.byte_col = e.max(s + 1);
+                // The match end is already a char boundary; a zero-width match
+                // steps over one whole char (or past the line) to make progress.
+                st.byte_col = if e > s {
+                    e
+                } else {
+                    let line = self.buffer.line(st.row).unwrap_or("");
+                    match line[s..].chars().next() {
+                        Some(c) => s + c.len_utf8(),
+                        None => line.len() + 1,
+                    }
+                };
             }
             st.match_bytes = None;
             if !st.global {
                 st.row += 1;
                 st.byte_col = 0;
             }
+            self.subst_confirm = Some(st);
         }
         self.subst_confirm_seek()
     }
