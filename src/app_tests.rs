@@ -143,6 +143,19 @@
     }
 
     #[test]
+    fn set_query_reports_values() {
+        let mut app = App::new();
+        app.run_ex("set shiftwidth=3");
+        app.run_ex("set sw?");
+        assert_eq!(app.editor.message, "shiftwidth=3");
+        app.run_ex("set nonumber");
+        app.run_ex("set nu?");
+        assert_eq!(app.editor.message, "nonumber");
+        app.run_ex("set wibble?");
+        assert!(app.editor.message.contains("Unknown option"));
+    }
+
+    #[test]
     fn cursorcolumn_toggles() {
         let mut app = App::new();
         assert!(!app.editor.cursorcolumn);

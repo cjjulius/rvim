@@ -96,6 +96,8 @@ pub enum ExCommand {
     Substitute(SubstituteSpec),
     /// `:source <file>` — run ex-commands from a file.
     Source(String),
+    /// `:set {option}?` — show the option's current value.
+    SetQuery(String),
     /// `:g/re/cmd`, `:g!/re/cmd`, `:v/re/cmd` — run `command` on lines matching
     /// (or, when `invert`, not matching) `pattern`.
     Global {
@@ -623,6 +625,10 @@ fn parse_addr(s: &str) -> Option<LineAddr> {
 
 fn parse_set(rest: &str) -> ExCommand {
     let opt = rest.trim();
+    // `:set opt?` queries the current value.
+    if let Some(name) = opt.strip_suffix('?') {
+        return ExCommand::SetQuery(name.trim().to_string());
+    }
     match opt {
         "number" | "nu" => ExCommand::ToggleNumbers(true),
         "nonumber" | "nonu" => ExCommand::ToggleNumbers(false),
