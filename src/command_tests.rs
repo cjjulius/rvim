@@ -525,6 +525,18 @@
     }
 
     #[test]
+    fn substitute_confirm_flag() {
+        match parse("%s/foo/bar/gc") {
+            ExCommand::SubstituteConfirm(spec) => {
+                assert_eq!(spec.pattern, "foo");
+                assert_eq!(spec.replacement, "bar");
+                assert!(spec.global);
+            }
+            other => panic!("expected substitute-confirm, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn substitute_count_flag() {
         match parse("%s/foo//n") {
             ExCommand::Substitute(spec) => {

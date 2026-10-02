@@ -126,6 +126,8 @@ pub enum ExCommand {
     /// `:[range]!cmd` — filter the range through a shell command (`range: None`
     /// for a bare `:!cmd`, which just runs the command).
     Filter { range: Option<SubRange>, cmd: String },
+    /// `:s/pat/rep/c` — substitute with interactive confirmation per match.
+    SubstituteConfirm(SubstituteSpec),
     /// `:[range]left [indent]` / `:right [width]` / `:center [width]`.
     Align {
         range: SubRange,
@@ -538,14 +540,20 @@ fn parse_substitute(trimmed: &str) -> Option<ExCommand> {
     let replacement = parts.get(1).copied().unwrap_or("");
     let flags = parts.get(2).copied().unwrap_or("");
     let range = parse_range(range_str)?;
-    Some(ExCommand::Substitute(SubstituteSpec {
+    let spec = SubstituteSpec {
         range,
         pattern: pattern.to_string(),
         replacement: replacement.to_string(),
         global: flags.contains('g'),
         ignorecase: flags.contains('i'),
         count_only: flags.contains('n'),
-    }))
+    };
+    // The `c` flag runs an interactive confirm instead of substituting at once.
+    if flags.contains('c') {
+        Some(ExCommand::SubstituteConfirm(spec))
+    } else {
+        Some(ExCommand::Substitute(spec))
+    }
 }
 
 fn parse_range(s: &str) -> Option<SubRange> {

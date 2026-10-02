@@ -10,7 +10,7 @@ use crate::command::{AlignKind, HistoryKind, LineAddr, SubRange, SubstituteSpec}
 use crate::menu::{MenuOutcome, MenuState};
 use crate::mode::Mode;
 use crate::pattern;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use crate::syntax::{detect_language, line_comment_token, Language};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use regex::Regex;
@@ -37,6 +37,23 @@ struct Completion {
     start_col: usize,
     candidates: Vec<String>,
     idx: usize,
+}
+
+/// State for an interactive `:s///c` session: the compiled pattern, the
+/// replacement (regex-crate syntax), the range, the current scan position, and
+/// running tallies. `match_bytes` is the current match on `row` awaiting a y/n.
+struct SubstConfirm {
+    re: Regex,
+    repl: String,
+    display: String,
+    global: bool,
+    end_row: usize,
+    row: usize,
+    byte_col: usize,
+    match_bytes: Option<(usize, usize)>,
+    count: usize,
+    lines: HashSet<usize>,
+    checkpointed: bool,
 }
 
 /// Word character for keyword completion (identifier characters).
@@ -215,6 +232,8 @@ pub struct Editor {
     /// `U` baseline: the last changed line's row and its content before the
     /// current streak of changes, restored (and toggled) by normal-mode `U`.
     line_undo: Option<(usize, String)>,
+    /// Active `:s///c` interactive-confirm session, if any.
+    subst_confirm: Option<SubstConfirm>,
     recording: Option<char>,
     macros: HashMap<char, Vec<KeyEvent>>,
     last_macro: Option<char>,
@@ -341,6 +360,7 @@ impl Editor {
             changelist: Vec::new(),
             change_idx: 0,
             line_undo: None,
+            subst_confirm: None,
             recording: None,
             macros: HashMap::new(),
             last_macro: None,
@@ -881,6 +901,190 @@ impl Editor {
         (subs, lines_changed)
     }
 
+    /// Start an interactive `:s///c` session: compile the pattern, seek the first
+    /// match and show its prompt. Subsequent y/n/a/q/l keys are handled by
+    /// [`handle_subst_confirm`](Editor::handle_subst_confirm).
+    pub fn substitute_confirm_start(&mut self, spec: &SubstituteSpec) {
+        let pat = if spec.pattern.is_empty() {
+            self.last_search.clone()
+        } else {
+            spec.pattern.clone()
+        };
+        let ic = spec.ignorecase || self.effective_ignorecase(&pat);
+        let Some(re) = pattern::build_opts(&pat, ic) else {
+            self.message = "E486: Pattern not found".into();
+            return;
+        };
+        let (start, end) = self.resolve_range(spec.range);
+        self.last_search = pat;
+        self.search_re = Some(re.clone());
+        self.hlsearch = true;
+        self.subst_confirm = Some(SubstConfirm {
+            re,
+            repl: pattern::vim_replacement(&spec.replacement),
+            display: spec.replacement.clone(),
+            global: spec.global,
+            end_row: end,
+            row: start,
+            byte_col: 0,
+            match_bytes: None,
+            count: 0,
+            lines: HashSet::new(),
+            checkpointed: false,
+        });
+        if !self.subst_confirm_seek() {
+            self.finish_subst_confirm(true);
+        }
+    }
+
+    /// Whether a `:s///c` confirm session is active (keys route to it).
+    pub fn substitute_confirm_active(&self) -> bool {
+        self.subst_confirm.is_some()
+    }
+
+    /// Find the next match from the session's current position, move the cursor to
+    /// it and show the prompt. Returns false when the range is exhausted.
+    fn subst_confirm_seek(&mut self) -> bool {
+        let Some(mut st) = self.subst_confirm.take() else {
+            return false;
+        };
+        let found = loop {
+            if st.row > st.end_row || st.row >= self.buffer.line_count() {
+                break None;
+            }
+            let line = self.buffer.line(st.row).unwrap_or("");
+            if st.byte_col <= line.len() {
+                if let Some(m) = st.re.find_at(line, st.byte_col) {
+                    break Some((st.row, m.start(), m.end()));
+                }
+            }
+            st.row += 1;
+            st.byte_col = 0;
+        };
+        match found {
+            Some((row, s, e)) => {
+                st.row = row;
+                st.match_bytes = Some((s, e));
+                let line = self.buffer.line(row).unwrap_or("");
+                let ccol = line[..s].chars().count();
+                self.cursor = Position::new(row, ccol);
+                self.clamp_cursor(true);
+                self.scroll_into_view();
+                let display = st.display.clone();
+                self.subst_confirm = Some(st);
+                self.message =
+                    format!("replace with \"{display}\"? (y)es (n)o (a)ll (q)uit (l)ast");
+                true
+            }
+            None => {
+                self.subst_confirm = Some(st);
+                false
+            }
+        }
+    }
+
+    /// Apply the current match's replacement (used by `y`, `a`, `l`).
+    fn subst_apply_current(&mut self) {
+        let Some(mut st) = self.subst_confirm.take() else {
+            return;
+        };
+        if let Some((s, e)) = st.match_bytes {
+            let row = st.row;
+            let line = self.buffer.line(row).unwrap_or("").to_string();
+            if let Some(caps) = st.re.captures_at(&line, s) {
+                let mut expansion = String::new();
+                caps.expand(&st.repl, &mut expansion);
+                let new_line = format!("{}{}{}", &line[..s], expansion, &line[e..]);
+                if !st.checkpointed {
+                    self.checkpoint();
+                    st.checkpointed = true;
+                }
+                self.buffer.set_line(row, new_line);
+                st.count += 1;
+                st.lines.insert(row);
+                // Continue after the inserted text; guarantee forward progress.
+                st.byte_col = (s + expansion.len()).max(s + 1);
+            }
+            st.match_bytes = None;
+        }
+        self.subst_confirm = Some(st);
+    }
+
+    /// Advance to the next match after a replacement (`y`). Returns false when
+    /// the range is exhausted.
+    fn subst_advance_after_replace(&mut self) -> bool {
+        if let Some(st) = self.subst_confirm.as_mut() {
+            if !st.global {
+                st.row += 1;
+                st.byte_col = 0;
+            }
+        }
+        self.subst_confirm_seek()
+    }
+
+    /// Advance past a skipped match (`n`). Returns false when exhausted.
+    fn subst_advance_after_skip(&mut self) -> bool {
+        if let Some(st) = self.subst_confirm.as_mut() {
+            if let Some((s, e)) = st.match_bytes {
+                st.byte_col = e.max(s + 1);
+            }
+            st.match_bytes = None;
+            if !st.global {
+                st.row += 1;
+                st.byte_col = 0;
+            }
+        }
+        self.subst_confirm_seek()
+    }
+
+    /// End the session and report the tally.
+    fn finish_subst_confirm(&mut self, none_found: bool) {
+        if let Some(st) = self.subst_confirm.take() {
+            if none_found && st.count == 0 {
+                self.message = "E486: Pattern not found".into();
+            } else {
+                let s_p = if st.count == 1 { "" } else { "s" };
+                let n = st.lines.len();
+                let l_p = if n == 1 { "" } else { "s" };
+                self.message = format!("{} substitution{s_p} on {n} line{l_p}", st.count);
+            }
+        }
+        self.clamp_cursor(false);
+    }
+
+    /// Handle a key during a `:s///c` session.
+    pub fn handle_subst_confirm(&mut self, key: KeyEvent) -> Action {
+        match key.code {
+            KeyCode::Char('y') => {
+                self.subst_apply_current();
+                if !self.subst_advance_after_replace() {
+                    self.finish_subst_confirm(false);
+                }
+            }
+            KeyCode::Char('n') => {
+                if !self.subst_advance_after_skip() {
+                    self.finish_subst_confirm(false);
+                }
+            }
+            KeyCode::Char('l') => {
+                self.subst_apply_current();
+                self.finish_subst_confirm(false);
+            }
+            KeyCode::Char('a') => {
+                loop {
+                    self.subst_apply_current();
+                    if !self.subst_advance_after_replace() {
+                        break;
+                    }
+                }
+                self.finish_subst_confirm(false);
+            }
+            KeyCode::Char('q') | KeyCode::Esc => self.finish_subst_confirm(false),
+            _ => {} // ignore; the prompt stays up
+        }
+        Action::None
+    }
+
     /// Resolve a range to an inclusive `(start_row, end_row)` pair (public wrapper
     /// for `:normal` over a range).
     pub fn range_rows(&self, range: SubRange) -> (usize, usize) {
@@ -1317,6 +1521,11 @@ impl Editor {
         // The menu bar is a modal overlay that captures all keys while open.
         if self.menu.is_some() {
             return self.handle_menu_key(key);
+        }
+
+        // An interactive `:s///c` confirm session captures y/n/a/q/l first.
+        if self.subst_confirm.is_some() {
+            return self.handle_subst_confirm(key);
         }
 
         // The key after `q`/`@` selects the macro register (never recorded).

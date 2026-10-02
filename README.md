@@ -310,6 +310,7 @@ the current pick highlighted, scrolling to keep it in view on a narrow terminal.
 | `:2,5s/foo/bar/`   | first `foo` per line, lines 2–5               |
 | `:.,$s/foo//g`     | delete every `foo` from the cursor line to EOF|
 | `:%s/foo//n`       | count matches of `foo` (the `n` flag; no change) |
+| `:%s/foo/bar/gc`   | confirm each replacement (the `c` flag)       |
 | `/foo` then `:%s//bar/g` | empty pattern reuses the last search pattern |
 
 An empty `:s` pattern reuses the last search pattern, so `/foo` followed by
@@ -324,6 +325,10 @@ repeats it across the whole file. The `i`
 flag makes matching case-insensitive (`:%s/foo/bar/gi`), and `\c`/`\C` in a
 pattern force case-insensitive/sensitive matching for both `:s` and search. A
 single undo (`u`) reverts an entire substitution.
+
+With the `c` flag each match is confirmed interactively: the cursor stops on the
+match and you press `y` to replace it, `n` to skip, `a` to replace all remaining,
+`l` to replace this one and stop, or `q` (or Esc) to quit.
 
 ### Menu bar (press Alt, or F10)
 An auto-hiding menu bar lives at the top of the screen. It's a **teaching aid**
@@ -489,7 +494,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **554 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **563 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

@@ -2858,6 +2858,88 @@
         assert_eq!(ed.buffer.line(0), Some("item# and item#"));
     }
 
+    fn confirm_spec(pattern: &str, replacement: &str, global: bool) -> SubstituteSpec {
+        SubstituteSpec {
+            range: SubRange::WholeFile,
+            pattern: pattern.into(),
+            replacement: replacement.into(),
+            global,
+            ignorecase: false,
+            count_only: false,
+        }
+    }
+
+    #[test]
+    fn subst_confirm_yes_replaces_each() {
+        let mut ed = ed_with("foo foo\nfoo");
+        ed.substitute_confirm_start(&confirm_spec("foo", "X", true));
+        assert!(ed.substitute_confirm_active());
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y'));
+        assert!(!ed.substitute_confirm_active());
+        assert_eq!(ed.buffer.line(0), Some("X X"));
+        assert_eq!(ed.buffer.line(1), Some("X"));
+    }
+
+    #[test]
+    fn subst_confirm_no_skips() {
+        let mut ed = ed_with("foo foo");
+        ed.substitute_confirm_start(&confirm_spec("foo", "X", true));
+        ed.handle_key(key('n')); // skip first
+        ed.handle_key(key('y')); // replace second
+        assert_eq!(ed.buffer.line(0), Some("foo X"));
+    }
+
+    #[test]
+    fn subst_confirm_quit_stops() {
+        let mut ed = ed_with("foo foo");
+        ed.substitute_confirm_start(&confirm_spec("foo", "X", true));
+        ed.handle_key(key('q'));
+        assert!(!ed.substitute_confirm_active());
+        assert_eq!(ed.buffer.line(0), Some("foo foo"));
+    }
+
+    #[test]
+    fn subst_confirm_all_replaces_remaining() {
+        let mut ed = ed_with("foo foo\nfoo");
+        ed.substitute_confirm_start(&confirm_spec("foo", "X", true));
+        ed.handle_key(key('a'));
+        assert!(!ed.substitute_confirm_active());
+        assert_eq!(ed.buffer.line(0), Some("X X"));
+        assert_eq!(ed.buffer.line(1), Some("X"));
+    }
+
+    #[test]
+    fn subst_confirm_last_replaces_one_then_stops() {
+        let mut ed = ed_with("foo foo");
+        ed.substitute_confirm_start(&confirm_spec("foo", "X", true));
+        ed.handle_key(key('l'));
+        assert!(!ed.substitute_confirm_active());
+        assert_eq!(ed.buffer.line(0), Some("X foo"));
+    }
+
+    #[test]
+    fn subst_confirm_nonglobal_first_per_line() {
+        let mut ed = ed_with("foo foo\nfoo foo");
+        ed.substitute_confirm_start(&confirm_spec("foo", "X", false));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y'));
+        assert_eq!(ed.buffer.line(0), Some("X foo"));
+        assert_eq!(ed.buffer.line(1), Some("X foo"));
+    }
+
+    #[test]
+    fn subst_confirm_undo_reverts_all() {
+        let mut ed = ed_with("foo foo");
+        ed.substitute_confirm_start(&confirm_spec("foo", "X", true));
+        ed.handle_key(key('y'));
+        ed.handle_key(key('y'));
+        assert_eq!(ed.buffer.line(0), Some("X X"));
+        ed.handle_key(key('u')); // single undo reverts the whole :s///c
+        assert_eq!(ed.buffer.line(0), Some("foo foo"));
+    }
+
     #[test]
     fn substitute_empty_pattern_reuses_last_search() {
         let mut ed = ed_with("foo foo\nbar");
