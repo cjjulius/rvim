@@ -97,10 +97,14 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   inserts (`3ihi<Esc>` → `hihihi`, `3o`, `3a`).
 - **Text objects:** `d`/`y`/`c` + `i`/`a` + object — `iw`/`aw` (word),
   `iW`/`aW` (WORD), `ip`/`ap` (paragraph), `is`/`as` (sentence),
+  `ii`/`ai` (indentation block),
   `i(` `i{` `i[` `i<` and `i"` `i'`
-  `` i` `` (inner), `a(` … (around). E.g. `diw`, `ci(`, `yi"`, `dap`, `das`.
+  `` i` `` (inner), `a(` … (around). E.g. `diw`, `ci(`, `yi"`, `dap`, `das`, `dii`.
   Bracket objects (`i(`/`i{`/`i[`/`i<` and their `a` forms) span multiple lines,
   so `ci{` / `da(` work on a block or argument list across rows.
+  The indentation object `ii` selects the run of lines indented at least as far
+  as the cursor's (interior blank lines kept); `ai` also takes the header line
+  above — handy for operating on a whole indented block (`dii`, `cii`, `>ai`).
 - **Case operators:** `gu`/`gU`/`g~` (lower/upper/toggle) and `g?` (ROT13) over
   a motion, a text object, or doubled for the whole line — `guw`, `gUiw`, `g~$`,
   `guu`, `g?w`, `g?ip`, `g??`; `g?` also works on a visual selection.
@@ -441,7 +445,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **505 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **509 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

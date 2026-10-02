@@ -3701,6 +3701,13 @@ impl Editor {
             return Some(OpTarget::Lines(a, b));
         }
 
+        // Indentation object (line-wise): `ii` selects the run of lines indented
+        // at least as far as the current line (blank lines strictly inside the
+        // block are kept); `ai` also takes the less-indented header line above.
+        if obj == 'i' {
+            return self.indent_object(around);
+        }
+
         let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
         if chars.is_empty() {
             return None;
@@ -3811,6 +3818,79 @@ impl Editor {
                 Some(OpTarget::Span(start, end))
             }
         }
+    }
+
+    /// The `ii` / `ai` indentation text object. Anchoring on the cursor's line
+    /// (or the nearest non-blank line if it is blank), expand to the contiguous
+    /// run of lines indented at least as far, keeping blank lines that sit
+    /// strictly inside the block. `around` (`ai`) also includes the header line
+    /// above — the less-indented line that opens the block.
+    fn indent_object(&self, around: bool) -> Option<OpTarget> {
+        let n = self.buffer.line_count();
+        if n == 0 {
+            return None;
+        }
+        // Leading-whitespace width of a line; `None` for a blank (whitespace-only)
+        // line, which does not constrain the block's indent.
+        let indent = |row: usize| -> Option<usize> {
+            let line = self.buffer.line(row)?;
+            if line.trim().is_empty() {
+                None
+            } else {
+                Some(line.chars().take_while(|c| c.is_whitespace()).count())
+            }
+        };
+        // Anchor on a non-blank line.
+        let mut r = self.cursor.row.min(n - 1);
+        if indent(r).is_none() {
+            let below = (r + 1..n).find(|&row| indent(row).is_some());
+            r = below
+                .or_else(|| (0..r).rev().find(|&row| indent(row).is_some()))?;
+        }
+        let base = indent(r)?;
+        // Expand upward, stepping over interior blank runs that are followed by a
+        // line still in the block.
+        let mut a = r;
+        while a > 0 {
+            let p = a - 1;
+            match indent(p) {
+                Some(v) if v >= base => a = p,
+                Some(_) => break,
+                None => {
+                    let mut pp = p;
+                    while pp > 0 && indent(pp).is_none() {
+                        pp -= 1;
+                    }
+                    match indent(pp) {
+                        Some(v) if v >= base => a = pp,
+                        _ => break,
+                    }
+                }
+            }
+        }
+        // Expand downward the same way.
+        let mut b = r;
+        while b + 1 < n {
+            let q = b + 1;
+            match indent(q) {
+                Some(v) if v >= base => b = q,
+                Some(_) => break,
+                None => {
+                    let mut qq = q;
+                    while qq + 1 < n && indent(qq).is_none() {
+                        qq += 1;
+                    }
+                    match indent(qq) {
+                        Some(v) if v >= base => b = qq,
+                        _ => break,
+                    }
+                }
+            }
+        }
+        if around && a > 0 {
+            a -= 1;
+        }
+        Some(OpTarget::Lines(a, b))
     }
 
     /// The position one character after `p`, crossing to the next line's start

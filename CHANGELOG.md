@@ -5,6 +5,13 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Text objects
+- Indentation text objects `ii` / `ai` (vim-indent-object style): `ii` selects the
+  contiguous run of lines indented at least as far as the cursor's line, keeping
+  blank lines that sit strictly inside the block; `ai` also includes the
+  less-indented header line above. Works with every operator, the `>`/`<` indent
+  operators, and visual mode — `dii`, `cii`, `>ai`, `vii`, `yii`, …
+
 ### Ex commands
 - `:changes` lists the change list (the positions `g;` / `g,` navigate), with a
   `>` marking the current slot — a companion to the existing `:marks`,
