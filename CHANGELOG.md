@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Ex commands
+- `:changes` lists the change list (the positions `g;` / `g,` navigate), with a
+  `>` marking the current slot — a companion to the existing `:marks`,
+  `:registers`, and `:jumps` listings.
+
 ### Info
 - `g Ctrl-g` reports the document's word, character, and byte counts along with
   the cursor's line and column.

@@ -3625,6 +3625,38 @@
     }
 
     #[test]
+    fn changes_listing_shows_edit_rows() {
+        let mut ed = ed_with("one\ntwo\nthree\nfour");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('x')); // change on row 0
+        ed.cursor = Position::new(2, 0);
+        ed.handle_key(key('x')); // change on row 2
+        let listing = ed.changes_listing();
+        assert!(listing.starts_with("changes —"));
+        assert!(listing.contains("change  line  col  text"));
+        // Both changed rows appear, by 1-based line number.
+        assert!(listing.contains("   1  "));
+        assert!(listing.contains("   3  "));
+        // At the live position the `>` marker sits past the last entry.
+        assert!(listing.trim_end().ends_with('>'));
+    }
+
+    #[test]
+    fn changes_listing_marks_current_slot() {
+        let mut ed = ed_with("one\ntwo\nthree\nfour");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('x'));
+        ed.cursor = Position::new(2, 0);
+        ed.handle_key(key('x'));
+        ed.handle_key(key('g'));
+        ed.handle_key(key(';')); // g; -> most recent change (row 2, idx 1)
+        let listing = ed.changes_listing();
+        // The `>` marker is on a data row now, not past the end.
+        assert!(!listing.trim_end().ends_with('>'));
+        assert!(listing.lines().any(|l| l.trim_start().starts_with('>')));
+    }
+
+    #[test]
     fn changelist_empty_reports_message() {
         let mut ed = ed_with("hi");
         ed.handle_key(key('g'));

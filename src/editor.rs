@@ -892,6 +892,27 @@ impl Editor {
         out
     }
 
+    /// A `:changes` listing of the change-list positions. A `>` marks the current
+    /// slot that `g;` / `g,` navigate from (shown past the end when at the live
+    /// position), mirroring vim's `:changes`.
+    pub fn changes_listing(&self) -> String {
+        let mut out = String::from("changes — :bd to close\n\n   change  line  col  text\n");
+        for (i, p) in self.changelist.iter().enumerate() {
+            let here = if i == self.change_idx { '>' } else { ' ' };
+            let text = self.buffer.line(p.row).unwrap_or("");
+            out.push_str(&format!(
+                " {here} {i:>4}  {:>4}  {:>3}  {}\n",
+                p.row + 1,
+                p.col + 1,
+                text.trim_start()
+            ));
+        }
+        if self.change_idx >= self.changelist.len() {
+            out.push_str(" >\n");
+        }
+        out
+    }
+
     fn resolve_range(&self, range: SubRange) -> (usize, usize) {
         let last = self.buffer.line_count().saturating_sub(1);
         match range {
@@ -1492,7 +1513,7 @@ impl Editor {
     /// Ex-command names offered for `:`-line Tab completion.
     const EX_COMMANDS: &'static [&'static str] = &[
         "autoindent", "bdelete", "bnext", "bprevious", "buffer", "buffers",
-        "colorscheme", "copy", "cursorline", "delete", "edit", "expandtab",
+        "changes", "colorscheme", "copy", "cursorline", "delete", "edit", "expandtab",
         "files", "global", "help", "hlsearch", "ignorecase", "incsearch",
         "join", "jumps", "list", "marks", "move", "nohlsearch", "normal",
         "number", "put", "quit", "quitall", "read", "registers",
