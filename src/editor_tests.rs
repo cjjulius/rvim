@@ -1871,6 +1871,52 @@
     }
 
     #[test]
+    fn indent_object_dii_inner_block() {
+        let mut ed = ed_with("fn foo():\n    a = 1\n    b = 2\nbar");
+        ed.cursor = Position::new(1, 4); // on the first indented line
+        ed.handle_key(key('d'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('i')); // dii -> delete the indented block only
+        assert_eq!(ed.buffer.line(0), Some("fn foo():"));
+        assert_eq!(ed.buffer.line(1), Some("bar"));
+        assert_eq!(ed.buffer.line_count(), 2);
+    }
+
+    #[test]
+    fn indent_object_dai_includes_header() {
+        let mut ed = ed_with("fn foo():\n    a = 1\n    b = 2\nbar");
+        ed.cursor = Position::new(2, 4);
+        ed.handle_key(key('d'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('i')); // dai -> block plus the `fn foo():` header above
+        assert_eq!(ed.buffer.line(0), Some("bar"));
+        assert_eq!(ed.buffer.line_count(), 1);
+    }
+
+    #[test]
+    fn indent_object_keeps_interior_blank_line() {
+        let mut ed = ed_with("    a\n\n    b\nc");
+        ed.cursor = Position::new(0, 4);
+        ed.handle_key(key('d'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('i')); // dii -> rows 0..2 incl. the interior blank line
+        assert_eq!(ed.buffer.line(0), Some("c"));
+        assert_eq!(ed.buffer.line_count(), 1);
+    }
+
+    #[test]
+    fn indent_object_visual_vii_selects_block() {
+        let mut ed = ed_with("def f():\n    x\n    y\nz");
+        ed.cursor = Position::new(1, 4);
+        ed.handle_key(key('v'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('i')); // vii -> visual-line-ish selection of the block
+        let (s, e) = ed.selection().unwrap();
+        assert_eq!(s.row, 1);
+        assert_eq!(e.row, 2);
+    }
+
+    #[test]
     fn big_word_motions_w_b_e() {
         let mut ed = ed_with("foo.bar baz.qux");
         ed.handle_key(key('W')); // skip whole WORD "foo.bar" -> start of "baz.qux"
