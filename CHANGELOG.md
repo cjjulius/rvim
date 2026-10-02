@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Editing
+- `U` (normal mode) restores the most recently changed line to its state before
+  that change, and repeating `U` toggles it back. The restore is itself undoable
+  with `u` (vimtutor 2.5).
+
 ### Ex commands
 - `:[range]w file` writes just the range's lines to a file (vimtutor 5.3).
 - `:r !cmd` inserts a shell command's output below the cursor (vimtutor 5.4).

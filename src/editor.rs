@@ -212,6 +212,9 @@ pub struct Editor {
     /// current slot (== `changelist.len()` when at the live position).
     changelist: Vec<Position>,
     change_idx: usize,
+    /// `U` baseline: the last changed line's row and its content before the
+    /// current streak of changes, restored (and toggled) by normal-mode `U`.
+    line_undo: Option<(usize, String)>,
     recording: Option<char>,
     macros: HashMap<char, Vec<KeyEvent>>,
     last_macro: Option<char>,
@@ -337,6 +340,7 @@ impl Editor {
             jump_idx: 0,
             changelist: Vec::new(),
             change_idx: 0,
+            line_undo: None,
             recording: None,
             macros: HashMap::new(),
             last_macro: None,
@@ -2784,6 +2788,7 @@ impl Editor {
             KeyCode::Char('U') if self.mode.is_visual() => {
                 self.transform_selection(CaseOp::Upper);
             }
+            KeyCode::Char('U') => self.undo_line(),
             KeyCode::Char('>') => {
                 if self.mode.is_visual() {
                     self.shift_selection(true);
@@ -6352,6 +6357,37 @@ impl Editor {
         // The `` `. `` mark tracks the position of the last change.
         self.marks.insert('.', self.cursor);
         self.record_change(self.cursor);
+        // `U` baseline: capture a line's content before the first change in a
+        // streak on it. The snapshot above hasn't mutated the buffer yet, so the
+        // line still holds its pre-change text here.
+        let row = self.cursor.row;
+        if self.line_undo.as_ref().map(|(r, _)| *r) != Some(row) {
+            let text = self.buffer.line(row).unwrap_or("").to_string();
+            self.line_undo = Some((row, text));
+        }
+    }
+
+    /// `U` — restore the most recently changed line to its content before that
+    /// change. `U` is itself a change that `u` can undo, and repeating `U`
+    /// toggles the line back (matching vim).
+    fn undo_line(&mut self) {
+        let Some((row, saved)) = self.line_undo.clone() else {
+            self.message = "E21: No line changes to undo".into();
+            return;
+        };
+        if row >= self.buffer.line_count() {
+            return;
+        }
+        let current = self.buffer.line(row).unwrap_or("").to_string();
+        // Snapshot for `u` without disturbing the `U` baseline we set below.
+        self.buffer.checkpoint(self.cursor);
+        self.buffer.set_line(row, saved);
+        self.line_undo = Some((row, current)); // toggle on the next `U`
+        self.cursor.row = row;
+        self.cursor.col = 0;
+        self.move_first_nonblank();
+        self.clamp_cursor(false);
+        self.message = "1 line restored".into();
     }
 
     /// Record a change position in the changelist (for `g;` / `g,`), collapsing a
