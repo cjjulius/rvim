@@ -275,7 +275,12 @@ Grouped by what they do. Most line commands accept a leading range such as
 **Appearance and options**
 
 - `:theme <name>` switches the color theme.
-- `:set <option>` toggles or sets an option; `:set {option}?` shows a value, and `:set all` lists them all. Common ones: `number`, `relativenumber`, `ignorecase`, `smartcase`, `incsearch`, `expandtab`, `shiftwidth=N`, `tabstop=N`, `cursorline`, `colorcolumn=N`, `scrolloff=N`, `textwidth=N`, `list`, `mouse`.
+- `:set <option>` toggles or sets an option; `:set {option}?` shows a value, and `:set all` lists them all.
+- Options you will reach for most:
+  - Display: `number`, `relativenumber`, `cursorline`, `colorcolumn=N`, `list`.
+  - Search: `ignorecase`, `smartcase`, `incsearch`.
+  - Indent: `expandtab`, `shiftwidth=N`, `tabstop=N`.
+  - Other: `scrolloff=N`, `textwidth=N`, `mouse`.
 
 **Other**
 

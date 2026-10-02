@@ -5,6 +5,12 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Internal
+- Factored the shared `:s` pattern resolution (empty-pattern reuse, the `i`
+  flag, ignorecase/smartcase, regex build) into one `resolve_substitute` helper
+  used by both the plain and interactive-confirm substitute paths, so they can no
+  longer drift apart.
+
 ### Search & replace
 - `:s/pat/rep/c` confirms each replacement interactively: the cursor stops on the
   match and `y` replaces, `n` skips, `a` does all remaining, `l` replaces one and
