@@ -250,6 +250,15 @@
     }
 
     #[test]
+    fn abbrev_end_to_end() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("");
+        app.run_ex("iabbrev teh the");
+        app.feed_normal_keys("iteh "); // insert, type the lhs + trigger space
+        assert_eq!(app.editor.buffer.line(0), Some("the "));
+    }
+
+    #[test]
     fn substitute_confirm_end_to_end() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("foo foo");

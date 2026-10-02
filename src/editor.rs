@@ -237,6 +237,9 @@ pub struct Editor {
     line_undo: Option<(usize, String)>,
     /// Active `:s///c` interactive-confirm session, if any.
     subst_confirm: Option<SubstConfirm>,
+    /// Insert-mode abbreviations (`:iabbrev lhs rhs`): lhs -> rhs, expanded when a
+    /// non-keyword char is typed right after the lhs.
+    abbreviations: HashMap<String, String>,
     recording: Option<char>,
     macros: HashMap<char, Vec<KeyEvent>>,
     last_macro: Option<char>,
@@ -365,6 +368,7 @@ impl Editor {
             change_idx: 0,
             line_undo: None,
             subst_confirm: None,
+            abbreviations: HashMap::new(),
             recording: None,
             macros: HashMap::new(),
             last_macro: None,
@@ -1867,13 +1871,13 @@ impl Editor {
 
     /// Ex-command names offered for `:`-line Tab completion.
     const EX_COMMANDS: &'static [&'static str] = &[
-        "autoindent", "bdelete", "bnext", "bprevious", "buffer", "buffers",
+        "abbreviate", "autoindent", "bdelete", "bnext", "bprevious", "buffer", "buffers",
         "changes", "colorscheme", "copy", "cursorline", "delete", "delmarks", "edit", "expandtab",
-        "files", "global", "help", "history", "hlsearch", "ignorecase", "incsearch",
+        "files", "global", "help", "history", "hlsearch", "iabbrev", "ignorecase", "incsearch",
         "join", "jumps", "list", "marks", "move", "nohlsearch", "normal",
         "number", "put", "quit", "quitall", "read", "registers",
         "relativenumber", "retab", "set", "smartcase", "sort", "source", "substitute",
-        "theme", "version", "vglobal", "wall", "wq", "wqall", "write", "yank",
+        "theme", "unabbreviate", "version", "vglobal", "wall", "wq", "wqall", "write", "yank",
     ];
 
     /// `:set` option names offered for Tab completion (toggles, their `no`
@@ -2147,11 +2151,16 @@ impl Editor {
                 self.clamp_cursor(false);
             }
             KeyCode::Char(c) => {
+                // A non-keyword char triggers an abbreviation on the word before it.
+                if !is_word_char(c) {
+                    self.maybe_expand_abbrev();
+                }
                 self.buffer.insert_char(self.cursor, c);
                 self.cursor.col += 1;
                 self.cur_insert.push(c);
             }
             KeyCode::Enter => {
+                self.maybe_expand_abbrev();
                 self.cur_insert.push('\n');
                 let indent = if self.autoindent {
                     self.leading_indent(self.cursor.row)
@@ -2364,6 +2373,64 @@ impl Editor {
             idx,
         });
         self.apply_completion(0, &cand);
+    }
+
+    /// Define an insert-mode abbreviation (`:iabbrev lhs rhs`).
+    pub fn set_abbrev(&mut self, lhs: &str, rhs: &str) {
+        self.abbreviations.insert(lhs.to_string(), rhs.to_string());
+        self.message = format!("abbr: {lhs} -> {rhs}");
+    }
+
+    /// Remove an abbreviation (`:unabbreviate lhs`).
+    pub fn remove_abbrev(&mut self, lhs: &str) {
+        if self.abbreviations.remove(lhs).is_some() {
+            self.message = format!("removed abbr: {lhs}");
+        } else {
+            self.message = format!("E24: No such abbreviation: {lhs}");
+        }
+    }
+
+    /// A `:abbreviate` listing of the defined abbreviations.
+    pub fn abbrev_listing(&self) -> String {
+        let mut entries: Vec<(&String, &String)> = self.abbreviations.iter().collect();
+        entries.sort_by(|a, b| a.0.cmp(b.0));
+        let mut out = String::from("abbreviations — :bd to close\n\n lhs            rhs\n");
+        for (lhs, rhs) in entries {
+            out.push_str(&format!(" {lhs:<14} {rhs}\n"));
+        }
+        out
+    }
+
+    /// Expand the keyword immediately before the cursor if it matches an insert
+    /// abbreviation. Called in insert mode just before a non-keyword char (or
+    /// Enter) is inserted.
+    fn maybe_expand_abbrev(&mut self) {
+        if self.abbreviations.is_empty() {
+            return;
+        }
+        let line: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+        let col = self.cursor.col.min(line.len());
+        let mut start = col;
+        while start > 0 && is_word_char(line[start - 1]) {
+            start -= 1;
+        }
+        if start == col {
+            return;
+        }
+        let word: String = line[start..col].iter().collect();
+        let Some(rhs) = self.abbreviations.get(&word).cloned() else {
+            return;
+        };
+        let prefix: String = line[..start].iter().collect();
+        let suffix: String = line[col..].iter().collect();
+        self.buffer.set_line(self.cursor.row, format!("{prefix}{rhs}{suffix}"));
+        self.cursor.col = start + rhs.chars().count();
+        // Keep the insert-session text (for dot-repeat) in sync: swap the typed
+        // lhs for the rhs.
+        let wlen = word.chars().count();
+        let kept = self.cur_insert.chars().count().saturating_sub(wlen);
+        self.cur_insert = self.cur_insert.chars().take(kept).collect();
+        self.cur_insert.push_str(&rhs);
     }
 
     /// `Ctrl-x Ctrl-f` — filename completion. Completes the path token before the
