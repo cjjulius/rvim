@@ -4824,6 +4824,7 @@ impl Editor {
     /// Sort the lines in `range` in place. `reverse`/`unique`/`numeric`/`ignorecase`
     /// are vim's `:sort` flags. `unique` may shrink the range, pulling later lines
     /// up.
+    #[allow(clippy::too_many_arguments)]
     pub fn sort_lines(
         &mut self,
         range: SubRange,
@@ -4831,6 +4832,8 @@ impl Editor {
         unique: bool,
         numeric: bool,
         ignorecase: bool,
+        pattern: Option<String>,
+        use_match: bool,
     ) {
         let (a, b) = self.resolve_range(range);
         if b <= a {
@@ -4839,12 +4842,30 @@ impl Editor {
         self.checkpoint();
         let mut lines: Vec<String> =
             (a..=b).map(|r| self.buffer.line(r).unwrap_or("").to_string()).collect();
+        // With a `/pattern/`, derive the sort key from each line: the matched text
+        // (`r` flag) or what follows the match; a non-matching line keys as empty.
+        let re = pattern.as_deref().and_then(pattern::build);
+        let key_of = |line: &str| -> String {
+            match &re {
+                Some(re) => match re.find(line) {
+                    Some(m) => {
+                        if use_match {
+                            line[m.start()..m.end()].to_string()
+                        } else {
+                            line[m.end()..].to_string()
+                        }
+                    }
+                    None => String::new(),
+                },
+                None => line.to_string(),
+            }
+        };
         if numeric {
-            lines.sort_by_key(|l| first_number(l));
+            lines.sort_by_key(|l| first_number(&key_of(l)));
         } else if ignorecase {
-            lines.sort_by_key(|l| l.to_lowercase());
+            lines.sort_by_key(|l| key_of(l).to_lowercase());
         } else {
-            lines.sort();
+            lines.sort_by_key(|l| key_of(l));
         }
         if unique {
             if ignorecase && !numeric {

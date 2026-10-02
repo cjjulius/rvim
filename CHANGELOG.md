@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Ex commands
+- `:sort /pat/` sorts by the text following the first match of `pat` on each line
+  (non-matching lines sort first); the `r` flag (`:sort /pat/ r`) sorts by the
+  matched text itself. Combines with the existing `n`/`i`/`u`/`!` flags.
+
 ### Editing
 - `]p` / `[p` paste the register's lines below / above the current line,
   reindenting them so the first line matches the current line's indent and the

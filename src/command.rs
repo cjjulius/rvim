@@ -129,6 +129,11 @@ pub enum ExCommand {
         unique: bool,
         numeric: bool,
         ignorecase: bool,
+        /// Optional `/pattern/` to derive the sort key from.
+        pattern: Option<String>,
+        /// With a pattern, the `r` flag sorts on the matched text itself rather
+        /// than on what follows it.
+        use_match: bool,
     },
     /// `:[range]m[ove] {addr}` — move the range's lines to after `dest`.
     MoveLines { range: SubRange, dest: LineAddr },
@@ -511,6 +516,20 @@ fn parse_sort(trimmed: &str) -> Option<ExCommand> {
     }
     let reverse = tail.starts_with('!');
     let flags = if reverse { &tail[1..] } else { tail };
+    // Pull out a `/pattern/` if present; the remaining characters are flags.
+    let (pattern, flagstr) = match flags.find('/') {
+        Some(start) => {
+            let rest = &flags[start + 1..];
+            match rest.find('/') {
+                Some(end) => (
+                    Some(rest[..end].to_string()),
+                    format!("{}{}", &flags[..start], &rest[end + 1..]),
+                ),
+                None => (Some(rest.to_string()), flags[..start].to_string()),
+            }
+        }
+        None => (None, flags.to_string()),
+    };
     let range = if range_str.is_empty() {
         SubRange::WholeFile
     } else {
@@ -519,9 +538,11 @@ fn parse_sort(trimmed: &str) -> Option<ExCommand> {
     Some(ExCommand::Sort {
         range,
         reverse,
-        unique: flags.contains('u'),
-        numeric: flags.contains('n'),
-        ignorecase: flags.contains('i'),
+        unique: flagstr.contains('u'),
+        numeric: flagstr.contains('n'),
+        ignorecase: flagstr.contains('i'),
+        pattern: pattern.filter(|p| !p.is_empty()),
+        use_match: flagstr.contains('r'),
     })
 }
 

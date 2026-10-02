@@ -230,7 +230,7 @@ quits without saving (like `:q!`).
 `:set ignorecase|noignorecase` · `:set smartcase|nosmartcase` · `:set incsearch|noincsearch` ·
 `:set list|nolist` (show whitespace) · `:set wrapscan|nowrapscan` · `:set cursorline|nocursorline` · `:set cursorcolumn|nocursorcolumn` ·
 `:set colorcolumn=N` (column guide) ·
-`:noh` / `:set hlsearch|nohlsearch` · `:[range]sort[!] [u][n][i]` (reverse / unique / numeric / ignore-case; range-aware) ·
+`:noh` / `:set hlsearch|nohlsearch` · `:[range]sort[!] [u][n][i] [/pat/ [r]]` (reverse / unique / numeric / ignore-case; sort by text after `/pat/`, or the match itself with `r`; range-aware) ·
 `:[range]m[ove] {addr}` / `:[range]t`|`:[range]co[py] {addr}` (move / copy lines) ·
 `:[range]d[elete]` / `:[range]y[ank]` / `:[range]>`|`:[range]<` (delete / yank / shift lines) ·
 `:[range]j[oin][!]` (join lines; `!` keeps whitespace) ·
@@ -434,7 +434,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **475 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **477 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
