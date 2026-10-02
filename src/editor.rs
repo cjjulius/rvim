@@ -3853,6 +3853,11 @@ impl Editor {
             return Some(OpTarget::Chars(s, e));
         }
 
+        // Tag object (`it` inner / `at` around an XML/HTML `<name>…</name>` pair).
+        if obj == 't' {
+            return self.tag_object(around);
+        }
+
         // Pair / quote objects.
         let (open, close) = match obj {
             '(' | ')' | 'b' => ('(', ')'),
@@ -3894,6 +3899,80 @@ impl Editor {
                 Some(OpTarget::Span(start, end))
             }
         }
+    }
+
+    /// The `it` / `at` tag text object. Finds the innermost `<name …>…</name>`
+    /// pair enclosing the cursor (across lines, honouring nesting). `it` selects
+    /// the content between the tags; `at` selects the whole thing including both
+    /// tags. Self-closing tags (`<br/>`) are ignored.
+    fn tag_object(&self, around: bool) -> Option<OpTarget> {
+        let (flat, map) = self.flatten();
+        if flat.is_empty() {
+            return None;
+        }
+        let cur = map
+            .iter()
+            .position(|p| p.row == self.cursor.row && p.col >= self.cursor.col)
+            .unwrap_or(flat.len() - 1)
+            .min(flat.len() - 1);
+
+        // Parse every (non self-closing) tag as (name, is_close, lt, gt), where
+        // `lt`/`gt` are the offsets of its `<` and `>` in the flattened text.
+        let mut tags: Vec<(String, bool, usize, usize)> = Vec::new();
+        let mut i = 0;
+        while i < flat.len() {
+            if flat[i] == '<' {
+                if let Some(rel) = flat[i + 1..].iter().position(|&c| c == '>') {
+                    let gt = i + 1 + rel;
+                    let mut k = i + 1;
+                    let is_close = flat.get(k) == Some(&'/');
+                    if is_close {
+                        k += 1;
+                    }
+                    let mut name = String::new();
+                    while k < gt
+                        && (flat[k].is_alphanumeric() || matches!(flat[k], '-' | '_' | ':'))
+                    {
+                        name.push(flat[k]);
+                        k += 1;
+                    }
+                    let is_self = gt > 0 && flat[gt - 1] == '/';
+                    if !name.is_empty() && !is_self {
+                        tags.push((name, is_close, i, gt));
+                    }
+                    i = gt + 1;
+                    continue;
+                }
+            }
+            i += 1;
+        }
+
+        // Match open/close tags with a stack; the first completed pair that
+        // encloses the cursor is the innermost one.
+        let mut stack: Vec<usize> = Vec::new();
+        for idx in 0..tags.len() {
+            let (name, is_close, lt, gt) = (&tags[idx].0, tags[idx].1, tags[idx].2, tags[idx].3);
+            if !is_close {
+                stack.push(idx);
+            } else if let Some(pos) = stack.iter().rposition(|&oi| tags[oi].0 == *name) {
+                let (_, _, olt, ogt) = tags[stack[pos]];
+                stack.truncate(pos);
+                if olt <= cur && cur <= gt {
+                    return Some(if around {
+                        OpTarget::Span(map[olt], map[gt])
+                    } else {
+                        let istart = ogt + 1;
+                        let iend = lt.saturating_sub(1);
+                        if istart > iend {
+                            OpTarget::Chars(self.cursor.col, self.cursor.col)
+                        } else {
+                            OpTarget::Span(map[istart], map[iend])
+                        }
+                    });
+                }
+            }
+        }
+        None
     }
 
     /// The `ii` / `ai` indentation text object. Anchoring on the cursor's line
