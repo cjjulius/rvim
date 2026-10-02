@@ -3873,6 +3873,43 @@
     }
 
     #[test]
+    fn delmarks_removes_named_marks() {
+        let mut ed = ed_with("one\ntwo\nthree\nfour");
+        // Set marks a, b, c on different lines.
+        for (c, row) in [('a', 0), ('b', 1), ('c', 2)] {
+            ed.cursor = Position::new(row, 0);
+            ed.handle_key(key('m'));
+            ed.handle_key(key(c));
+        }
+        ed.delete_marks("a c");
+        // a and c gone, b remains: jumping to b lands on row 1, a reports unset.
+        ed.handle_key(key('`'));
+        ed.handle_key(key('b'));
+        assert_eq!(ed.cursor.row, 1);
+        ed.handle_key(key('`'));
+        ed.handle_key(key('a'));
+        assert!(ed.message.contains("Mark not set"));
+    }
+
+    #[test]
+    fn delmarks_range_and_bang() {
+        let mut ed = ed_with("l0\nl1\nl2\nl3");
+        for (c, row) in [('a', 0), ('b', 1), ('c', 2), ('d', 3)] {
+            ed.cursor = Position::new(row, 0);
+            ed.handle_key(key('m'));
+            ed.handle_key(key(c));
+        }
+        ed.delete_marks("a-c"); // removes a, b, c; d remains
+        ed.handle_key(key('`'));
+        ed.handle_key(key('d'));
+        assert_eq!(ed.cursor.row, 3);
+        ed.delete_marks("!"); // clears all lowercase marks, including d
+        ed.handle_key(key('`'));
+        ed.handle_key(key('d'));
+        assert!(ed.message.contains("Mark not set"));
+    }
+
+    #[test]
     fn history_listing_separates_cmd_and_search() {
         use crate::command::HistoryKind;
         let mut ed = ed_with("hello world\nfoo bar");

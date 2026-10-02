@@ -366,6 +366,13 @@
     }
 
     #[test]
+    fn delmarks_parse() {
+        assert_eq!(parse("delmarks a b"), ExCommand::DelMarks("a b".into()));
+        assert_eq!(parse("delm a-d"), ExCommand::DelMarks("a-d".into()));
+        assert_eq!(parse("delmarks!"), ExCommand::DelMarks("!".into()));
+    }
+
+    #[test]
     fn history_command_parses_kinds() {
         use crate::command::HistoryKind;
         assert_eq!(parse("history"), ExCommand::History(HistoryKind::Cmd));

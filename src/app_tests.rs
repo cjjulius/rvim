@@ -222,6 +222,16 @@
     }
 
     #[test]
+    fn delmarks_command_clears_mark() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("a\nb\nc");
+        app.feed_normal_keys("maj"); // set mark a, move down
+        app.run_ex("delmarks a");
+        app.feed_normal_keys("`a");
+        assert!(app.editor.message.contains("Mark not set"));
+    }
+
+    #[test]
     fn changes_command_opens_listing_and_preserves_buffer() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("x\ny");

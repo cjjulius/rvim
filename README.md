@@ -255,7 +255,8 @@ quits without saving (like `:q!`).
 `:[range]ce[nter] [w]` / `:[range]ri[ght] [w]` / `:[range]le[ft] [indent]` (align lines; width defaults to `textwidth`) ·
 `:[addr]pu[t] [reg]` (put a register as lines) · `:[range]norm[al] {keys}` (run Normal-mode keys, per line over a range) ·
 `:r[ead] <file>` (insert a file below the cursor) · `:e`/`:e!` (reload current file) ·
-`:marks` · `:registers`/`:reg` · `:jumps` · `:changes` · `:history [:|/|all]` (introspection listings) · `:earlier [N]`/`:later [N]` (undo/redo N) ·
+`:marks` · `:registers`/`:reg` · `:jumps` · `:changes` · `:history [:|/|all]` (introspection listings) ·
+`:delmarks a b` / `:delmarks!` (delete named / all marks) · `:earlier [N]`/`:later [N]` (undo/redo N) ·
 `:retab [N]` (normalise tabs/spaces to `tabstop`) ·
 `:source <file>` · `:help` · `:version`
 
@@ -461,22 +462,22 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **535 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **539 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
 
 ## Roadmap
 
-- Multi-line string highlighting (block comments spanning lines ✅ done;
-  regex search & substitute ✅ done)
-- Split windows & tabs (multiple buffers ✅ done)
-- User-defined key mappings in `~/.rvimrc` (config file loading ✅ done)
-- Ex-commands inside replayed macros; cross-line text objects
-  (named registers ✅, marks ✅, macros ✅, `.` repeat ✅, text objects ✅ done)
-- Richer mouse (drag-select), and a menu bar
-- More accessibility options (screen-reader hints, configurable font-agnostic cues)
-- Dynamic plugin loading
+Still planned, not yet built:
+
+- Split windows (horizontal and vertical).
+- Code folding.
+- Interactive confirm for substitutions (`:s/.../.../c`).
+- An external filter operator (`!`) to pipe lines through a shell command.
+- Richer mouse support (drag-select) and more menu-bar actions.
+- More accessibility options: screen-reader hints and configurable cues.
+- Dynamic plugin loading.
 
 ---
 
