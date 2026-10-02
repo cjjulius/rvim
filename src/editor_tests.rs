@@ -4376,6 +4376,27 @@
     }
 
     #[test]
+    fn insert_line_completion_completes_whole_line() {
+        let mut ed = ed_with("hello world\nhel");
+        ed.cursor = Position::new(1, 3); // end of "hel"
+        ed.mode = Mode::Insert;
+        ed.handle_key(ctrl('x'));
+        ed.handle_key(ctrl('l'));
+        assert_eq!(ed.buffer.line(1), Some("hello world"));
+    }
+
+    #[test]
+    fn insert_line_completion_no_match_leaves_line() {
+        let mut ed = ed_with("hello\nzzz");
+        ed.cursor = Position::new(1, 3);
+        ed.mode = Mode::Insert;
+        ed.handle_key(ctrl('x'));
+        ed.handle_key(ctrl('l'));
+        assert_eq!(ed.buffer.line(1), Some("zzz"));
+        assert!(ed.message.contains("No line completion"));
+    }
+
+    #[test]
     fn put_register_inserts_lines_below() {
         let mut ed = ed_with("a\nb\nc");
         ed.handle_key(key('y'));
