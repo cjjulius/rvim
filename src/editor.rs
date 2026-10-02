@@ -1066,6 +1066,19 @@ impl Editor {
         self.message = format!("{} line(s) read", lines.len());
     }
 
+    /// `:r !cmd` — run a shell command and insert its output below the cursor.
+    pub fn read_command(&mut self, cmd: &str) {
+        let cmd = cmd.trim();
+        if cmd.is_empty() {
+            self.message = "E471: Argument required".into();
+            return;
+        }
+        match Self::run_shell_filter(cmd, "") {
+            Some(out) => self.read_lines_below(&out.replace("\r\n", "\n")),
+            None => self.message = format!("E485: Can't run: {cmd}"),
+        }
+    }
+
     /// `:[range]d[elete]` — delete the range's lines into the unnamed register.
     pub fn delete_lines(&mut self, range: SubRange) {
         let (a, b) = self.resolve_range(range);

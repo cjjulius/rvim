@@ -248,6 +248,29 @@
     }
 
     #[test]
+    fn write_range_parse() {
+        assert_eq!(
+            parse("1,5w out.txt"),
+            ExCommand::WriteRange {
+                range: SubRange::Range(LineAddr::Num(1), LineAddr::Num(5)),
+                file: Some("out.txt".into())
+            }
+        );
+        assert_eq!(
+            parse("%w out.txt"),
+            ExCommand::WriteRange { range: SubRange::WholeFile, file: Some("out.txt".into()) }
+        );
+        // A bare :w and :wq are NOT range writes.
+        assert_eq!(parse("w out.txt"), ExCommand::Write(Some("out.txt".into())));
+        assert!(!matches!(parse("1,5wq"), ExCommand::WriteRange { .. }));
+    }
+
+    #[test]
+    fn read_command_parse() {
+        assert_eq!(parse("r !ls"), ExCommand::ReadFile("!ls".into()));
+    }
+
+    #[test]
     fn filter_parse() {
         assert_eq!(
             parse("%!sort"),

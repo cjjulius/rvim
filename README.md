@@ -244,9 +244,9 @@ Grouped by what they do. Most line commands accept a leading range such as
 
 **Files and buffers**
 
-- `:w [file]`, `:wq`, `:x`, `:q`, `:q!` — write and quit (`!` discards changes).
+- `:w [file]`, `:wq`, `:x`, `:q`, `:q!` — write and quit (`!` discards changes). `:N,Mw file` writes just those lines to a file.
 - `:qa` / `:wa` / `:wqa` — quit or write every buffer at once.
-- `:e <file>` opens a file; `:e` / `:e!` reloads the current one; `:r <file>` inserts a file below the cursor.
+- `:e <file>` opens a file; `:e` / `:e!` reloads the current one. `:r <file>` inserts a file below the cursor, and `:r !cmd` inserts a command's output.
 - `:ls` lists buffers; `:bn` / `:bp` / `:b <n>` / `:bd` switch or close them; `Ctrl-^` (or `:b#`) returns to the previous buffer.
 - `:<n>` jumps to line `n`.
 
@@ -488,7 +488,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **546 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **550 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

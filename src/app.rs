@@ -503,12 +503,21 @@ impl App {
                         format!("{failed} buffer(s) could not be written (add ! to override)");
                 }
             }
+            ExCommand::WriteRange { range, file } => self.write_range(range, file),
             ExCommand::Edit { path, line } => self.edit_file(&path, line),
             ExCommand::Reload { force } => self.reload_file(force),
-            ExCommand::ReadFile(path) => match std::fs::read_to_string(&path) {
-                Ok(text) => self.editor.read_lines_below(&text),
-                Err(e) => self.editor.message = format!("E484: can't open \"{path}\": {e}"),
-            },
+            ExCommand::ReadFile(path) => {
+                if let Some(cmd) = path.strip_prefix('!') {
+                    self.editor.read_command(cmd);
+                } else {
+                    match std::fs::read_to_string(&path) {
+                        Ok(text) => self.editor.read_lines_below(&text),
+                        Err(e) => {
+                            self.editor.message = format!("E484: can't open \"{path}\": {e}")
+                        }
+                    }
+                }
+            }
             ExCommand::BufferList => self.buffer_list(),
             ExCommand::BufferNext => self.buffer_next(),
             ExCommand::BufferPrev => self.buffer_prev(),
@@ -745,6 +754,24 @@ impl App {
     }
 
     /// Returns true on a successful write.
+    /// `:[range]w file` — write just the range's lines to `file`.
+    fn write_range(&mut self, range: command::SubRange, file: Option<String>) {
+        let Some(file) = file else {
+            self.editor.message = "E140: use :w <file> to write a range".into();
+            return;
+        };
+        let (a, b) = self.editor.range_rows(range);
+        let mut out = String::new();
+        for row in a..=b {
+            out.push_str(self.editor.buffer.line(row).unwrap_or(""));
+            out.push('\n');
+        }
+        match std::fs::write(&file, out) {
+            Ok(()) => self.editor.message = format!("\"{file}\" {} lines written", b - a + 1),
+            Err(e) => self.editor.message = format!("E212: write failed: {e}"),
+        }
+    }
+
     fn do_write(&mut self, arg: Option<String>) -> bool {
         if let Some(path) = arg {
             self.editor.buffer.set_path(&path);
