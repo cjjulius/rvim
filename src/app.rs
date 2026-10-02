@@ -518,6 +518,10 @@ impl App {
                 let text = self.editor.jumps_listing();
                 self.open_scratch(&text, "jumps —", "jumps — :bd to close");
             }
+            ExCommand::Changes => {
+                let text = self.editor.changes_listing();
+                self.open_scratch(&text, "changes —", "changes — :bd to close");
+            }
             ExCommand::SetQuery(name) => {
                 self.editor.message = self.editor.option_value(&name);
             }
@@ -986,6 +990,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:ls :bn :bp :b<n>  list / next / prev / goto buffer   :bd close\n\
          \tCtrl-^ / :b#       switch to the alternate (last) buffer\n\
          \t:marks :reg :jumps list marks / registers / jump list\n\
+         \t:changes           list the change list (g; / g, navigate it)\n\
          \t:s/pat/rep/[gin]   substitute (g all, i ignore-case, n count only)\n\
          \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///, normal)\n\
          \t:[range]norm {{keys}}  run Normal-mode keys (per line over a range)\n\

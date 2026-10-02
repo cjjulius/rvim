@@ -339,6 +339,7 @@
         assert_eq!(parse("reg"), ExCommand::Registers);
         assert_eq!(parse("registers"), ExCommand::Registers);
         assert_eq!(parse("jumps"), ExCommand::Jumps);
+        assert_eq!(parse("changes"), ExCommand::Changes);
     }
 
     #[test]

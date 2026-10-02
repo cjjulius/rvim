@@ -187,6 +187,8 @@ pub enum ExCommand {
     Registers,
     /// `:jumps` — list the jump list.
     Jumps,
+    /// `:changes` — list the change list.
+    Changes,
     /// `:earlier [N]` — undo N times (default 1).
     Earlier(usize),
     /// `:later [N]` — redo N times (default 1).
@@ -311,6 +313,7 @@ pub fn parse(input: &str) -> ExCommand {
         "marks" => ExCommand::Marks,
         "reg" | "registers" | "display" | "di" => ExCommand::Registers,
         "ju" | "jumps" => ExCommand::Jumps,
+        "changes" => ExCommand::Changes,
         "earlier" | "ea" => ExCommand::Earlier(parse_count_arg(&arg)),
         "later" | "lat" => ExCommand::Later(parse_count_arg(&arg)),
         "help" | "h" => ExCommand::Help,
