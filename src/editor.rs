@@ -186,6 +186,9 @@ pub struct Editor {
     insert_replaying: bool,
     /// After insert-mode `Ctrl-r`: the next key names the register to paste.
     insert_pending_reg: bool,
+    /// Insert-mode `Ctrl-x` submode: the next key picks a completion source
+    /// (currently `Ctrl-l` for whole-line completion).
+    insert_ctrl_x: bool,
     /// Insert-mode `Ctrl-k` digraph entry: `None` = inactive, `Some(None)` =
     /// awaiting the first char, `Some(Some(c))` = have first char, awaiting second.
     insert_digraph: Option<Option<char>>,
@@ -338,6 +341,7 @@ impl Editor {
             insert_keys: Vec::new(),
             insert_replaying: false,
             insert_pending_reg: false,
+            insert_ctrl_x: false,
             insert_digraph: None,
             insert_oneshot: 0,
             cur_insert: String::new(),
@@ -2026,6 +2030,16 @@ impl Editor {
         if !is_completion_key {
             self.completion = None;
         }
+        // `Ctrl-x` submode: the previous key was Ctrl-x. `Ctrl-l` completes the
+        // whole line; anything else aborts and is handled normally.
+        if self.insert_ctrl_x {
+            self.insert_ctrl_x = false;
+            if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('l') {
+                self.insert_line_completion(true);
+                self.scroll_into_view();
+                return;
+            }
+        }
         // Register name after Ctrl-r.
         if self.insert_pending_reg {
             self.insert_pending_reg = false;
@@ -2071,6 +2085,7 @@ impl Editor {
                 KeyCode::Char('d') => self.insert_indent(false),
                 KeyCode::Char('n') => self.insert_completion(true),
                 KeyCode::Char('p') => self.insert_completion(false),
+                KeyCode::Char('x') => self.insert_ctrl_x = true,
                 KeyCode::Char('a') => {
                     // Insert the text from the last insert session.
                     let reg = self.register_text('.');
@@ -2303,6 +2318,42 @@ impl Editor {
             idx,
         });
         self.apply_completion(start, &cand);
+    }
+
+    /// `Ctrl-x Ctrl-l` — whole-line completion. Completes the current line from
+    /// other buffer lines that start with the text before the cursor; cycle the
+    /// candidates with `Ctrl-n` / `Ctrl-p`.
+    fn insert_line_completion(&mut self, forward: bool) {
+        if self.completion.is_some() {
+            self.insert_completion(forward);
+            return;
+        }
+        let cur: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
+        let end = self.cursor.col.min(cur.len());
+        let prefix: String = cur[..end].iter().collect();
+        let mut seen = std::collections::HashSet::new();
+        let mut candidates = Vec::new();
+        for row in 0..self.buffer.line_count() {
+            if row == self.cursor.row {
+                continue;
+            }
+            let line = self.buffer.line(row).unwrap_or("");
+            if line.starts_with(&prefix) && line != prefix && seen.insert(line.to_string()) {
+                candidates.push(line.to_string());
+            }
+        }
+        if candidates.is_empty() {
+            self.message = "No line completion".into();
+            return;
+        }
+        let idx = if forward { 0 } else { candidates.len() - 1 };
+        let cand = candidates[idx].clone();
+        self.completion = Some(Completion {
+            start_col: 0,
+            candidates,
+            idx,
+        });
+        self.apply_completion(0, &cand);
     }
 
     /// Replace the characters from `start` to the cursor on the current line with

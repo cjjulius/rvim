@@ -151,6 +151,9 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   letters, common ligatures, currency, and a handful of math/arrow symbols.
 - **Keyword completion:** `Ctrl-n` / `Ctrl-p` complete the word before the cursor
   from other words in the buffer, cycling forward / backward through the matches.
+- **Line completion:** `Ctrl-x Ctrl-l` completes the whole line from other buffer
+  lines that start with the text before the cursor; `Ctrl-n` / `Ctrl-p` cycle the
+  candidates.
 - **One-shot normal (`Ctrl-o`):** in insert mode, `Ctrl-o` runs a single
   Normal-mode command (e.g. `Ctrl-o dd`, `Ctrl-o 0`) and returns to insert.
 - **Copy adjacent char:** in insert mode, `Ctrl-e` / `Ctrl-y` insert the character
@@ -503,7 +506,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **565 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **567 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

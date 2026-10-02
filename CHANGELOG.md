@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Insert mode
+- Whole-line completion: `Ctrl-x Ctrl-l` completes the current line from other
+  buffer lines that start with the text before the cursor, with `Ctrl-n` /
+  `Ctrl-p` cycling the candidates.
+
 ### UI
 - Mode indicator (vim's `showmode`): the bottom line now shows `-- INSERT --`,
   `-- REPLACE --`, `-- VISUAL --`, `-- VISUAL LINE --`, or `-- VISUAL BLOCK --`
