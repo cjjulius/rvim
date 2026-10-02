@@ -119,6 +119,8 @@ pub enum ExCommand {
     SetQuery(String),
     /// `:set` (no args, `all` = false) or `:set all` (`all` = true) — list options.
     ShowOptions(bool),
+    /// `:retab [N]` — normalise tabs/spaces to `tabstop` (optionally set to N).
+    Retab(Option<usize>),
     /// `:[range]left [indent]` / `:right [width]` / `:center [width]`.
     Align {
         range: SubRange,
@@ -329,6 +331,9 @@ pub fn parse(input: &str) -> ExCommand {
         "reg" | "registers" | "display" | "di" => ExCommand::Registers,
         "ju" | "jumps" => ExCommand::Jumps,
         "changes" => ExCommand::Changes,
+        "retab" | "ret" => {
+            ExCommand::Retab(arg.as_deref().and_then(|a| a.trim().parse::<usize>().ok()))
+        }
         "his" | "history" => {
             let kind = match arg.as_deref().map(str::trim) {
                 Some("/") | Some("search") => HistoryKind::Search,

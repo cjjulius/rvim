@@ -9,6 +9,10 @@ All notable changes to rvim are recorded here. Versions follow
 - `:set` with no argument lists the options changed from their defaults, and
   `:set all` lists every option with its current value (in a scratch buffer, like
   `:marks` / `:changes`). Complements the existing `:set {option}?` query.
+- `:retab [N]` normalises indentation to the current `tabstop` (set to `N` first
+  when given) and `expandtab`: with `expandtab` every tab is expanded to spaces
+  (column-aware); otherwise each line's leading whitespace is re-tabulated into
+  tabs. Reports how many lines changed.
 
 ### Text objects
 - Indentation text objects `ii` / `ai` (vim-indent-object style): `ii` selects the
