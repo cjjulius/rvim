@@ -559,6 +559,9 @@ fn draw_command_line(
 
     let content = if editor.mode == Mode::Command {
         format!("{}{}", editor.cmdline_prefix(), editor.cmdline)
+    } else if let Some(indicator) = editor.mode_indicator() {
+        // showmode: `-- INSERT --` / `-- VISUAL --` etc. while in those modes.
+        indicator.to_string()
     } else {
         editor.message.clone()
     };

@@ -420,6 +420,10 @@ correctly colored even when scrolled.
 - **Color column (`:set colorcolumn=N`)** — highlight column N as a visual
   line-length guide (works past the end of short lines too); `:set cc=0` turns
   it off. Pair it with `:set textwidth` to see your wrap boundary.
+- **Mode indicator (showmode)** — the bottom line shows the active mode as
+  `-- INSERT --`, `-- REPLACE --`, `-- VISUAL --`, `-- VISUAL LINE --`, or
+  `-- VISUAL BLOCK --`, so you always know which mode you are in. Normal mode
+  shows nothing (and the message or command line takes the space).
 - **Command preview (showcmd)** — the partially-typed command (count, operator,
   text-object prefix) appears at the bottom-right as you type, so you can see
   exactly what rvim is waiting for — e.g. `2d` while `2dw` is mid-entry. It clears
@@ -499,7 +503,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **564 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **565 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---

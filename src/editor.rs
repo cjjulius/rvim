@@ -694,6 +694,20 @@ impl Editor {
         }
     }
 
+    /// vim's `showmode` text for the bottom line — `-- INSERT --`, `-- VISUAL --`,
+    /// etc. `None` in Normal and Command mode, where the message / command line
+    /// takes the space instead.
+    pub fn mode_indicator(&self) -> Option<&'static str> {
+        match self.mode {
+            Mode::Insert => Some("-- INSERT --"),
+            Mode::Replace => Some("-- REPLACE --"),
+            Mode::Visual => Some("-- VISUAL --"),
+            Mode::VisualLine => Some("-- VISUAL LINE --"),
+            Mode::VisualBlock => Some("-- VISUAL BLOCK --"),
+            Mode::Normal | Mode::Command => None,
+        }
+    }
+
     /// Canonical option names shown by `:set` / `:set all`, in display order.
     const OPTION_NAMES: &'static [&'static str] = &[
         "number", "relativenumber", "hlsearch", "ignorecase", "smartcase",

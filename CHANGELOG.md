@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### UI
+- Mode indicator (vim's `showmode`): the bottom line now shows `-- INSERT --`,
+  `-- REPLACE --`, `-- VISUAL --`, `-- VISUAL LINE --`, or `-- VISUAL BLOCK --`
+  while in those modes, so the current mode is always visible.
+
 ### Internal
 - Factored the shared `:s` pattern resolution (empty-pattern reuse, the `i`
   flag, ignorecase/smartcase, regex build) into one `resolve_substitute` helper

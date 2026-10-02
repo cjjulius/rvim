@@ -39,6 +39,27 @@
     }
 
     #[test]
+    fn mode_indicator_reflects_mode() {
+        let mut ed = ed_with("hello");
+        assert_eq!(ed.mode_indicator(), None); // Normal
+        ed.handle_key(key('i'));
+        assert_eq!(ed.mode_indicator(), Some("-- INSERT --"));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.mode_indicator(), None);
+        ed.handle_key(key('v'));
+        assert_eq!(ed.mode_indicator(), Some("-- VISUAL --"));
+        ed.handle_key(special(KeyCode::Esc));
+        ed.handle_key(special(KeyCode::Char('V')));
+        assert_eq!(ed.mode_indicator(), Some("-- VISUAL LINE --"));
+        ed.handle_key(special(KeyCode::Esc));
+        ed.handle_key(ctrl('v'));
+        assert_eq!(ed.mode_indicator(), Some("-- VISUAL BLOCK --"));
+        ed.handle_key(special(KeyCode::Esc));
+        ed.handle_key(key('R'));
+        assert_eq!(ed.mode_indicator(), Some("-- REPLACE --"));
+    }
+
+    #[test]
     fn append_puts_cursor_after() {
         let mut ed = ed_with("ab");
         ed.handle_key(key('a'));
