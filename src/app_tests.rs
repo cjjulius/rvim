@@ -240,6 +240,15 @@
     }
 
     #[test]
+    fn substitute_empty_pattern_reuses_previous() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("foo bar foo");
+        app.run_ex("s/foo/X/"); // first foo -> X, last pattern = foo
+        app.run_ex("s//Y/"); // empty pattern reuses "foo" -> next foo
+        assert_eq!(app.editor.buffer.line(0), Some("X bar Y"));
+    }
+
+    #[test]
     fn retab_command_expands_tabs() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("\thi");

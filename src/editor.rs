@@ -797,10 +797,16 @@ impl Editor {
     /// uses regex syntax for captures (`$1`, `${name}`). Returns
     /// `(substitutions, lines_changed)`.
     pub fn substitute(&mut self, spec: &SubstituteSpec) -> (usize, usize) {
+        // An empty pattern reuses the last search pattern (vim's `:s//repl/`).
+        let pat = if spec.pattern.is_empty() {
+            self.last_search.clone()
+        } else {
+            spec.pattern.clone()
+        };
         // The `/i` flag forces insensitive; otherwise fall back to the
         // ignorecase/smartcase options (as vim's `:s` does).
-        let ic = spec.ignorecase || self.effective_ignorecase(&spec.pattern);
-        let Some(re) = pattern::build_opts(&spec.pattern, ic) else {
+        let ic = spec.ignorecase || self.effective_ignorecase(&pat);
+        let Some(re) = pattern::build_opts(&pat, ic) else {
             return (0, 0);
         };
         let (start, end) = self.resolve_range(spec.range);
@@ -819,13 +825,15 @@ impl Editor {
                 }
             }
             self.search_re = Some(re);
-            self.last_search = spec.pattern.clone();
+            self.last_search = pat;
             self.hlsearch = true;
             return (subs, lines);
         }
 
-        // Remember for `&` (repeat last substitution).
+        // Remember for `&` (repeat last substitution) and make the pattern the
+        // current search pattern (so `n` / `//` reuse it), as vim does.
         self.last_subst = Some(spec.clone());
+        self.last_search = pat.clone();
         // vim-style replacement (`\1`, `&`) -> regex crate syntax.
         let replacement = pattern::vim_replacement(&spec.replacement);
 

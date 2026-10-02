@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Search & replace
+- An empty `:s` pattern now reuses the last search pattern — `/foo` then
+  `:%s//bar/g` replaces every `foo`. Running `:s` also sets the current search
+  pattern, so a following `n` moves to the next match (matching vim).
+
 ### Text objects
 - Tag text objects `it` / `at` select the innermost `<name>…</name>` element
   enclosing the cursor, across lines and honouring nesting (self-closing tags are

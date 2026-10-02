@@ -2808,6 +2808,38 @@
     }
 
     #[test]
+    fn substitute_empty_pattern_reuses_last_search() {
+        let mut ed = ed_with("foo foo\nbar");
+        ed.last_search = "foo".into();
+        let spec = SubstituteSpec {
+            range: SubRange::WholeFile,
+            pattern: String::new(), // empty -> reuse "foo"
+            replacement: "X".into(),
+            global: true,
+            ignorecase: false,
+            count_only: false,
+        };
+        let (subs, _) = ed.substitute(&spec);
+        assert_eq!(subs, 2);
+        assert_eq!(ed.buffer.line(0), Some("X X"));
+    }
+
+    #[test]
+    fn substitute_sets_last_search() {
+        let mut ed = ed_with("alpha beta");
+        let spec = SubstituteSpec {
+            range: SubRange::CurrentLine,
+            pattern: "beta".into(),
+            replacement: "Z".into(),
+            global: false,
+            ignorecase: false,
+            count_only: false,
+        };
+        ed.substitute(&spec);
+        assert_eq!(ed.last_search, "beta"); // :s updates the search pattern
+    }
+
+    #[test]
     fn global_delete_matching_lines() {
         let mut ed = ed_with("keep\nDROP me\nkeep\nDROP again");
         let affected = ed.global("DROP", false, "d");
