@@ -5,6 +5,12 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Text objects
+- Word and paragraph text objects now take a count: `d3iw` deletes three
+  inner-word segments (word, space, word), `d2aw` two whole words with their
+  whitespace, and `d2ap` two paragraphs. The count may also precede the operator
+  (`2daw` == `d2aw`). Other objects still use the single unit.
+
 ### Navigation
 - `gf` opens the file whose name is under the cursor, resolving it against the
   current working directory and then the current file's own directory. Reports
