@@ -1967,6 +1967,52 @@
     }
 
     #[test]
+    fn counted_text_object_d2aw() {
+        let mut ed = ed_with("foo bar baz");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('d'));
+        ed.handle_key(key('2'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('w')); // d2aw -> "foo bar " removed
+        assert_eq!(ed.buffer.line(0), Some("baz"));
+    }
+
+    #[test]
+    fn counted_text_object_d3iw() {
+        let mut ed = ed_with("foo bar");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('d'));
+        ed.handle_key(key('3'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('w')); // 3 segments: foo, space, bar
+        assert_eq!(ed.buffer.line(0), Some(""));
+    }
+
+    #[test]
+    fn counted_text_object_d2ap() {
+        let mut ed = ed_with("a\n\nb\n\nc");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('d'));
+        ed.handle_key(key('2'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('p')); // two paragraphs (+ their trailing blanks)
+        assert_eq!(ed.buffer.line(0), Some("c"));
+        assert_eq!(ed.buffer.line_count(), 1);
+    }
+
+    #[test]
+    fn count_before_operator_also_applies_to_object() {
+        // `2daw` is equivalent to `d2aw`.
+        let mut ed = ed_with("foo bar baz");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('2'));
+        ed.handle_key(key('d'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('w'));
+        assert_eq!(ed.buffer.line(0), Some("baz"));
+    }
+
+    #[test]
     fn big_word_motions_w_b_e() {
         let mut ed = ed_with("foo.bar baz.qux");
         ed.handle_key(key('W')); // skip whole WORD "foo.bar" -> start of "baz.qux"

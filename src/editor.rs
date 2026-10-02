@@ -128,8 +128,9 @@ pub struct Editor {
     pending_count: Option<usize>,
     pending_op: Option<char>,
     pending_op_count: Option<usize>,
-    /// After `d`/`y`/`c` + `i`/`a`: the (operator, i-or-a) awaiting an object char.
-    pending_textobj: Option<(char, char)>,
+    /// After `d`/`y`/`c` + `i`/`a`: the (operator, i-or-a, count) awaiting an
+    /// object char. The count (e.g. `3` in `d3iw`) extends word/paragraph objects.
+    pending_textobj: Option<(char, char, usize)>,
     /// In visual mode, `i`/`a` awaiting an object char (e.g. `viw`, `vi(`).
     pending_vis_obj: Option<char>,
     /// After `d`/`y`/`c` + `g`: the operator awaiting the second `g` (e.g. `dgg`).
@@ -2394,9 +2395,9 @@ impl Editor {
         }
 
         // Object char after `d`/`y`/`c`/`>`/`<` + `i`/`a` (e.g. `diw`, `ci(`, `>ip`).
-        if let Some((op, iora)) = self.pending_textobj.take() {
+        if let Some((op, iora, n)) = self.pending_textobj.take() {
             if let KeyCode::Char(obj) = key.code {
-                if let Some(t) = self.text_object(iora, obj) {
+                if let Some(t) = self.text_object_count(iora, obj, n) {
                     if op == '>' || op == '<' {
                         let (a, b) = self.target_rows(t);
                         self.shift_range(a, b, op == '>');
@@ -2521,7 +2522,7 @@ impl Editor {
                 && matches!(code, KeyCode::Char('i') | KeyCode::Char('a'))
             {
                 if let KeyCode::Char(iora) = code {
-                    self.pending_textobj = Some((op, iora));
+                    self.pending_textobj = Some((op, iora, op_count.saturating_mul(count)));
                 }
                 return Action::None;
             }
@@ -3710,15 +3711,23 @@ impl Editor {
         }
     }
 
-    /// Compute a text object span on the current line. `iora` is `i` (inner) or
-    /// `a` (around); `obj` selects the object (`w`, brackets, quotes).
+    /// Compute a text object span on the current line (count 1). `iora` is `i`
+    /// (inner) or `a` (around); `obj` selects the object (`w`, brackets, quotes).
     fn text_object(&self, iora: char, obj: char) -> Option<OpTarget> {
+        self.text_object_count(iora, obj, 1)
+    }
+
+    /// Like [`text_object`](Editor::text_object) but honours a `count` for the
+    /// objects where it is meaningful: word (`d3iw`, `d2aw`) and paragraph
+    /// (`d2ap`). Other objects ignore the count.
+    fn text_object_count(&self, iora: char, obj: char, count: usize) -> Option<OpTarget> {
         let around = iora == 'a';
+        let count = count.max(1);
 
         // Paragraph object (line-wise), valid even on a blank line.
         if obj == 'p' {
-            let blank = self.is_blank_row(self.cursor.row);
             let n = self.buffer.line_count();
+            let mut blank = self.is_blank_row(self.cursor.row);
             let mut a = self.cursor.row;
             while a > 0 && self.is_blank_row(a - 1) == blank {
                 a -= 1;
@@ -3730,6 +3739,22 @@ impl Editor {
             if around {
                 while b + 1 < n && self.is_blank_row(b + 1) {
                     b += 1;
+                }
+            }
+            // Extend over further paragraphs (and the blank runs between them).
+            for _ in 1..count {
+                if b + 1 >= n {
+                    break;
+                }
+                blank = self.is_blank_row(b + 1);
+                b += 1;
+                while b + 1 < n && self.is_blank_row(b + 1) == blank {
+                    b += 1;
+                }
+                if around {
+                    while b + 1 < n && self.is_blank_row(b + 1) {
+                        b += 1;
+                    }
                 }
             }
             return Some(OpTarget::Lines(a, b));
@@ -3769,6 +3794,23 @@ impl Editor {
                 if end == before {
                     while start > 0 && chars[start - 1].is_whitespace() {
                         start -= 1;
+                    }
+                }
+            }
+            // A count takes further units. `iw` counts maximal same-class runs
+            // (word, then space, then word, …); `aw` counts whole words together
+            // with their trailing whitespace.
+            for _ in 1..count {
+                if end >= chars.len() {
+                    break;
+                }
+                let cl = Self::class_of(chars[end], big);
+                while end < chars.len() && Self::class_of(chars[end], big) == cl {
+                    end += 1;
+                }
+                if around {
+                    while end < chars.len() && chars[end].is_whitespace() {
+                        end += 1;
                     }
                 }
             }

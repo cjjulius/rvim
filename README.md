@@ -105,6 +105,9 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   The indentation object `ii` selects the run of lines indented at least as far
   as the cursor's (interior blank lines kept); `ai` also takes the header line
   above — handy for operating on a whole indented block (`dii`, `cii`, `>ai`).
+  Word and paragraph objects take a count: `d3iw` (word, space, word),
+  `d2aw` (two words), `d2ap` (two paragraphs) — and the count may precede the
+  operator instead (`2daw`).
 - **Case operators:** `gu`/`gU`/`g~` (lower/upper/toggle) and `g?` (ROT13) over
   a motion, a text object, or doubled for the whole line — `guw`, `gUiw`, `g~$`,
   `guu`, `g?w`, `g?ip`, `g??`; `g?` also works on a visual selection.
@@ -451,7 +454,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **524 tests** across buffer, editor, menu, syntax, themes,
+Current suite: **528 tests** across buffer, editor, menu, syntax, themes,
 commands, config, pattern, plugins, modes, and UI layout.
 
 ---
