@@ -6,6 +6,10 @@ All notable changes to rvim are recorded here. Versions follow
 ## [Unreleased]
 
 ### Text objects
+- Tag text objects `it` / `at` select the innermost `<name>…</name>` element
+  enclosing the cursor, across lines and honouring nesting (self-closing tags are
+  skipped). `it` is the inner content, `at` the whole element — `cit`, `dat`,
+  `yit`, `vat`, etc.
 - Word and paragraph text objects now take a count: `d3iw` deletes three
   inner-word segments (word, space, word), `d2aw` two whole words with their
   whitespace, and `d2ap` two paragraphs. The count may also precede the operator

@@ -1967,6 +1967,48 @@
     }
 
     #[test]
+    fn tag_object_dit_single_line() {
+        let mut ed = ed_with("<a>hi</a>");
+        ed.cursor = Position::new(0, 3); // on 'h'
+        ed.handle_key(key('d'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('t'));
+        assert_eq!(ed.buffer.line(0), Some("<a></a>"));
+    }
+
+    #[test]
+    fn tag_object_dat_single_line() {
+        let mut ed = ed_with("<a>hi</a>");
+        ed.cursor = Position::new(0, 3);
+        ed.handle_key(key('d'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('t'));
+        assert_eq!(ed.buffer.line(0), Some(""));
+    }
+
+    #[test]
+    fn tag_object_dit_nested_multiline() {
+        let mut ed = ed_with("<div>\n  <p>text</p>\n</div>");
+        ed.cursor = Position::new(1, 5); // on 't' of "text", inside <p>
+        ed.handle_key(key('d'));
+        ed.handle_key(key('i'));
+        ed.handle_key(key('t'));
+        assert_eq!(ed.buffer.line(1), Some("  <p></p>"));
+        assert_eq!(ed.buffer.line_count(), 3);
+    }
+
+    #[test]
+    fn tag_object_dat_nested_removes_inner_pair() {
+        let mut ed = ed_with("<div>\n  <p>text</p>\n</div>");
+        ed.cursor = Position::new(1, 5);
+        ed.handle_key(key('d'));
+        ed.handle_key(key('a'));
+        ed.handle_key(key('t'));
+        assert_eq!(ed.buffer.line(1), Some("  "));
+        assert_eq!(ed.buffer.line_count(), 3);
+    }
+
+    #[test]
     fn counted_text_object_d2aw() {
         let mut ed = ed_with("foo bar baz");
         ed.cursor = Position::new(0, 0);
