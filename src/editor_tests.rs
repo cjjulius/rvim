@@ -214,6 +214,15 @@
     }
 
     #[test]
+    fn counted_star_search() {
+        let mut ed = ed_with("foo\nbar\nfoo\nbaz\nfoo");
+        ed.cursor = Position::new(0, 0); // on the first "foo"
+        ed.handle_key(key('2'));
+        ed.handle_key(key('*')); // jump to the 2nd next occurrence
+        assert_eq!(ed.cursor.row, 4);
+    }
+
+    #[test]
     fn counted_search_repeat() {
         let mut ed = ed_with("m0\nX\nX\nX\nm4");
         ed.cursor = Position::new(0, 0);

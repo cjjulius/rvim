@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Search
+- `*` / `#` (and `g*` / `g#`) take a count, so `3*` jumps to the third next
+  occurrence of the word under the cursor.
+
 ### Global command
 - `:g//cmd` (and `:v//cmd`) with an empty pattern reuse the last search pattern,
   so `/foo` then `:g//d` deletes every `foo` line. Running `:g/pat/…` also records
