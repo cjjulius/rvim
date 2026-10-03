@@ -1762,6 +1762,32 @@
     }
 
     #[test]
+    fn shiftround_rounds_indent_to_multiple() {
+        let mut ed = ed_with("  code"); // starts at 2 spaces
+        ed.shiftwidth = 4;
+        ed.shiftround = true;
+        ed.handle_key(key('>'));
+        ed.handle_key(key('>')); // 2 -> round up to 4
+        assert_eq!(ed.buffer.line(0), Some("    code"));
+        ed.handle_key(key('>'));
+        ed.handle_key(key('>')); // 4 -> 8 (already aligned, full shift)
+        assert_eq!(ed.buffer.line(0), Some("        code"));
+        ed.handle_key(key('<'));
+        ed.handle_key(key('<')); // 8 -> 4
+        assert_eq!(ed.buffer.line(0), Some("    code"));
+    }
+
+    #[test]
+    fn shiftround_dedent_from_unaligned() {
+        let mut ed = ed_with("     code"); // 5 spaces
+        ed.shiftwidth = 4;
+        ed.shiftround = true;
+        ed.handle_key(key('<'));
+        ed.handle_key(key('<')); // 5 -> round down to 4
+        assert_eq!(ed.buffer.line(0), Some("    code"));
+    }
+
+    #[test]
     fn noexpandtab_indents_with_tab() {
         let mut ed = ed_with("code");
         ed.expandtab = false;

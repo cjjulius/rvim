@@ -661,6 +661,10 @@ impl App {
                 self.editor.cursorcolumn = on;
                 self.editor.message = format!("cursorcolumn {}", if on { "on" } else { "off" });
             }
+            ExCommand::ToggleShiftRound(on) => {
+                self.editor.shiftround = on;
+                self.editor.message = format!("shiftround {}", if on { "on" } else { "off" });
+            }
             ExCommand::SetColorColumn(n) => {
                 self.editor.colorcolumn = n;
                 self.editor.message = format!("colorcolumn={n}");
