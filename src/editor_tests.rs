@@ -4800,3 +4800,49 @@
         std::env::remove_var("RVIM_CLIPBOARD");
         let _ = std::fs::remove_file(&path);
     }
+
+    #[test]
+    fn insert_ctrl_v_decimal_code() {
+        let mut ed = ed_with("");
+        ed.handle_key(key('i'));
+        ed.handle_key(ctrl('v'));
+        for c in "065".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("A"));
+    }
+
+    #[test]
+    fn insert_ctrl_v_hex_unicode() {
+        let mut ed = ed_with("");
+        ed.handle_key(key('i'));
+        ed.handle_key(ctrl('v'));
+        for c in "u00e9".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("é"));
+    }
+
+    #[test]
+    fn insert_ctrl_v_hex_byte() {
+        let mut ed = ed_with("");
+        ed.handle_key(key('i'));
+        ed.handle_key(ctrl('v'));
+        for c in "x41".chars() {
+            ed.handle_key(key(c));
+        }
+        assert_eq!(ed.buffer.line(0), Some("A"));
+    }
+
+    #[test]
+    fn insert_ctrl_v_literal_tab_ignores_expandtab() {
+        let mut ed = ed_with("");
+        ed.expandtab = true;
+        ed.tabstop = 4;
+        ed.handle_key(key('i'));
+        ed.handle_key(ctrl('v'));
+        ed.handle_key(special(KeyCode::Tab));
+        assert_eq!(ed.buffer.line(0), Some("\t"));
+    }

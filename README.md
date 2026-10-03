@@ -149,6 +149,10 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
 - **Insert mode:** autoindent on Enter (`:set autoindent`/`noai`), `Ctrl-w`
   (delete word before cursor), `Ctrl-u` (delete to line start), `Ctrl-r<reg>`
   (paste a register), `Ctrl-t`/`Ctrl-d` (indent/dedent line), `Tab`.
+- **Literal and numeric entry (`Ctrl-v`):** `Ctrl-v` then a key inserts it
+  literally (so `Ctrl-v Tab` inserts a real tab even with `expandtab`), or a
+  character code: decimal digits (`Ctrl-v 065` → `A`), `u` plus four hex digits
+  (`Ctrl-v u00e9` → `é`), `x` plus two hex, or `o` plus three octal.
 - **Digraphs (`Ctrl-k`):** `Ctrl-k` plus two characters inserts a special
   character — e.g. `Ctrl-k a:` → `ä`, `Ctrl-k e'` → `é`, `Ctrl-k n~` → `ñ`,
   `Ctrl-k ->` → `→`, `Ctrl-k Eu` → `€`, `Ctrl-k +-` → `±`. The two keys may be
@@ -527,7 +531,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **587 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **591 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, modes, and UI layout.
 
 ---

@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Insert mode
+- Literal / numeric entry with `Ctrl-v`: insert the next key verbatim (e.g.
+  `Ctrl-v Tab` for a real tab under `expandtab`), or a character code via decimal
+  digits, `u`+hex (unicode), `x`+hex, or `o`+octal.
+
 ### Registers
 - System clipboard: the `"+` and `"*` registers read and write the OS clipboard,
   so `"+y` copies to other applications and `"+p` pastes from them. Uses the
