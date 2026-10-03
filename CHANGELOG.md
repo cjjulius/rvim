@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Performance
+- Rendering skips folding syntax state from the top of the buffer for languages
+  with no line-spanning constructs (JSON, TOML, plain text, Z80), avoiding an
+  unnecessary full-buffer scan per frame in large files.
+
 ### Syntax
 - JSON highlighting (`.json`): strings, numbers, and the `true`/`false`/`null`
   literals are color-coded; detected by extension or `:set ft=json`.
