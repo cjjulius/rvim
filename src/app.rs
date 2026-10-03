@@ -665,6 +665,10 @@ impl App {
                 self.editor.shiftround = on;
                 self.editor.message = format!("shiftround {}", if on { "on" } else { "off" });
             }
+            ExCommand::ToggleJoinSpaces(on) => {
+                self.editor.joinspaces = on;
+                self.editor.message = format!("joinspaces {}", if on { "on" } else { "off" });
+            }
             ExCommand::SetColorColumn(n) => {
                 self.editor.colorcolumn = n;
                 self.editor.message = format!("colorcolumn={n}");

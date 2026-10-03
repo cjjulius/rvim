@@ -113,6 +113,8 @@ pub struct Editor {
     pub shiftwidth: usize,
     /// `:set shiftround` — round `>`/`<` indent to a multiple of `shiftwidth`.
     pub shiftround: bool,
+    /// `:set joinspaces` — `J` inserts two spaces after sentence punctuation.
+    pub joinspaces: bool,
     /// Visual width of a tab, and spaces inserted by Tab (`:set tabstop`).
     pub tabstop: usize,
     pub view_rows: usize,
@@ -320,6 +322,7 @@ impl Editor {
             expandtab: true,
             shiftwidth: 4,
             shiftround: false,
+            joinspaces: false,
             tabstop: 4,
             view_rows: 24,
             view_cols: 80,
@@ -734,6 +737,7 @@ impl Editor {
             "cursorcolumn" | "cuc" => flag(self.cursorcolumn, "cursorcolumn"),
             "shiftwidth" | "sw" => format!("shiftwidth={}", self.shiftwidth),
             "shiftround" | "sr" => flag(self.shiftround, "shiftround"),
+            "joinspaces" | "js" => flag(self.joinspaces, "joinspaces"),
             "tabstop" | "ts" => format!("tabstop={}", self.tabstop),
             "scrolloff" | "so" => format!("scrolloff={}", self.scrolloff),
             "sidescrolloff" | "siso" => format!("sidescrolloff={}", self.sidescrolloff),
@@ -825,8 +829,9 @@ impl Editor {
     const OPTION_NAMES: &'static [&'static str] = &[
         "number", "relativenumber", "hlsearch", "ignorecase", "smartcase",
         "incsearch", "autoindent", "expandtab", "list", "wrapscan", "cursorline",
-        "cursorcolumn", "shiftwidth", "shiftround", "tabstop", "scrolloff",
-        "sidescrolloff", "textwidth", "colorcolumn", "listchars", "filetype",
+        "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
+        "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
+        "filetype",
     ];
 
     /// A `:set` / `:set all` listing: one option per line with its current value.
@@ -1505,7 +1510,7 @@ impl Editor {
             let joined = if raw {
                 self.buffer.join_line_raw(a)
             } else {
-                self.buffer.join_line(a)
+                self.buffer.join_line(a, self.joinspaces)
             };
             if !joined {
                 break;
@@ -2022,9 +2027,9 @@ impl Editor {
         "filetype", "hlsearch", "ignorecase", "incsearch", "list", "listchars", "noautoindent",
         "nocursorcolumn", "nocursorline", "noexpandtab", "nohlsearch",
         "noignorecase", "noincsearch", "nolist", "nonumber", "norelativenumber",
-        "noshiftround", "nosmartcase", "nowrapscan", "number", "relativenumber",
-        "scrolloff", "shiftround", "shiftwidth", "sidescrolloff", "smartcase",
-        "tabstop", "textwidth", "wrapscan",
+        "joinspaces", "nojoinspaces", "noshiftround", "nosmartcase", "nowrapscan",
+        "number", "relativenumber", "scrolloff", "shiftround", "shiftwidth",
+        "sidescrolloff", "smartcase", "tabstop", "textwidth", "wrapscan",
     ];
 
     /// Tab completion on the `:` command line. Completes the first word against
@@ -3699,7 +3704,7 @@ impl Editor {
                 } else {
                     self.checkpoint();
                     for _ in 0..count.saturating_sub(1).max(1) {
-                        if !self.buffer.join_line(self.cursor.row) {
+                        if !self.buffer.join_line(self.cursor.row, self.joinspaces) {
                             break;
                         }
                     }
@@ -6054,7 +6059,7 @@ impl Editor {
             let ok = if raw {
                 self.buffer.join_line_raw(start.row)
             } else {
-                self.buffer.join_line(start.row)
+                self.buffer.join_line(start.row, self.joinspaces)
             };
             if !ok {
                 break;

@@ -1823,6 +1823,23 @@
     }
 
     #[test]
+    fn joinspaces_adds_two_spaces_after_sentence() {
+        // Off by default: one space even after a period.
+        let mut ed = ed_with("Done.\nNext");
+        ed.handle_key(key('J'));
+        assert_eq!(ed.buffer.line(0), Some("Done. Next"));
+        // On: two spaces after sentence punctuation, one otherwise.
+        let mut ed = ed_with("Done.\nNext");
+        ed.joinspaces = true;
+        ed.handle_key(key('J'));
+        assert_eq!(ed.buffer.line(0), Some("Done.  Next"));
+        let mut ed = ed_with("foo\nbar");
+        ed.joinspaces = true;
+        ed.handle_key(key('J'));
+        assert_eq!(ed.buffer.line(0), Some("foo bar"));
+    }
+
+    #[test]
     fn paragraph_motions() {
         let mut ed = ed_with("a\nb\n\nc\nd\n\ne");
         ed.handle_key(key('}')); // to first blank (row 2)

@@ -10,6 +10,10 @@ All notable changes to rvim are recorded here. Versions follow
   indent snaps to 4 instead of 6). Off by default; `:set noshiftround` restores
   the plain add/remove behavior.
 
+### Editing
+- `:set joinspaces` makes `J` insert two spaces after a line ending in `.`, `!`,
+  or `?` (vim's 'joinspaces'). Off by default.
+
 ### UI
 - `listchars` gains an `eol:` marker: `:set listchars=...,eol:#` sets the
   end-of-line glyph shown under `:set list` (previously a hardcoded `$`).

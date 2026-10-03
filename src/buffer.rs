@@ -261,7 +261,7 @@ impl Buffer {
 
     /// Join `row + 1` onto the end of `row` (with a single space, vim-style),
     /// returning true if a join happened.
-    pub fn join_line(&mut self, row: usize) -> bool {
+    pub fn join_line(&mut self, row: usize, joinspaces: bool) -> bool {
         if row + 1 >= self.lines.len() {
             return false;
         }
@@ -269,7 +269,13 @@ impl Buffer {
         let trimmed = next.trim_start();
         let cur = &mut self.lines[row];
         if !cur.is_empty() && !trimmed.is_empty() {
+            // With `joinspaces`, a line ending in sentence punctuation gets two
+            // spaces instead of one (vim's 'joinspaces').
+            let sentence_end = cur.ends_with(['.', '!', '?']);
             cur.push(' ');
+            if joinspaces && sentence_end {
+                cur.push(' ');
+            }
         }
         cur.push_str(trimmed);
         self.touch();
@@ -377,7 +383,7 @@ mod tests {
         b.split_line(Position::new(0, 5));
         assert_eq!(b.line(0), Some("hello"));
         assert_eq!(b.line(1), Some(" world"));
-        assert!(b.join_line(0));
+        assert!(b.join_line(0, false));
         assert_eq!(b.line(0), Some("hello world"));
     }
 
