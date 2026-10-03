@@ -2915,11 +2915,13 @@ impl Editor {
         }
         let row = self.cursor.row;
         let chars: Vec<char> = self.buffer.line(row).unwrap_or("").chars().collect();
-        if chars.len() <= tw {
+        let limit = self.cursor.col.min(chars.len());
+        // Measure display columns up to the cursor so tabs count by their width.
+        let prefix: String = chars[..limit].iter().collect();
+        if Self::expand_tabs(&prefix, self.tabstop.max(1)).chars().count() <= tw {
             return;
         }
         // Find the last blank strictly before the cursor to break on.
-        let limit = self.cursor.col.min(chars.len());
         let Some(brk) = (0..limit).rev().find(|&i| chars[i] == ' ' || chars[i] == '\t') else {
             return;
         };
