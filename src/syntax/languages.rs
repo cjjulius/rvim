@@ -39,8 +39,43 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         )),
         Box::new(Z80Highlighter::new()),
         Box::new(SpecHighlighter::new(json_spec())),
+        Box::new(SpecHighlighter::new(python_spec())),
     ]
 }
+
+// ---- Python --------------------------------------------------------------
+
+fn python_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Python,
+        line_comments: &["#"],
+        block_comment: None,
+        keywords: PYTHON_KEYWORDS,
+        types: PYTHON_TYPES,
+        builtins: PYTHON_BUILTINS,
+        string_delims: &['"', '\''],
+        case_insensitive: false,
+        var_sigils: &[],
+        detect_calls: true,
+    }
+}
+
+const PYTHON_KEYWORDS: &[&str] = &[
+    "False", "None", "True", "and", "as", "assert", "async", "await", "break", "class",
+    "continue", "def", "del", "elif", "else", "except", "finally", "for", "from", "global", "if",
+    "import", "in", "is", "lambda", "nonlocal", "not", "or", "pass", "raise", "return", "try",
+    "while", "with", "yield", "match", "case",
+];
+const PYTHON_TYPES: &[&str] = &[
+    "int", "float", "complex", "bool", "str", "bytes", "bytearray", "list", "tuple", "dict", "set",
+    "frozenset", "object", "type", "memoryview",
+];
+const PYTHON_BUILTINS: &[&str] = &[
+    "print", "len", "range", "enumerate", "zip", "map", "filter", "open", "input", "isinstance",
+    "issubclass", "super", "getattr", "setattr", "hasattr", "sorted", "reversed", "sum", "min",
+    "max", "abs", "round", "repr", "format", "iter", "next", "any", "all", "id", "hash", "vars",
+    "dir", "callable", "staticmethod", "classmethod", "property",
+];
 
 // ---- JSON ----------------------------------------------------------------
 
@@ -392,6 +427,16 @@ mod tests {
         assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "on"
         assert!(toks.iter().any(|t| t.kind == TokenKind::Number)); // 42
         assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // true/null
+    }
+
+    #[test]
+    fn python_highlights_keyword_type_builtin() {
+        let h = SpecHighlighter::new(python_spec());
+        let toks = h.highlight_line("def f(x: int) -> str: return str(len(x))  # note");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // def/return
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // int/str
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // len
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // # note
     }
 
     #[test]

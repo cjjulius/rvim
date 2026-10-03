@@ -58,6 +58,7 @@ pub enum Language {
     SnowflakeSql,
     Z80,
     Json,
+    Python,
 }
 
 impl Language {
@@ -73,6 +74,7 @@ impl Language {
             Language::SnowflakeSql => "snowflake",
             Language::Z80 => "z80",
             Language::Json => "json",
+            Language::Python => "python",
         }
     }
 
@@ -88,6 +90,7 @@ impl Language {
             "snowflake" | "snow" | "snowsql" => Language::SnowflakeSql,
             "z80" | "asm" | "assembly" => Language::Z80,
             "json" => Language::Json,
+            "python" | "py" => Language::Python,
             _ => return None,
         })
     }
@@ -103,6 +106,7 @@ pub fn line_comment_token(lang: Language) -> Option<&'static str> {
         | Language::TrinoSql
         | Language::SnowflakeSql => Some("--"),
         Language::Z80 => Some(";"),
+        Language::Python => Some("#"),
         // Strict JSON has no comments.
         Language::Json | Language::PlainText => None,
     }
@@ -121,6 +125,7 @@ pub fn detect_language(path: Option<&Path>, first_line: &str) -> Language {
                 "snow" | "snowsql" | "snowflake" => return Language::SnowflakeSql,
                 "z80" | "asm" | "s" => return Language::Z80,
                 "json" => return Language::Json,
+                "py" | "pyw" => return Language::Python,
                 "sql" => {
                     // Refine a generic .sql file by a leading dialect hint comment,
                     // e.g. `-- dialect: pgsql`.
@@ -133,6 +138,9 @@ pub fn detect_language(path: Option<&Path>, first_line: &str) -> Language {
     }
     // Content-based fallbacks.
     let l = first_line.trim_start();
+    if l.starts_with("#!") && l.to_ascii_lowercase().contains("python") {
+        return Language::Python;
+    }
     if l.starts_with(";") && l.to_ascii_lowercase().contains("z80") {
         return Language::Z80;
     }
@@ -560,6 +568,18 @@ mod tests {
         assert_eq!(
             detect_language(Some(&PathBuf::from("pkg.json")), ""),
             Language::Json
+        );
+        assert_eq!(
+            detect_language(Some(&PathBuf::from("app.py")), ""),
+            Language::Python
+        );
+    }
+
+    #[test]
+    fn detect_python_by_shebang() {
+        assert_eq!(
+            detect_language(None, "#!/usr/bin/env python3"),
+            Language::Python
         );
     }
 
