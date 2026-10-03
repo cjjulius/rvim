@@ -8,6 +8,9 @@ All notable changes to rvim are recorded here. Versions follow
 ### Syntax
 - JSON highlighting (`.json`): strings, numbers, and the `true`/`false`/`null`
   literals are color-coded; detected by extension or `:set ft=json`.
+- Python highlighting (`.py`, `.pyw`): keywords, builtin types and functions,
+  strings, numbers, and `#` comments; detected by extension, a `python` shebang,
+  or `:set ft=python`.
 
 ### Themes
 - New built-in `gruvbox` dark theme (`:theme gruvbox`), the popular warm retro
