@@ -436,8 +436,9 @@ then tokenized and color-coded:
 
 A generic `.sql` file can be pinned to a dialect with a first-line hint such as
 `-- dialect: trino`, or at runtime with `:set ft=snowflake`. Block comments
-(`/* … */`) are tracked across line boundaries, so multi-line comments stay
-correctly colored even when scrolled.
+(`/* … */`) and Python triple-quoted strings (`""" … """`) are tracked across
+line boundaries, so multi-line comments and docstrings stay correctly colored
+even when scrolled.
 
 ### Accessibility & navigation
 - **High-contrast theme** (`:theme high-contrast`) — pure black/white chrome with
@@ -543,7 +544,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **605 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **606 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, modes, and UI layout.
 
 ---

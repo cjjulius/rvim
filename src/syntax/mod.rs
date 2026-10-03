@@ -209,6 +209,9 @@ pub struct LangSpec {
     pub var_sigils: &'static [char],
     /// Mark `ident(` as a function call.
     pub detect_calls: bool,
+    /// Multi-line string delimiters (e.g. Python's `"""` / `'''`). A string opened
+    /// with one of these runs until the next matching delimiter, across lines.
+    pub multiline_strings: &'static [&'static str],
 }
 
 /// A [`Highlighter`] driven entirely by a [`LangSpec`], plus prebuilt lookup
@@ -271,6 +274,16 @@ impl SpecHighlighter {
             None
         }
     }
+
+    /// Byte position (and delimiter) of the earliest multi-line string delimiter
+    /// in `line` at or after byte offset `from`.
+    fn find_multiline_delim(&self, line: &str, from: usize) -> Option<(usize, &'static str)> {
+        self.spec
+            .multiline_strings
+            .iter()
+            .filter_map(|d| line[from..].find(*d).map(|p| (from + p, *d)))
+            .min_by_key(|&(p, _)| p)
+    }
 }
 
 fn is_ident_start(c: char) -> bool {
@@ -317,6 +330,22 @@ impl Highlighter for SpecHighlighter {
                     tokens.push(Token::new(0, end_byte, TokenKind::Comment));
                     return (tokens, true);
                 }
+            } else if !self.spec.multiline_strings.is_empty() {
+                // Resuming a multi-line string: run to the first closing delimiter,
+                // or the whole line (staying in-string).
+                match self.find_multiline_delim(line, 0) {
+                    Some((p, d)) => {
+                        let end = p + d.len();
+                        tokens.push(Token::new(0, end, TokenKind::String));
+                        while i < chars.len() && chars[i].0 < end {
+                            i += 1;
+                        }
+                    }
+                    None => {
+                        tokens.push(Token::new(0, end_byte, TokenKind::String));
+                        return (tokens, true);
+                    }
+                }
             }
         }
 
@@ -359,6 +388,31 @@ impl Highlighter for SpecHighlighter {
                             tokens.push(Token::new(start_b, end_byte, TokenKind::Comment));
                             return (tokens, true);
                         }
+                    }
+                }
+            }
+
+            // Multi-line strings (e.g. Python triple quotes). Checked before the
+            // single-char string rule so `"""` is not read as an empty `""`.
+            if let Some(open) = self
+                .spec
+                .multiline_strings
+                .iter()
+                .find(|d| rest.starts_with(**d))
+            {
+                let after = start_b + open.len();
+                match self.find_multiline_delim(line, after) {
+                    Some((p, d)) => {
+                        let close_at = p + d.len();
+                        tokens.push(Token::new(start_b, close_at, TokenKind::String));
+                        while i < chars.len() && chars[i].0 < close_at {
+                            i += 1;
+                        }
+                        continue;
+                    }
+                    None => {
+                        tokens.push(Token::new(start_b, end_byte, TokenKind::String));
+                        return (tokens, true);
                     }
                 }
             }
@@ -653,6 +707,21 @@ mod tests {
         assert!(!done);
         assert!(end.iter().any(|t| t.kind == TokenKind::Comment));
         assert!(end.iter().any(|t| t.kind == TokenKind::Keyword)); // `let`
+    }
+
+    #[test]
+    fn python_triple_string_spans_lines() {
+        let r = Registry::with_builtins();
+        // Opening line: the docstring starts and does not close.
+        let (t0, in_s) = r.highlight_stateful(Language::Python, "x = \"\"\"start", false);
+        assert!(in_s);
+        assert!(t0.iter().any(|t| t.kind == TokenKind::String));
+        // Middle line: entirely string, still open.
+        let (_t1, still) = r.highlight_stateful(Language::Python, "middle text", true);
+        assert!(still);
+        // Closing line: ends the string.
+        let (_t2, done) = r.highlight_stateful(Language::Python, "end\"\"\" + y", true);
+        assert!(!done);
     }
 
     #[test]
