@@ -180,23 +180,36 @@ fn sniff_sql_dialect(line: &str) -> Option<Language> {
     }
 }
 
+/// Carry-over state between lines: whether a line begins inside a multi-line
+/// construct. A single value distinguishes block comments from each multi-line
+/// string delimiter, so a language with both (e.g. JavaScript) tracks them
+/// independently.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LineState {
+    /// Not inside any multi-line construct.
+    #[default]
+    Normal,
+    /// Inside a block comment (`/* … */`).
+    Block,
+    /// Inside a multi-line string opened with `multiline_strings[idx]`.
+    MultiStr(usize),
+}
+
 /// The interface every highlighter implements.
 ///
-/// Highlighting is line-based, but a single `bool` of carry-over state
-/// (`in_block` — "this line begins inside a block comment") lets multi-line
-/// constructs like `/* … */` span lines. Stateless callers use
-/// [`highlight_line`](Highlighter::highlight_line).
+/// Highlighting is line-based, but a [`LineState`] of carry-over state lets
+/// multi-line constructs (block comments, triple-quoted / template strings)
+/// span lines. Stateless callers use [`highlight_line`](Highlighter::highlight_line).
 pub trait Highlighter: Send + Sync {
     fn language(&self) -> Language;
 
-    /// Highlight `line`, given whether it starts inside a block comment.
-    /// Returns the tokens and whether the *next* line starts inside a block
-    /// comment.
-    fn highlight_line_stateful(&self, line: &str, in_block: bool) -> (Vec<Token>, bool);
+    /// Highlight `line`, given the carry-over state it begins in. Returns the
+    /// tokens and the state the *next* line begins in.
+    fn highlight_line_stateful(&self, line: &str, state: LineState) -> (Vec<Token>, LineState);
 
-    /// Convenience: highlight a standalone line (not inside a block comment).
+    /// Convenience: highlight a standalone line (not inside any construct).
     fn highlight_line(&self, line: &str) -> Vec<Token> {
-        self.highlight_line_stateful(line, false).0
+        self.highlight_line_stateful(line, LineState::Normal).0
     }
 
     /// Whether this language has any construct that spans lines (block comments
@@ -289,16 +302,6 @@ impl SpecHighlighter {
             None
         }
     }
-
-    /// Byte position (and delimiter) of the earliest multi-line string delimiter
-    /// in `line` at or after byte offset `from`.
-    fn find_multiline_delim(&self, line: &str, from: usize) -> Option<(usize, &'static str)> {
-        self.spec
-            .multiline_strings
-            .iter()
-            .filter_map(|d| line[from..].find(*d).map(|p| (from + p, *d)))
-            .min_by_key(|&(p, _)| p)
-    }
 }
 
 fn is_ident_start(c: char) -> bool {
@@ -326,7 +329,7 @@ impl Highlighter for SpecHighlighter {
         self.spec.language
     }
 
-    fn highlight_line_stateful(&self, line: &str, in_block: bool) -> (Vec<Token>, bool) {
+    fn highlight_line_stateful(&self, line: &str, state: LineState) -> (Vec<Token>, LineState) {
         let chars: Vec<(usize, char)> = line.char_indices().collect();
         let end_byte = line.len();
         let mut tokens = Vec::new();
@@ -337,32 +340,40 @@ impl Highlighter for SpecHighlighter {
 
         // If we begin inside a block comment, consume up to its closer (or the
         // whole line, staying in-block).
-        if in_block {
-            if let Some((_open, close)) = self.spec.block_comment {
-                if let Some(p) = line.find(close) {
-                    let end = p + close.len();
-                    tokens.push(Token::new(0, end, TokenKind::Comment));
-                    while i < chars.len() && chars[i].0 < end {
-                        i += 1;
-                    }
-                } else {
-                    tokens.push(Token::new(0, end_byte, TokenKind::Comment));
-                    return (tokens, true);
-                }
-            } else if !self.spec.multiline_strings.is_empty() {
-                // Resuming a multi-line string: run to the first closing delimiter,
-                // or the whole line (staying in-string).
-                match self.find_multiline_delim(line, 0) {
-                    Some((p, d)) => {
-                        let end = p + d.len();
-                        tokens.push(Token::new(0, end, TokenKind::String));
+        match state {
+            LineState::Normal => {}
+            LineState::Block => {
+                if let Some((_open, close)) = self.spec.block_comment {
+                    if let Some(p) = line.find(close) {
+                        let end = p + close.len();
+                        tokens.push(Token::new(0, end, TokenKind::Comment));
                         while i < chars.len() && chars[i].0 < end {
                             i += 1;
                         }
+                    } else {
+                        tokens.push(Token::new(0, end_byte, TokenKind::Comment));
+                        return (tokens, LineState::Block);
                     }
-                    None => {
-                        tokens.push(Token::new(0, end_byte, TokenKind::String));
-                        return (tokens, true);
+                }
+            }
+            LineState::MultiStr(idx) => {
+                // Resuming a multi-line string: run to its own closing delimiter,
+                // or the whole line (staying in-string). An out-of-range idx (which
+                // should not happen for the current language) falls through as
+                // Normal rather than sticking in-string forever.
+                if let Some(&delim) = self.spec.multiline_strings.get(idx) {
+                    match line.find(delim) {
+                        Some(p) => {
+                            let end = p + delim.len();
+                            tokens.push(Token::new(0, end, TokenKind::String));
+                            while i < chars.len() && chars[i].0 < end {
+                                i += 1;
+                            }
+                        }
+                        None => {
+                            tokens.push(Token::new(0, end_byte, TokenKind::String));
+                            return (tokens, LineState::MultiStr(idx));
+                        }
                     }
                 }
             }
@@ -405,24 +416,26 @@ impl Highlighter for SpecHighlighter {
                         }
                         None => {
                             tokens.push(Token::new(start_b, end_byte, TokenKind::Comment));
-                            return (tokens, true);
+                            return (tokens, LineState::Block);
                         }
                     }
                 }
             }
 
-            // Multi-line strings (e.g. Python triple quotes). Checked before the
-            // single-char string rule so `"""` is not read as an empty `""`.
-            if let Some(open) = self
+            // Multi-line strings (e.g. Python triple quotes, JS template literals).
+            // Checked before the single-char string rule so `"""` is not read as
+            // an empty `""`.
+            if let Some(idx) = self
                 .spec
                 .multiline_strings
                 .iter()
-                .find(|d| rest.starts_with(**d))
+                .position(|d| rest.starts_with(*d))
             {
+                let open = self.spec.multiline_strings[idx];
                 let after = start_b + open.len();
-                match self.find_multiline_delim(line, after) {
-                    Some((p, d)) => {
-                        let close_at = p + d.len();
+                match line[after..].find(open) {
+                    Some(p) => {
+                        let close_at = after + p + open.len();
                         tokens.push(Token::new(start_b, close_at, TokenKind::String));
                         while i < chars.len() && chars[i].0 < close_at {
                             i += 1;
@@ -431,7 +444,7 @@ impl Highlighter for SpecHighlighter {
                     }
                     None => {
                         tokens.push(Token::new(start_b, end_byte, TokenKind::String));
-                        return (tokens, true);
+                        return (tokens, LineState::MultiStr(idx));
                     }
                 }
             }
@@ -538,7 +551,7 @@ impl Highlighter for SpecHighlighter {
             i += 1;
         }
 
-        (tokens, false)
+        (tokens, LineState::Normal)
     }
 }
 
@@ -589,29 +602,34 @@ impl Registry {
         }
     }
 
-    /// Stateful highlight carrying block-comment state across lines. Returns the
-    /// tokens and whether the next line starts inside a block comment.
-    pub fn highlight_stateful(&self, lang: Language, line: &str, in_block: bool) -> (Vec<Token>, bool) {
+    /// Stateful highlight carrying multi-line state across lines. Returns the
+    /// tokens and the state the next line begins in.
+    pub fn highlight_stateful(
+        &self,
+        lang: Language,
+        line: &str,
+        state: LineState,
+    ) -> (Vec<Token>, LineState) {
         match self.get(lang) {
-            Some(h) => h.highlight_line_stateful(line, in_block),
-            None => (Vec::new(), false),
+            Some(h) => h.highlight_line_stateful(line, state),
+            None => (Vec::new(), LineState::Normal),
         }
     }
 
-    /// Compute whether the line at `row` begins inside a block comment, by
-    /// folding state from the top of the buffer.
-    pub fn block_state_at(&self, lang: Language, lines: &[String], row: usize) -> bool {
+    /// Compute the carry-over state the line at `row` begins in, by folding state
+    /// from the top of the buffer.
+    pub fn block_state_at(&self, lang: Language, lines: &[String], row: usize) -> LineState {
         // Languages without any line-spanning construct never carry state, so skip
         // folding from the top of the buffer entirely.
         match self.get(lang) {
             Some(h) if h.has_multiline() => {}
-            _ => return false,
+            _ => return LineState::Normal,
         }
-        let mut in_block = false;
+        let mut state = LineState::Normal;
         for line in lines.iter().take(row) {
-            in_block = self.highlight_stateful(lang, line, in_block).1;
+            state = self.highlight_stateful(lang, line, state).1;
         }
-        in_block
+        state
     }
 }
 
@@ -721,19 +739,21 @@ mod tests {
     fn block_comment_spans_lines() {
         let r = Registry::with_builtins();
         // Opening without a closer leaves the next line in-block.
-        let (toks, in_block) = r.highlight_stateful(Language::Rust, "let x = 1; /* start", false);
-        assert!(in_block);
+        let (toks, in_block) =
+            r.highlight_stateful(Language::Rust, "let x = 1; /* start", LineState::Normal);
+        assert_eq!(in_block, LineState::Block);
         assert!(toks.iter().any(|t| t.kind == TokenKind::Comment));
 
         // A fully-commented middle line stays in-block.
-        let (mid, still) = r.highlight_stateful(Language::Rust, "still comment", true);
-        assert!(still);
+        let (mid, still) = r.highlight_stateful(Language::Rust, "still comment", LineState::Block);
+        assert_eq!(still, LineState::Block);
         assert_eq!(mid.len(), 1);
         assert_eq!(mid[0].kind, TokenKind::Comment);
 
         // The closer ends the block; code after it is highlighted again.
-        let (end, done) = r.highlight_stateful(Language::Rust, "done */ let y = 2;", true);
-        assert!(!done);
+        let (end, done) =
+            r.highlight_stateful(Language::Rust, "done */ let y = 2;", LineState::Block);
+        assert_eq!(done, LineState::Normal);
         assert!(end.iter().any(|t| t.kind == TokenKind::Comment));
         assert!(end.iter().any(|t| t.kind == TokenKind::Keyword)); // `let`
     }
@@ -745,24 +765,52 @@ mod tests {
         assert!(r.get(Language::Python).unwrap().has_multiline()); // triple strings
         assert!(!r.get(Language::Json).unwrap().has_multiline());
         assert!(!r.get(Language::Toml).unwrap().has_multiline());
-        // No-multiline languages still report a correct (false) block state.
+        // No-multiline languages still report a correct (Normal) state.
         let lines = vec!["{".to_string(), "  \"a\": 1".to_string(), "}".to_string()];
-        assert!(!r.block_state_at(Language::Json, &lines, 2));
+        assert_eq!(r.block_state_at(Language::Json, &lines, 2), LineState::Normal);
     }
 
     #[test]
     fn python_triple_string_spans_lines() {
         let r = Registry::with_builtins();
         // Opening line: the docstring starts and does not close.
-        let (t0, in_s) = r.highlight_stateful(Language::Python, "x = \"\"\"start", false);
-        assert!(in_s);
+        let (t0, in_s) = r.highlight_stateful(Language::Python, "x = \"\"\"start", LineState::Normal);
+        assert_eq!(in_s, LineState::MultiStr(0)); // """ is delimiter 0
         assert!(t0.iter().any(|t| t.kind == TokenKind::String));
         // Middle line: entirely string, still open.
-        let (_t1, still) = r.highlight_stateful(Language::Python, "middle text", true);
-        assert!(still);
+        let (_t1, still) =
+            r.highlight_stateful(Language::Python, "middle text", LineState::MultiStr(0));
+        assert_eq!(still, LineState::MultiStr(0));
         // Closing line: ends the string.
-        let (_t2, done) = r.highlight_stateful(Language::Python, "end\"\"\" + y", true);
-        assert!(!done);
+        let (_t2, done) =
+            r.highlight_stateful(Language::Python, "end\"\"\" + y", LineState::MultiStr(0));
+        assert_eq!(done, LineState::Normal);
+    }
+
+    #[test]
+    fn python_single_quote_triple_string_uses_second_delimiter() {
+        let r = Registry::with_builtins();
+        // Opening with ''' carries the second delimiter (index 1), so a stray
+        // """ inside does not close it.
+        let (_t, s) = r.highlight_stateful(Language::Python, "x = '''start", LineState::Normal);
+        assert_eq!(s, LineState::MultiStr(1));
+        let (_t2, s2) = r.highlight_stateful(Language::Python, "has \"\"\" inside", s);
+        assert_eq!(s2, LineState::MultiStr(1)); // """ must not close a ''' block
+        let (_t3, s3) = r.highlight_stateful(Language::Python, "end''' x", s2);
+        assert_eq!(s3, LineState::Normal);
+    }
+
+    #[test]
+    fn javascript_template_literal_and_block_comment_track_independently() {
+        let r = Registry::with_builtins();
+        // A template literal opens and spans into the next line.
+        let (_t, s) = r.highlight_stateful(Language::JavaScript, "const x = `line1", LineState::Normal);
+        assert_eq!(s, LineState::MultiStr(0));
+        let (_t2, s2) = r.highlight_stateful(Language::JavaScript, "still string`;", s);
+        assert_eq!(s2, LineState::Normal);
+        // A block comment is tracked separately from template-literal state.
+        let (_c, cs) = r.highlight_stateful(Language::JavaScript, "a /* open", LineState::Normal);
+        assert_eq!(cs, LineState::Block);
     }
 
     #[test]
@@ -772,17 +820,18 @@ mod tests {
             .iter()
             .map(|s| s.to_string())
             .collect();
-        assert!(!r.block_state_at(Language::Rust, &lines, 0)); // line 0 not in block
-        assert!(r.block_state_at(Language::Rust, &lines, 1)); // line 1 inside
-        assert!(r.block_state_at(Language::Rust, &lines, 2)); // line 2 starts inside
-        assert!(!r.block_state_at(Language::Rust, &lines, 3)); // line 3 after close
+        assert_eq!(r.block_state_at(Language::Rust, &lines, 0), LineState::Normal); // line 0
+        assert_eq!(r.block_state_at(Language::Rust, &lines, 1), LineState::Block); // inside
+        assert_eq!(r.block_state_at(Language::Rust, &lines, 2), LineState::Block); // inside
+        assert_eq!(r.block_state_at(Language::Rust, &lines, 3), LineState::Normal); // after close
     }
 
     #[test]
     fn single_line_block_comment_still_works() {
         let r = Registry::with_builtins();
-        let (toks, in_block) = r.highlight_stateful(Language::Rust, "a /* c */ let b", false);
-        assert!(!in_block);
+        let (toks, in_block) =
+            r.highlight_stateful(Language::Rust, "a /* c */ let b", LineState::Normal);
+        assert_eq!(in_block, LineState::Normal);
         assert!(toks.iter().any(|t| t.kind == TokenKind::Comment));
         assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword));
     }

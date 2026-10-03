@@ -5,7 +5,7 @@
 //! gets a hand-written [`Highlighter`].
 
 use super::{
-    Highlighter, LangSpec, Language, SpecHighlighter, Token, TokenKind,
+    Highlighter, LangSpec, Language, LineState, SpecHighlighter, Token, TokenKind,
 };
 
 /// Construct every built-in highlighter.
@@ -50,15 +50,15 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
 fn javascript_spec() -> LangSpec {
     LangSpec {
         language: Language::JavaScript,
-        // Template literals use the backtick; kept as a single-line string here
-        // because the per-line carry is already used by block comments.
-        multiline_strings: &[],
+        // Backtick template literals span lines; tracked independently from block
+        // comments by the per-line LineState.
+        multiline_strings: &["`"],
         line_comments: &["//"],
         block_comment: Some(("/*", "*/")),
         keywords: JS_KEYWORDS,
         types: JS_TYPES,
         builtins: JS_BUILTINS,
-        string_delims: &['"', '\'', '`'],
+        string_delims: &['"', '\''],
         case_insensitive: false,
         var_sigils: &[],
         detect_calls: true,
@@ -338,8 +338,8 @@ impl Highlighter for Z80Highlighter {
         Language::Z80
     }
 
-    fn highlight_line_stateful(&self, line: &str, _in_block: bool) -> (Vec<Token>, bool) {
-        (self.highlight_line_impl(line), false)
+    fn highlight_line_stateful(&self, line: &str, _state: LineState) -> (Vec<Token>, LineState) {
+        (self.highlight_line_impl(line), LineState::Normal)
     }
 }
 

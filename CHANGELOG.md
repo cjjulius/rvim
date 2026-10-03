@@ -36,6 +36,9 @@ All notable changes to rvim are recorded here. Versions follow
 - Multi-line strings are tracked across lines (via `LangSpec.multiline_strings`),
   so Python triple-quoted strings and docstrings stay colored past the first
   line.
+- Per-line syntax state widened to a `LineState` enum, so a language can track
+  block comments and multi-line strings independently; JavaScript template
+  literals now span lines correctly alongside `/* */` comments.
 
 ### Themes
 - New built-in `gruvbox` dark theme (`:theme gruvbox`), the popular warm retro
