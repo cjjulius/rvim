@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Editing
+- `:set matchpairs` configures the bracket pairs `%` jumps between, so you can add
+  pairs like `<:>` for HTML/XML (`:set matchpairs=(:),{:},[:],<:>`).
+
 ### Mouse
 - Drag-to-select: with `:set mouse`, dragging the left button starts and extends
   a character-wise visual selection; a plain click clears it and repositions.

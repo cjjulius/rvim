@@ -663,6 +663,7 @@ impl App {
                 self.editor.message = format!("list {}", if on { "on" } else { "off" });
             }
             ExCommand::SetListchars(spec) => self.editor.set_listchars(&spec),
+            ExCommand::SetMatchPairs(spec) => self.editor.set_matchpairs(&spec),
             ExCommand::ToggleWrapScan(on) => {
                 self.editor.wrapscan = on;
                 self.editor.message = format!("wrapscan {}", if on { "on" } else { "off" });

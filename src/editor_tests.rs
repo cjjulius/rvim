@@ -389,6 +389,24 @@
     }
 
     #[test]
+    fn matchpairs_custom_angle_brackets() {
+        let mut ed = ed_with("a<b>c");
+        // Default pairs don't include <>, so % finds nothing special.
+        ed.set_matchpairs("(:),{:},[:],<:>");
+        assert_eq!(ed.matchpairs.len(), 4);
+        ed.cursor = Position::new(0, 1); // on '<'
+        ed.handle_key(key('%'));
+        assert_eq!(ed.cursor.col, 3); // matching '>'
+    }
+
+    #[test]
+    fn matchpairs_bad_spec_keeps_previous() {
+        let mut ed = ed_with("");
+        ed.set_matchpairs("garbage,x"); // no valid o:c items
+        assert_eq!(ed.matchpairs, vec![('(', ')'), ('[', ']'), ('{', '}')]);
+    }
+
+    #[test]
     fn ctrl_f_and_b_page_scroll() {
         let mut ed = big_buffer(100); // view_rows = 10 -> step = 8 (2-line overlap)
         ed.handle_key(ctrl('f'));

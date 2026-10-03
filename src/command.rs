@@ -178,6 +178,8 @@ pub enum ExCommand {
     SetColorColumn(usize),
     /// `:set listchars=tab:xy,trail:z` — configure the `:set list` markers.
     SetListchars(String),
+    /// `:set matchpairs=(:),{:}` — configure the pairs `%` jumps between.
+    SetMatchPairs(String),
     /// `:sort` / `:sort!` / `:sort u` — sort buffer lines.
     Sort {
         range: SubRange,
@@ -915,6 +917,11 @@ fn parse_set(rest: &str) -> ExCommand {
                 .or_else(|| opt.strip_prefix("lcs="))
             {
                 ExCommand::SetListchars(v.to_string())
+            } else if let Some(v) = opt
+                .strip_prefix("matchpairs=")
+                .or_else(|| opt.strip_prefix("mps="))
+            {
+                ExCommand::SetMatchPairs(v.to_string())
             } else if let Some(v) = opt
                 .strip_prefix("ft=")
                 .or_else(|| opt.strip_prefix("filetype="))
