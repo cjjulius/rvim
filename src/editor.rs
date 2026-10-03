@@ -784,6 +784,26 @@ impl Editor {
         }
     }
 
+    /// vim's ruler scroll-position indicator: `All` when the whole buffer fits on
+    /// screen, `Top` / `Bot` when the first / last line is visible, otherwise the
+    /// percentage of the file above the window top.
+    pub fn scroll_indicator(&self) -> String {
+        let total = self.buffer.line_count();
+        let above = self.top;
+        let below = total.saturating_sub(self.top + self.view_rows);
+        if below == 0 {
+            if above == 0 {
+                "All".into()
+            } else {
+                "Bot".into()
+            }
+        } else if above == 0 {
+            "Top".into()
+        } else {
+            format!("{}%", (above * 100 / total.max(1)).min(99))
+        }
+    }
+
     /// Canonical option names shown by `:set` / `:set all`, in display order.
     const OPTION_NAMES: &'static [&'static str] = &[
         "number", "relativenumber", "hlsearch", "ignorecase", "smartcase",

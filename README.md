@@ -461,6 +461,9 @@ correctly colored even when scrolled.
   the instant the command completes or is cancelled. In visual mode the same
   corner shows the selection size — column or line count, or `rows x cols` for a
   block — so you always know how much is selected.
+- **Scroll position (ruler)** — the status line shows `Top`, `Bot`, or `All` when
+  the top, bottom, or whole file is on screen, and a percentage otherwise, so you
+  can see where you are in a long file at a glance.
 
 ### Mouse support
 `:set mouse` enables click-to-position and scroll-wheel paging;
@@ -534,7 +537,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **596 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **597 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, modes, and UI layout.
 
 ---

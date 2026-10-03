@@ -4802,6 +4802,24 @@
     }
 
     #[test]
+    fn scroll_indicator_all_top_bot_percent() {
+        let mut ed = ed_with("a\nb\nc");
+        ed.view_rows = 24;
+        ed.top = 0;
+        assert_eq!(ed.scroll_indicator(), "All");
+
+        let big: String = (0..50).map(|n| format!("line{n}\n")).collect();
+        let mut ed = ed_with(big.trim_end());
+        ed.view_rows = 10;
+        ed.top = 0;
+        assert_eq!(ed.scroll_indicator(), "Top");
+        ed.top = 40;
+        assert_eq!(ed.scroll_indicator(), "Bot");
+        ed.top = 20;
+        assert_eq!(ed.scroll_indicator(), "40%");
+    }
+
+    #[test]
     fn textwidth_auto_wraps_on_insert() {
         let mut ed = ed_with("");
         ed.textwidth = 10;

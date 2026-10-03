@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### UI
+- Status line scroll indicator: shows `Top`, `Bot`, or `All` when the top,
+  bottom, or whole file is visible, and a file percentage otherwise (vim's ruler
+  position), replacing the plain cursor percentage.
+
 ### Insert mode
 - Auto-wrap: with `:set textwidth=N`, typing past the limit breaks the line at
   the last blank and carries the trailing word (plus autoindent) to a new line.
