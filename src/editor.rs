@@ -196,6 +196,8 @@ pub struct Editor {
     /// Insert-mode `Ctrl-k` digraph entry: `None` = inactive, `Some(None)` =
     /// awaiting the first char, `Some(Some(c))` = have first char, awaiting second.
     insert_digraph: Option<Option<char>>,
+    /// Insert-mode `Ctrl-v` literal / numeric entry: `None` = inactive.
+    insert_literal: Option<InsertLiteral>,
     /// Insert-mode `Ctrl-o` one-shot: 0 = off, 1 = armed (set on Ctrl-o),
     /// 2 = active (running the single Normal command; return to insert at rest).
     insert_oneshot: u8,
@@ -360,6 +362,7 @@ impl Editor {
             insert_pending_reg: false,
             insert_ctrl_x: false,
             insert_digraph: None,
+            insert_literal: None,
             insert_oneshot: 0,
             cur_insert: String::new(),
             last_insert_text: String::new(),
@@ -2178,6 +2181,12 @@ impl Editor {
             self.scroll_into_view();
             return;
         }
+        // Literal / numeric entry after Ctrl-v.
+        if let Some(state) = self.insert_literal {
+            self.handle_insert_literal(state, key.code);
+            self.scroll_into_view();
+            return;
+        }
         // Insert-mode control shortcuts.
         if key.modifiers.contains(KeyModifiers::CONTROL) {
             match key.code {
@@ -2185,6 +2194,7 @@ impl Editor {
                 KeyCode::Char('u') => self.insert_delete_to_line_start(),
                 KeyCode::Char('r') => self.insert_pending_reg = true,
                 KeyCode::Char('k') => self.insert_digraph = Some(None),
+                KeyCode::Char('v') => self.insert_literal = Some(InsertLiteral::Start),
                 KeyCode::Char('t') => self.insert_indent(true),
                 KeyCode::Char('d') => self.insert_indent(false),
                 KeyCode::Char('n') => self.insert_completion(true),
@@ -2799,6 +2809,97 @@ impl Editor {
             self.cursor.row += 1;
             self.cursor.col = 0;
         }
+    }
+
+    /// Insert-mode `Ctrl-v`: a literal key, or a numeric character code. After
+    /// `Ctrl-v`, `u`/`U` reads 4/8 hex digits, `x`/`X` 2 hex, `o`/`O` 3 octal,
+    /// and a leading digit reads up to 3 decimal digits; any other key is
+    /// inserted literally (so `Ctrl-v Tab` inserts a real tab even with
+    /// `expandtab`). A full run finalizes automatically; a shorter run
+    /// finalizes when a non-digit arrives (that key ends the run).
+    fn handle_insert_literal(&mut self, state: InsertLiteral, code: KeyCode) {
+        match state {
+            InsertLiteral::Start => {
+                self.insert_literal = None;
+                match code {
+                    KeyCode::Char('u') => self.start_literal_digits(16, 4),
+                    KeyCode::Char('U') => self.start_literal_digits(16, 8),
+                    KeyCode::Char('x') | KeyCode::Char('X') => self.start_literal_digits(16, 2),
+                    KeyCode::Char('o') | KeyCode::Char('O') => self.start_literal_digits(8, 3),
+                    KeyCode::Char(c) if c.is_ascii_digit() => {
+                        // A leading decimal digit begins a 3-digit decimal run.
+                        self.insert_literal = Some(InsertLiteral::Digits {
+                            radix: 10,
+                            max: 3,
+                            acc: c as u32 - '0' as u32,
+                            count: 1,
+                        });
+                    }
+                    KeyCode::Char(c) => self.insert_literal_char(c),
+                    KeyCode::Tab => self.insert_literal_char('\t'),
+                    _ => {}
+                }
+            }
+            InsertLiteral::Digits {
+                radix,
+                max,
+                acc,
+                count,
+            } => {
+                let digit = match code {
+                    KeyCode::Char(c) => c.to_digit(radix),
+                    _ => None,
+                };
+                match digit {
+                    Some(d) => {
+                        let acc = acc * radix + d;
+                        let count = count + 1;
+                        if count >= max {
+                            self.finish_literal_digits(acc);
+                        } else {
+                            self.insert_literal = Some(InsertLiteral::Digits {
+                                radix,
+                                max,
+                                acc,
+                                count,
+                            });
+                        }
+                    }
+                    // A non-digit ends the run; insert what we have so far.
+                    None => self.finish_literal_digits(acc),
+                }
+            }
+        }
+    }
+
+    fn start_literal_digits(&mut self, radix: u32, max: usize) {
+        self.insert_literal = Some(InsertLiteral::Digits {
+            radix,
+            max,
+            acc: 0,
+            count: 0,
+        });
+    }
+
+    fn finish_literal_digits(&mut self, acc: u32) {
+        self.insert_literal = None;
+        if let Some(ch) = char::from_u32(acc) {
+            self.insert_literal_char(ch);
+        }
+    }
+
+    /// Insert one character verbatim (used by `Ctrl-v`), bypassing abbreviation
+    /// expansion. A newline splits the line like a normal `Enter`.
+    fn insert_literal_char(&mut self, ch: char) {
+        if ch == '\n' {
+            self.buffer.split_line(self.cursor);
+            self.cursor.row += 1;
+            self.cursor.col = 0;
+        } else {
+            self.buffer.insert_char(self.cursor, ch);
+            self.cursor.col += 1;
+        }
+        self.cur_insert.push(ch);
     }
 
     /// `Ctrl-t` / `Ctrl-d` in insert mode: indent / dedent the current line,
@@ -7172,6 +7273,21 @@ enum CaseOp {
     Upper,
     Toggle,
     Rot13,
+}
+
+/// Insert-mode `Ctrl-v` literal / numeric entry state.
+#[derive(Debug, Clone, Copy)]
+enum InsertLiteral {
+    /// `Ctrl-v` was pressed; the next key picks a radix (`u`/`x`/`o`), starts a
+    /// decimal run (a digit), or is inserted literally.
+    Start,
+    /// Collecting up to `max` digits in `radix` into `acc` (`count` so far).
+    Digits {
+        radix: u32,
+        max: usize,
+        acc: u32,
+        count: usize,
+    },
 }
 
 /// A search offset (`/pat/e`, `/pat/s-1`, `/pat/+2`): where the cursor lands
