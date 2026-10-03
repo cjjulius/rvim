@@ -49,6 +49,7 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
 fn toml_spec() -> LangSpec {
     LangSpec {
         language: Language::Toml,
+        multiline_strings: &[],
         line_comments: &["#"],
         block_comment: None,
         keywords: TOML_KEYWORDS,
@@ -70,6 +71,7 @@ const TOML_KEYWORDS: &[&str] = &["true", "false", "inf", "nan"];
 fn python_spec() -> LangSpec {
     LangSpec {
         language: Language::Python,
+        multiline_strings: &["\"\"\"", "'''"],
         line_comments: &["#"],
         block_comment: None,
         keywords: PYTHON_KEYWORDS,
@@ -104,6 +106,7 @@ const PYTHON_BUILTINS: &[&str] = &[
 fn json_spec() -> LangSpec {
     LangSpec {
         language: Language::Json,
+        multiline_strings: &[],
         line_comments: &[],
         block_comment: None,
         keywords: JSON_KEYWORDS,
@@ -125,6 +128,7 @@ const JSON_KEYWORDS: &[&str] = &["true", "false", "null"];
 fn rust_spec() -> LangSpec {
     LangSpec {
         language: Language::Rust,
+        multiline_strings: &[],
         line_comments: &["//"],
         block_comment: Some(("/*", "*/")),
         keywords: RUST_KEYWORDS,
@@ -163,6 +167,7 @@ const SIG_DOLLAR: &[char] = &['$'];
 fn sql_spec(language: Language, var_sigils: &'static [char]) -> LangSpec {
     LangSpec {
         language,
+        multiline_strings: &[],
         line_comments: &["--"],
         block_comment: Some(("/*", "*/")),
         keywords: SQL_KEYWORDS,

@@ -13,6 +13,9 @@ All notable changes to rvim are recorded here. Versions follow
   or `:set ft=python`.
 - TOML highlighting (`.toml`): strings, numbers, booleans and `#` comments;
   detected by extension or `:set ft=toml`.
+- Multi-line strings are tracked across lines (via `LangSpec.multiline_strings`),
+  so Python triple-quoted strings and docstrings stay colored past the first
+  line.
 
 ### Themes
 - New built-in `gruvbox` dark theme (`:theme gruvbox`), the popular warm retro
