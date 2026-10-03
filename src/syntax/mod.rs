@@ -190,6 +190,13 @@ pub trait Highlighter: Send + Sync {
     fn highlight_line(&self, line: &str) -> Vec<Token> {
         self.highlight_line_stateful(line, false).0
     }
+
+    /// Whether this language has any construct that spans lines (block comments
+    /// or multi-line strings). When false, per-line state never carries, so the
+    /// renderer can skip folding state from the top of the buffer.
+    fn has_multiline(&self) -> bool {
+        false
+    }
 }
 
 /// A declarative description of a language's lexical surface.
@@ -303,6 +310,10 @@ fn is_punct_char(c: char) -> bool {
 }
 
 impl Highlighter for SpecHighlighter {
+    fn has_multiline(&self) -> bool {
+        self.spec.block_comment.is_some() || !self.spec.multiline_strings.is_empty()
+    }
+
     fn language(&self) -> Language {
         self.spec.language
     }
@@ -582,6 +593,12 @@ impl Registry {
     /// Compute whether the line at `row` begins inside a block comment, by
     /// folding state from the top of the buffer.
     pub fn block_state_at(&self, lang: Language, lines: &[String], row: usize) -> bool {
+        // Languages without any line-spanning construct never carry state, so skip
+        // folding from the top of the buffer entirely.
+        match self.get(lang) {
+            Some(h) if h.has_multiline() => {}
+            _ => return false,
+        }
         let mut in_block = false;
         for line in lines.iter().take(row) {
             in_block = self.highlight_stateful(lang, line, in_block).1;
@@ -707,6 +724,18 @@ mod tests {
         assert!(!done);
         assert!(end.iter().any(|t| t.kind == TokenKind::Comment));
         assert!(end.iter().any(|t| t.kind == TokenKind::Keyword)); // `let`
+    }
+
+    #[test]
+    fn has_multiline_flags_languages_with_spanning_constructs() {
+        let r = Registry::with_builtins();
+        assert!(r.get(Language::Rust).unwrap().has_multiline()); // block comments
+        assert!(r.get(Language::Python).unwrap().has_multiline()); // triple strings
+        assert!(!r.get(Language::Json).unwrap().has_multiline());
+        assert!(!r.get(Language::Toml).unwrap().has_multiline());
+        // No-multiline languages still report a correct (false) block state.
+        let lines = vec!["{".to_string(), "  \"a\": 1".to_string(), "}".to_string()];
+        assert!(!r.block_state_at(Language::Json, &lines, 2));
     }
 
     #[test]
