@@ -57,6 +57,7 @@ pub enum Language {
     TrinoSql,
     SnowflakeSql,
     Z80,
+    Json,
 }
 
 impl Language {
@@ -71,6 +72,7 @@ impl Language {
             Language::TrinoSql => "trino",
             Language::SnowflakeSql => "snowflake",
             Language::Z80 => "z80",
+            Language::Json => "json",
         }
     }
 
@@ -85,6 +87,7 @@ impl Language {
             "trino" | "presto" | "starburst" => Language::TrinoSql,
             "snowflake" | "snow" | "snowsql" => Language::SnowflakeSql,
             "z80" | "asm" | "assembly" => Language::Z80,
+            "json" => Language::Json,
             _ => return None,
         })
     }
@@ -100,7 +103,8 @@ pub fn line_comment_token(lang: Language) -> Option<&'static str> {
         | Language::TrinoSql
         | Language::SnowflakeSql => Some("--"),
         Language::Z80 => Some(";"),
-        Language::PlainText => None,
+        // Strict JSON has no comments.
+        Language::Json | Language::PlainText => None,
     }
 }
 
@@ -116,6 +120,7 @@ pub fn detect_language(path: Option<&Path>, first_line: &str) -> Language {
                 "trino" | "trinosql" | "presto" => return Language::TrinoSql,
                 "snow" | "snowsql" | "snowflake" => return Language::SnowflakeSql,
                 "z80" | "asm" | "s" => return Language::Z80,
+                "json" => return Language::Json,
                 "sql" => {
                     // Refine a generic .sql file by a leading dialect hint comment,
                     // e.g. `-- dialect: pgsql`.
@@ -551,6 +556,10 @@ mod tests {
         assert_eq!(
             detect_language(Some(&PathBuf::from("q.sql")), ""),
             Language::SqlAnsi
+        );
+        assert_eq!(
+            detect_language(Some(&PathBuf::from("pkg.json")), ""),
+            Language::Json
         );
     }
 

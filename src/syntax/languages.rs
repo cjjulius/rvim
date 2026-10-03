@@ -38,8 +38,30 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
             SNOWFLAKE_BUILTINS,
         )),
         Box::new(Z80Highlighter::new()),
+        Box::new(SpecHighlighter::new(json_spec())),
     ]
 }
+
+// ---- JSON ----------------------------------------------------------------
+
+fn json_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Json,
+        line_comments: &[],
+        block_comment: None,
+        keywords: JSON_KEYWORDS,
+        types: &[],
+        builtins: &[],
+        string_delims: &['"'],
+        case_insensitive: false,
+        var_sigils: &[],
+        detect_calls: false,
+    }
+}
+
+/// JSON's three literal keywords; strings, numbers and punctuation are handled
+/// generically by the spec highlighter.
+const JSON_KEYWORDS: &[&str] = &["true", "false", "null"];
 
 // ---- Rust ----------------------------------------------------------------
 
@@ -361,6 +383,15 @@ mod tests {
         assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword));
         assert!(toks.iter().any(|t| t.kind == TokenKind::Type));
         assert!(toks.iter().any(|t| t.kind == TokenKind::Function)); // main(
+    }
+
+    #[test]
+    fn json_highlights_literals_strings_numbers() {
+        let h = SpecHighlighter::new(json_spec());
+        let toks = h.highlight_line(r#"{"on": true, "n": 42, "x": null}"#);
+        assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "on"
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Number)); // 42
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // true/null
     }
 
     #[test]
