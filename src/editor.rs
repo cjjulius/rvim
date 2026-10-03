@@ -115,6 +115,8 @@ pub struct Editor {
     pub shiftround: bool,
     /// `:set joinspaces` — `J` inserts two spaces after sentence punctuation.
     pub joinspaces: bool,
+    /// `:set matchpairs` — the (open, close) pairs that `%` jumps between.
+    pub matchpairs: Vec<(char, char)>,
     /// Visual width of a tab, and spaces inserted by Tab (`:set tabstop`).
     pub tabstop: usize,
     pub view_rows: usize,
@@ -325,6 +327,7 @@ impl Editor {
             shiftwidth: 4,
             shiftround: false,
             joinspaces: false,
+            matchpairs: vec![('(', ')'), ('[', ']'), ('{', '}')],
             tabstop: 4,
             view_rows: 24,
             view_cols: 80,
@@ -741,6 +744,7 @@ impl Editor {
             "shiftwidth" | "sw" => format!("shiftwidth={}", self.shiftwidth),
             "shiftround" | "sr" => flag(self.shiftround, "shiftround"),
             "joinspaces" | "js" => flag(self.joinspaces, "joinspaces"),
+            "matchpairs" | "mps" => self.matchpairs_summary(),
             "tabstop" | "ts" => format!("tabstop={}", self.tabstop),
             "scrolloff" | "so" => format!("scrolloff={}", self.scrolloff),
             "sidescrolloff" | "siso" => format!("sidescrolloff={}", self.sidescrolloff),
@@ -767,6 +771,33 @@ impl Editor {
             "listchars=tab:{}{},trail:{},eol:{}",
             self.listchars_tab.0, self.listchars_tab.1, self.listchars_trail, self.listchars_eol
         )
+    }
+
+    /// A textual `matchpairs=...` summary for `:set matchpairs?`.
+    fn matchpairs_summary(&self) -> String {
+        let pairs: Vec<String> = self
+            .matchpairs
+            .iter()
+            .map(|(o, c)| format!("{o}:{c}"))
+            .collect();
+        format!("matchpairs={}", pairs.join(","))
+    }
+
+    /// `:set matchpairs=(:),{:},[:],<:>` — configure the pairs `%` jumps between.
+    /// Each item is `open:close`; malformed items are skipped. An empty set is
+    /// ignored (the previous pairs are kept).
+    pub fn set_matchpairs(&mut self, spec: &str) {
+        let mut pairs = Vec::new();
+        for item in spec.split(',') {
+            let cs: Vec<char> = item.chars().collect();
+            if cs.len() == 3 && cs[1] == ':' {
+                pairs.push((cs[0], cs[2]));
+            }
+        }
+        if !pairs.is_empty() {
+            self.matchpairs = pairs;
+        }
+        self.message = self.matchpairs_summary();
     }
 
     /// `:set listchars=tab:xy,trail:z,eol:e` — configure the `list` markers. `tab:`
@@ -834,7 +865,7 @@ impl Editor {
         "incsearch", "autoindent", "expandtab", "list", "wrapscan", "cursorline",
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
-        "filetype",
+        "matchpairs", "filetype",
     ];
 
     /// A `:set` / `:set all` listing: one option per line with its current value.
@@ -2049,7 +2080,7 @@ impl Editor {
         "filetype", "hlsearch", "ignorecase", "incsearch", "list", "listchars", "noautoindent",
         "nocursorcolumn", "nocursorline", "noexpandtab", "nohlsearch",
         "noignorecase", "noincsearch", "nolist", "nonumber", "norelativenumber",
-        "joinspaces", "nojoinspaces", "noshiftround", "nosmartcase", "nowrapscan",
+        "joinspaces", "matchpairs", "nojoinspaces", "noshiftround", "nosmartcase", "nowrapscan",
         "number", "relativenumber", "scrolloff", "shiftround", "shiftwidth",
         "sidescrolloff", "smartcase", "tabstop", "textwidth", "wrapscan",
     ];
@@ -5129,8 +5160,8 @@ impl Editor {
     }
 
     fn matching_bracket(&self) -> Option<Position> {
-        const OPEN: [char; 3] = ['(', '[', '{'];
-        const CLOSE: [char; 3] = [')', ']', '}'];
+        let pairs = &self.matchpairs;
+        let is_bracket = |ch: char| pairs.iter().any(|&(o, c)| o == ch || c == ch);
         let line: Vec<char> = self.buffer.line(self.cursor.row)?.chars().collect();
 
         // Locate the bracket at or after the cursor on the current line.
@@ -5138,14 +5169,14 @@ impl Editor {
             .iter()
             .enumerate()
             .skip(self.cursor.col)
-            .find(|(_, &ch)| OPEN.contains(&ch) || CLOSE.contains(&ch))
+            .find(|(_, &ch)| is_bracket(ch))
             .map(|(i, _)| i)?;
         let bch = line[bcol];
 
-        if let Some(idx) = OPEN.iter().position(|&c| c == bch) {
-            self.scan_bracket(self.cursor.row, bcol, bch, CLOSE[idx], true)
-        } else if let Some(idx) = CLOSE.iter().position(|&c| c == bch) {
-            self.scan_bracket(self.cursor.row, bcol, bch, OPEN[idx], false)
+        if let Some(&(_, close)) = pairs.iter().find(|&&(o, _)| o == bch) {
+            self.scan_bracket(self.cursor.row, bcol, bch, close, true)
+        } else if let Some(&(open, _)) = pairs.iter().find(|&&(_, c)| c == bch) {
+            self.scan_bracket(self.cursor.row, bcol, bch, open, false)
         } else {
             None
         }
