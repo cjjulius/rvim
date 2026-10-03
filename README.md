@@ -125,6 +125,11 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   The read-only `"%` register holds the current file name (`"%p`, or `Ctrl-r %`
   in insert mode), and `".` holds the last inserted text (`".p`, `Ctrl-r .`, or
   `Ctrl-a` in insert mode to re-insert it).
+- **System clipboard:** the `"+` and `"*` registers share the clipboard with
+  other applications, so `"+y` copies and `"+p` pastes across programs. rvim uses
+  your platform's clipboard tool (Windows, macOS, `wl-clipboard`/`xclip`/`xsel`
+  on Linux). Where none is available, set `RVIM_CLIPBOARD` to a file path to use
+  that file as a shared clipboard instead.
 - **Marks:** `m<letter>` sets a mark, `` `<letter> `` jumps to it (exact),
   `'<letter>` jumps to its line; `` `` `` / `''` return to the previous position
   (also set by `G`, `gg`, and searches). Automatic marks: `` `. `` (last change),
@@ -522,8 +527,8 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **586 tests** across buffer, editor, menu, syntax, themes,
-commands, config, pattern, plugins, modes, and UI layout.
+Current suite: **587 tests** across buffer, editor, clipboard, menu, syntax,
+themes, commands, config, pattern, plugins, modes, and UI layout.
 
 ---
 
@@ -533,8 +538,6 @@ Still planned, not yet built:
 
 - Split windows (horizontal and vertical).
 - Code folding.
-- Interactive confirm for substitutions (`:s/.../.../c`).
-- An external filter operator (`!`) to pipe lines through a shell command.
 - Richer mouse support (drag-select) and more menu-bar actions.
 - More accessibility options: screen-reader hints and configurable cues.
 - Dynamic plugin loading.

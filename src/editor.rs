@@ -2721,6 +2721,20 @@ impl Editor {
                 text: self.last_insert_text.clone(),
                 linewise: false,
             },
+            // `+` / `*` read the system clipboard. A trailing newline marks
+            // line-wise text (stripped to match the internal representation).
+            // When no clipboard tool is available, fall back to the mirror
+            // kept under `+`.
+            '+' | '*' => match crate::clipboard::read() {
+                Some(mut text) => {
+                    let linewise = text.ends_with('\n');
+                    if linewise {
+                        text.pop();
+                    }
+                    Register { text, linewise }
+                }
+                None => self.registers.get(&'+').cloned().unwrap_or_default(),
+            },
             other => {
                 // An uppercase register name reads its lowercase register.
                 let key = other.to_ascii_lowercase();
@@ -2733,6 +2747,20 @@ impl Editor {
     /// lowercase register of the same letter (vim's append-register behavior);
     /// any other name replaces.
     fn write_named_register(&mut self, name: char, reg: Register) {
+        if name == '+' || name == '*' {
+            // Push to the system clipboard; append a newline for line-wise
+            // text so other applications paste it as whole lines. Mirror it
+            // under `+` so `:registers` shows it and reads still work when no
+            // clipboard tool is present.
+            let payload = if reg.linewise {
+                format!("{}\n", reg.text)
+            } else {
+                reg.text.clone()
+            };
+            crate::clipboard::write(&payload);
+            self.registers.insert('+', reg);
+            return;
+        }
         if name.is_ascii_uppercase() {
             let lower = name.to_ascii_lowercase();
             let combined = match self.registers.get(&lower) {
