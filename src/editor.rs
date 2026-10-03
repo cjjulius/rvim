@@ -3506,14 +3506,14 @@ impl Editor {
                 if self.mode.is_visual() {
                     self.search_selection(true);
                 } else {
-                    self.search_word(true, true);
+                    self.search_word(true, true, count);
                 }
             }
             KeyCode::Char('#') => {
                 if self.mode.is_visual() {
                     self.search_selection(false);
                 } else {
-                    self.search_word(false, true);
+                    self.search_word(false, true, count);
                 }
             }
             KeyCode::Char(':') => {
@@ -3574,8 +3574,8 @@ impl Editor {
                         self.pending_case = Some(CaseOp::Rot13);
                     }
                 }
-                KeyCode::Char('*') => self.search_word(true, false),
-                KeyCode::Char('#') => self.search_word(false, false),
+                KeyCode::Char('*') => self.search_word(true, false, count),
+                KeyCode::Char('#') => self.search_word(false, false, count),
                 KeyCode::Char('e') => self.move_word_end_back(count, false),
                 KeyCode::Char('E') => self.move_word_end_back(count, true),
                 KeyCode::Char('d') => self.goto_declaration(false),
@@ -6577,7 +6577,7 @@ impl Editor {
 
     /// `*`/`#` (whole word) and `g*`/`g#` (substring): search for the word under
     /// the cursor.
-    fn search_word(&mut self, forward: bool, boundary: bool) {
+    fn search_word(&mut self, forward: bool, boundary: bool, count: usize) {
         let Some(word) = self.word_under_cursor() else {
             self.message = "No word under cursor".into();
             return;
@@ -6591,7 +6591,10 @@ impl Editor {
         self.search_offset = None;
         self.set_search(pat);
         self.search_forward = forward;
-        self.search_repeat(forward);
+        // A count jumps to the count-th occurrence (`3*`).
+        for _ in 0..count.max(1) {
+            self.search_repeat(forward);
+        }
     }
 
     fn search(&mut self, forward: bool) {
