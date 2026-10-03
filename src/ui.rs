@@ -512,10 +512,7 @@ fn draw_status_line(
     let dirty = if editor.buffer.is_dirty() { " [+]" } else { "" };
     let lang = editor.language.name();
     let pos = format!("{}:{}", editor.cursor.row + 1, editor.cursor.col + 1);
-    let pct = {
-        let total = editor.buffer.line_count();
-        ((editor.cursor.row + 1) * 100 / total.max(1)).min(100)
-    };
+    let scroll = editor.scroll_indicator();
 
     let left = format!(" {mode} ");
     let rec = match editor.recording_register() {
@@ -523,7 +520,7 @@ fn draw_status_line(
         None => String::new(),
     };
     let mid = format!(" {file}{dirty} ");
-    let right = format!(" {rec}{lang} | {pos} | {pct}% ");
+    let right = format!(" {rec}{lang} | {pos} | {scroll} ");
 
     let total_w = layout.cols as usize;
     let used = left.chars().count() + mid.chars().count() + right.chars().count();
