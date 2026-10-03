@@ -183,6 +183,8 @@ pub struct Editor {
     pub colorcolumn: usize,
     pending_replace: bool,
     pending_replace_count: usize,
+    /// Command-line `Ctrl-r`: the next key names the register to insert.
+    cmdline_pending_reg: bool,
     /// Replace-mode overtype history: `Some(orig)` for an overwritten char,
     /// `None` for one appended past EOL — used to restore on Backspace.
     replace_stack: Vec<Option<char>>,
@@ -366,6 +368,7 @@ impl Editor {
             colorcolumn: 0,
             pending_replace: false,
             pending_replace_count: 1,
+            cmdline_pending_reg: false,
             replace_stack: Vec::new(),
             insert_repeat: 1,
             insert_entry: 'i',
@@ -1918,6 +1921,24 @@ impl Editor {
     }
 
     fn handle_cmdline(&mut self, key: KeyEvent) -> Action {
+        // `Ctrl-r {reg}` inserts a register; `Ctrl-r Ctrl-w` the word under the
+        // cursor. Handled first so Ctrl-w here is not read as delete-word.
+        if self.cmdline_pending_reg {
+            self.cmdline_pending_reg = false;
+            let text = if key.code == KeyCode::Char('w')
+                && key.modifiers.contains(KeyModifiers::CONTROL)
+            {
+                self.word_under_cursor().unwrap_or_default()
+            } else if let KeyCode::Char(c) = key.code {
+                self.register_text(c).text
+            } else {
+                String::new()
+            };
+            // Keep the command line single-line: flatten any newlines.
+            self.cmdline.push_str(&text.replace('\n', " "));
+            self.update_incsearch();
+            return Action::None;
+        }
         // Tab / Shift-Tab cycle through command-line completions.
         if matches!(key.code, KeyCode::Tab | KeyCode::BackTab) {
             self.cmdline_complete(key.code == KeyCode::BackTab);
@@ -1938,6 +1959,7 @@ impl Editor {
                     self.hist_idx = None;
                     self.update_incsearch();
                 }
+                KeyCode::Char('r') => self.cmdline_pending_reg = true,
                 _ => {}
             }
             return Action::None;
