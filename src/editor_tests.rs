@@ -4885,6 +4885,20 @@
     }
 
     #[test]
+    fn insert_ctrl_v_short_run_keeps_terminator() {
+        // A 2-digit decimal run ended by a non-digit inserts the code (65 = 'A')
+        // and then the terminating key.
+        let mut ed = ed_with("");
+        ed.handle_key(key('i'));
+        ed.handle_key(ctrl('v'));
+        for c in "65x".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("Ax"));
+    }
+
+    #[test]
     fn insert_ctrl_v_hex_byte() {
         let mut ed = ed_with("");
         ed.handle_key(key('i'));

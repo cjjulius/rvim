@@ -198,6 +198,10 @@ pub struct Editor {
     insert_digraph: Option<Option<char>>,
     /// Insert-mode `Ctrl-v` literal / numeric entry: `None` = inactive.
     insert_literal: Option<InsertLiteral>,
+    /// Suppress the next `insert_keys` capture (the key was already captured by an
+    /// outer `handle_insert` that is re-dispatching it, e.g. a `Ctrl-v` run's
+    /// terminating key).
+    suppress_insert_capture: bool,
     /// Insert-mode `Ctrl-o` one-shot: 0 = off, 1 = armed (set on Ctrl-o),
     /// 2 = active (running the single Normal command; return to insert at rest).
     insert_oneshot: u8,
@@ -363,6 +367,7 @@ impl Editor {
             insert_ctrl_x: false,
             insert_digraph: None,
             insert_literal: None,
+            suppress_insert_capture: false,
             insert_oneshot: 0,
             cur_insert: String::new(),
             last_insert_text: String::new(),
@@ -2118,7 +2123,10 @@ impl Editor {
 
     fn handle_insert(&mut self, key: KeyEvent) {
         // Capture typed keys so a counted insert (`3ihi`) can repeat on Esc.
-        if !self.insert_replaying && key.code != KeyCode::Esc {
+        let capture =
+            !self.insert_replaying && key.code != KeyCode::Esc && !self.suppress_insert_capture;
+        self.suppress_insert_capture = false;
+        if capture {
             self.insert_keys.push(key);
         }
         // Any key other than the completion cycle keys ends a completion session.
@@ -2183,7 +2191,7 @@ impl Editor {
         }
         // Literal / numeric entry after Ctrl-v.
         if let Some(state) = self.insert_literal {
-            self.handle_insert_literal(state, key.code);
+            self.handle_insert_literal(state, key);
             self.scroll_into_view();
             return;
         }
@@ -2819,7 +2827,8 @@ impl Editor {
     /// inserted literally (so `Ctrl-v Tab` inserts a real tab even with
     /// `expandtab`). A full run finalizes automatically; a shorter run
     /// finalizes when a non-digit arrives (that key ends the run).
-    fn handle_insert_literal(&mut self, state: InsertLiteral, code: KeyCode) {
+    fn handle_insert_literal(&mut self, state: InsertLiteral, key: KeyEvent) {
+        let code = key.code;
         match state {
             InsertLiteral::Start => {
                 self.insert_literal = None;
@@ -2867,8 +2876,14 @@ impl Editor {
                             });
                         }
                     }
-                    // A non-digit ends the run; insert what we have so far.
-                    None => self.finish_literal_digits(acc),
+                    // A non-digit ends the run: insert what we have, then handle
+                    // the terminating key normally (it was already captured, so
+                    // suppress the re-capture in the nested call).
+                    None => {
+                        self.finish_literal_digits(acc);
+                        self.suppress_insert_capture = true;
+                        self.handle_insert(key);
+                    }
                 }
             }
         }
