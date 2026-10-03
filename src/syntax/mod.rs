@@ -60,6 +60,7 @@ pub enum Language {
     Json,
     Python,
     Toml,
+    JavaScript,
 }
 
 impl Language {
@@ -77,6 +78,7 @@ impl Language {
             Language::Json => "json",
             Language::Python => "python",
             Language::Toml => "toml",
+            Language::JavaScript => "javascript",
         }
     }
 
@@ -94,6 +96,7 @@ impl Language {
             "json" => Language::Json,
             "python" | "py" => Language::Python,
             "toml" => Language::Toml,
+            "javascript" | "js" | "node" => Language::JavaScript,
             _ => return None,
         })
     }
@@ -110,6 +113,7 @@ pub fn line_comment_token(lang: Language) -> Option<&'static str> {
         | Language::SnowflakeSql => Some("--"),
         Language::Z80 => Some(";"),
         Language::Python | Language::Toml => Some("#"),
+        Language::JavaScript => Some("//"),
         // Strict JSON has no comments.
         Language::Json | Language::PlainText => None,
     }
@@ -130,6 +134,7 @@ pub fn detect_language(path: Option<&Path>, first_line: &str) -> Language {
                 "json" => return Language::Json,
                 "py" | "pyw" => return Language::Python,
                 "toml" => return Language::Toml,
+                "js" | "mjs" | "cjs" | "jsx" => return Language::JavaScript,
                 "sql" => {
                     // Refine a generic .sql file by a leading dialect hint comment,
                     // e.g. `-- dialect: pgsql`.
@@ -144,6 +149,9 @@ pub fn detect_language(path: Option<&Path>, first_line: &str) -> Language {
     let l = first_line.trim_start();
     if l.starts_with("#!") && l.to_ascii_lowercase().contains("python") {
         return Language::Python;
+    }
+    if l.starts_with("#!") && l.to_ascii_lowercase().contains("node") {
+        return Language::JavaScript;
     }
     if l.starts_with(";") && l.to_ascii_lowercase().contains("z80") {
         return Language::Z80;
@@ -651,6 +659,10 @@ mod tests {
         assert_eq!(
             detect_language(Some(&PathBuf::from("Cargo.toml")), ""),
             Language::Toml
+        );
+        assert_eq!(
+            detect_language(Some(&PathBuf::from("app.js")), ""),
+            Language::JavaScript
         );
     }
 

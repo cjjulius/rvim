@@ -41,8 +41,45 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(json_spec())),
         Box::new(SpecHighlighter::new(python_spec())),
         Box::new(SpecHighlighter::new(toml_spec())),
+        Box::new(SpecHighlighter::new(javascript_spec())),
     ]
 }
+
+// ---- JavaScript ----------------------------------------------------------
+
+fn javascript_spec() -> LangSpec {
+    LangSpec {
+        language: Language::JavaScript,
+        // Template literals use the backtick; kept as a single-line string here
+        // because the per-line carry is already used by block comments.
+        multiline_strings: &[],
+        line_comments: &["//"],
+        block_comment: Some(("/*", "*/")),
+        keywords: JS_KEYWORDS,
+        types: JS_TYPES,
+        builtins: JS_BUILTINS,
+        string_delims: &['"', '\'', '`'],
+        case_insensitive: false,
+        var_sigils: &[],
+        detect_calls: true,
+    }
+}
+
+const JS_KEYWORDS: &[&str] = &[
+    "var", "let", "const", "function", "return", "if", "else", "for", "while", "do", "switch",
+    "case", "break", "continue", "new", "delete", "typeof", "instanceof", "in", "of", "this",
+    "class", "extends", "super", "import", "export", "from", "as", "default", "try", "catch",
+    "finally", "throw", "async", "await", "yield", "void", "static", "get", "set", "true", "false",
+    "null", "undefined",
+];
+const JS_TYPES: &[&str] = &[
+    "Object", "Array", "String", "Number", "Boolean", "Promise", "Map", "Set", "Symbol", "RegExp",
+    "Date", "Error", "Function", "BigInt",
+];
+const JS_BUILTINS: &[&str] = &[
+    "console", "Math", "JSON", "parseInt", "parseFloat", "isNaN", "isFinite", "document", "window",
+    "require", "module", "exports", "process", "globalThis", "fetch", "setTimeout", "setInterval",
+];
 
 // ---- TOML ----------------------------------------------------------------
 
@@ -454,6 +491,16 @@ mod tests {
         assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "on"
         assert!(toks.iter().any(|t| t.kind == TokenKind::Number)); // 42
         assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // true/null
+    }
+
+    #[test]
+    fn javascript_highlights_keyword_builtin_string() {
+        let h = SpecHighlighter::new(javascript_spec());
+        let toks = h.highlight_line("const x = `hi`; console.log(42) // c");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // const
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // console
+        assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // `hi`
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // // c
     }
 
     #[test]
