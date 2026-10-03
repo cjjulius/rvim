@@ -30,6 +30,9 @@ All notable changes to rvim are recorded here. Versions follow
   or `:set ft=python`.
 - TOML highlighting (`.toml`): strings, numbers, booleans and `#` comments;
   detected by extension or `:set ft=toml`.
+- JavaScript highlighting (`.js`, `.mjs`, `.cjs`, `.jsx`): keywords, builtin
+  objects/functions, strings, numbers, and `//` / `/* */` comments; detected by
+  extension, a `node` shebang, or `:set ft=javascript`.
 - Multi-line strings are tracked across lines (via `LangSpec.multiline_strings`),
   so Python triple-quoted strings and docstrings stay colored past the first
   line.
