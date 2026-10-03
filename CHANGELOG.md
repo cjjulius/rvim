@@ -11,6 +11,8 @@ All notable changes to rvim are recorded here. Versions follow
 - Python highlighting (`.py`, `.pyw`): keywords, builtin types and functions,
   strings, numbers, and `#` comments; detected by extension, a `python` shebang,
   or `:set ft=python`.
+- TOML highlighting (`.toml`): strings, numbers, booleans and `#` comments;
+  detected by extension or `:set ft=toml`.
 
 ### Themes
 - New built-in `gruvbox` dark theme (`:theme gruvbox`), the popular warm retro

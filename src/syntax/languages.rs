@@ -40,8 +40,30 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(Z80Highlighter::new()),
         Box::new(SpecHighlighter::new(json_spec())),
         Box::new(SpecHighlighter::new(python_spec())),
+        Box::new(SpecHighlighter::new(toml_spec())),
     ]
 }
+
+// ---- TOML ----------------------------------------------------------------
+
+fn toml_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Toml,
+        line_comments: &["#"],
+        block_comment: None,
+        keywords: TOML_KEYWORDS,
+        types: &[],
+        builtins: &[],
+        string_delims: &['"', '\''],
+        case_insensitive: false,
+        var_sigils: &[],
+        detect_calls: false,
+    }
+}
+
+/// TOML's boolean / float literals; keys, strings, numbers and dates are handled
+/// generically by the spec highlighter.
+const TOML_KEYWORDS: &[&str] = &["true", "false", "inf", "nan"];
 
 // ---- Python --------------------------------------------------------------
 
@@ -427,6 +449,14 @@ mod tests {
         assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "on"
         assert!(toks.iter().any(|t| t.kind == TokenKind::Number)); // 42
         assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // true/null
+    }
+
+    #[test]
+    fn toml_highlights_string_number_bool_comment() {
+        let h = SpecHighlighter::new(toml_spec());
+        let toks = h.highlight_line(r#"name = "rvim"  # port 8080 enabled = true"#);
+        assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "rvim"
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // # ...
     }
 
     #[test]
