@@ -4750,3 +4750,53 @@
         assert_eq!(ed.buffer.line(2), Some("c"));
         assert!(ed.message.contains("E134"));
     }
+
+    // The `"+` / `"*` registers go through the system clipboard. The tests
+    // point `RVIM_CLIPBOARD` at a temp file so they never touch the real
+    // clipboard; all clipboard cases live in one test to avoid racing on that
+    // process-wide environment variable. `"*` shares the clipboard with `"+`.
+    #[test]
+    fn clipboard_registers_round_trip() {
+        let mut path = std::env::temp_dir();
+        path.push(format!("rvim_clip_test_{}.txt", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        std::env::set_var("RVIM_CLIPBOARD", &path);
+
+        // Char-wise yank to "+ writes the exact text, no trailing newline.
+        let mut ed = ed_with("hello world");
+        for c in "\"+yiw".chars() {
+            ed.handle_key(key(c));
+        }
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "hello");
+
+        // "+p pastes the clipboard text back, char-wise.
+        let mut ed = ed_with("XY");
+        for c in "\"+p".chars() {
+            ed.handle_key(key(c));
+        }
+        assert_eq!(ed.buffer.line(0), Some("XhelloY"));
+
+        // Line-wise yank to "+ appends a newline so other apps get whole lines.
+        let mut ed = ed_with("line1\nline2");
+        for c in "\"+yy".chars() {
+            ed.handle_key(key(c));
+        }
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "line1\n");
+
+        // Reading it back detects the line-wise marker and pastes below.
+        let mut ed = ed_with("top");
+        for c in "\"+p".chars() {
+            ed.handle_key(key(c));
+        }
+        assert_eq!(ed.buffer.line(1), Some("line1"));
+
+        // "* is an alias for the same clipboard.
+        let mut ed = ed_with("abc");
+        for c in "\"*p".chars() {
+            ed.handle_key(key(c));
+        }
+        assert_eq!(ed.buffer.line(1), Some("line1"));
+
+        std::env::remove_var("RVIM_CLIPBOARD");
+        let _ = std::fs::remove_file(&path);
+    }

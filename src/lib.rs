@@ -4,6 +4,7 @@
 //! (languages, themes, plugins, motions) can be added with minimal coupling:
 //!
 //! - [`buffer`]   — the text storage + edit primitives (with undo/redo).
+//! - [`clipboard`] — system clipboard access for the `"+` / `"*` registers.
 //! - [`config`]   — startup `~/.rvimrc` loading + `:source`.
 //! - [`mode`]     — the modal state machine (Normal / Insert / Visual / Command).
 //! - [`editor`]   — cursor, viewport and high-level editing operations.
@@ -18,6 +19,7 @@
 
 pub mod app;
 pub mod buffer;
+pub mod clipboard;
 pub mod command;
 pub mod config;
 pub mod editor;

@@ -5,6 +5,12 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Registers
+- System clipboard: the `"+` and `"*` registers read and write the OS clipboard,
+  so `"+y` copies to other applications and `"+p` pastes from them. Uses the
+  platform clipboard tool (Windows, macOS, `wl-clipboard`/`xclip`/`xsel` on
+  Linux); set `RVIM_CLIPBOARD` to a file path for a headless shared clipboard.
+
 ### Search
 - `*` / `#` (and `g*` / `g#`) take a count, so `3*` jumps to the third next
   occurrence of the word under the cursor.
