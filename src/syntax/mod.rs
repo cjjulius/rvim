@@ -358,19 +358,22 @@ impl Highlighter for SpecHighlighter {
             }
             LineState::MultiStr(idx) => {
                 // Resuming a multi-line string: run to its own closing delimiter,
-                // or the whole line (staying in-string).
-                let delim = self.spec.multiline_strings.get(idx).copied().unwrap_or("");
-                match (!delim.is_empty()).then(|| line.find(delim)).flatten() {
-                    Some(p) => {
-                        let end = p + delim.len();
-                        tokens.push(Token::new(0, end, TokenKind::String));
-                        while i < chars.len() && chars[i].0 < end {
-                            i += 1;
+                // or the whole line (staying in-string). An out-of-range idx (which
+                // should not happen for the current language) falls through as
+                // Normal rather than sticking in-string forever.
+                if let Some(&delim) = self.spec.multiline_strings.get(idx) {
+                    match line.find(delim) {
+                        Some(p) => {
+                            let end = p + delim.len();
+                            tokens.push(Token::new(0, end, TokenKind::String));
+                            while i < chars.len() && chars[i].0 < end {
+                                i += 1;
+                            }
                         }
-                    }
-                    None => {
-                        tokens.push(Token::new(0, end_byte, TokenKind::String));
-                        return (tokens, LineState::MultiStr(idx));
+                        None => {
+                            tokens.push(Token::new(0, end_byte, TokenKind::String));
+                            return (tokens, LineState::MultiStr(idx));
+                        }
                     }
                 }
             }
@@ -782,6 +785,19 @@ mod tests {
         let (_t2, done) =
             r.highlight_stateful(Language::Python, "end\"\"\" + y", LineState::MultiStr(0));
         assert_eq!(done, LineState::Normal);
+    }
+
+    #[test]
+    fn python_single_quote_triple_string_uses_second_delimiter() {
+        let r = Registry::with_builtins();
+        // Opening with ''' carries the second delimiter (index 1), so a stray
+        // """ inside does not close it.
+        let (_t, s) = r.highlight_stateful(Language::Python, "x = '''start", LineState::Normal);
+        assert_eq!(s, LineState::MultiStr(1));
+        let (_t2, s2) = r.highlight_stateful(Language::Python, "has \"\"\" inside", s);
+        assert_eq!(s2, LineState::MultiStr(1)); // """ must not close a ''' block
+        let (_t3, s3) = r.highlight_stateful(Language::Python, "end''' x", s2);
+        assert_eq!(s3, LineState::Normal);
     }
 
     #[test]

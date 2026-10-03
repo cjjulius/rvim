@@ -145,7 +145,7 @@ pub fn render(
     theme: &Theme,
     syntax: &Registry,
     tabs: &[TabEntry],
-    in_block_top: LineState,
+    top_state: LineState,
 ) -> io::Result<()> {
     let (cols, rows) = crossterm::terminal::size()?;
     let show_tabline = tabs.len() > 1;
@@ -174,9 +174,9 @@ pub fn render(
     let search = editor.search_regex();
     let paren = editor.match_highlight();
 
-    // Block-comment state feeding the first visible line (computed by the caller,
-    // memoized), then threaded through the visible rows.
-    let mut in_block = in_block_top;
+    // Multi-line syntax state feeding the first visible line (computed by the
+    // caller, memoized), then threaded through the visible rows.
+    let mut line_state = top_state;
 
     for y in 0..layout.text_rows {
         let row = editor.top + y as usize;
@@ -190,9 +190,9 @@ pub fn render(
         };
 
         if let Some(line) = editor.buffer.line(row) {
-            let (tokens, next_block) =
-                syntax.highlight_stateful(editor.language, line, in_block);
-            in_block = next_block;
+            let (tokens, next_state) =
+                syntax.highlight_stateful(editor.language, line, line_state);
+            line_state = next_state;
             let match_col = paren.filter(|p| p.row == row).map(|p| p.col);
             let color_col = editor.colorcolumn.checked_sub(1);
             let cursor_col = if editor.cursorcolumn {
