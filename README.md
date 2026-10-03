@@ -175,6 +175,9 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
 - **Reflow:** `gq{motion}` / `gqq` / `gqip` / `gqap` (and `gw`) rewrap lines to
   `:set textwidth=N` (default 79), preserving the first line's indent — great for
   comments and prose. Works on a visual selection too.
+- **Auto-wrap:** with `:set textwidth=N`, typing past the limit breaks the line
+  at the last space and carries the word (plus any autoindent) down, so prose
+  stays within the margin as you write. Set `textwidth=0` to turn it off.
 - **Repeat:** `.` repeats the last change (a delete, paste, replace, indent, or a
   whole insert/change session); a count repeats it that many times (`3.`).
 - **Info:** `Ctrl-g` shows the file name, modified flag, line count and position;
@@ -531,7 +534,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **591 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **594 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, modes, and UI layout.
 
 ---

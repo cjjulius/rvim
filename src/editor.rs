@@ -2258,6 +2258,8 @@ impl Editor {
                 self.buffer.insert_char(self.cursor, c);
                 self.cursor.col += 1;
                 self.cur_insert.push(c);
+                // `:set textwidth` breaks the line when typing past the limit.
+                self.maybe_auto_wrap();
             }
             KeyCode::Enter => {
                 self.maybe_expand_abbrev();
@@ -2900,6 +2902,39 @@ impl Editor {
             self.cursor.col += 1;
         }
         self.cur_insert.push(ch);
+    }
+
+    /// Auto-wrap while typing: when `textwidth` is set and the current line grows
+    /// past it, break at the last blank before the cursor and carry the trailing
+    /// word (plus autoindent) down to a new line. A word with no blank to break on
+    /// is left long, matching vim's default behavior.
+    fn maybe_auto_wrap(&mut self) {
+        let tw = self.textwidth;
+        if tw == 0 {
+            return;
+        }
+        let row = self.cursor.row;
+        let chars: Vec<char> = self.buffer.line(row).unwrap_or("").chars().collect();
+        if chars.len() <= tw {
+            return;
+        }
+        // Find the last blank strictly before the cursor to break on.
+        let limit = self.cursor.col.min(chars.len());
+        let Some(brk) = (0..limit).rev().find(|&i| chars[i] == ' ' || chars[i] == '\t') else {
+            return;
+        };
+        let indent = if self.autoindent {
+            self.leading_indent(row)
+        } else {
+            String::new()
+        };
+        let first: String = chars[..brk].iter().collect();
+        let rest: String = chars[brk + 1..].iter().collect();
+        let moved = self.cursor.col - (brk + 1);
+        self.buffer.set_line(row, first);
+        self.buffer.insert_line(row + 1, format!("{indent}{rest}"));
+        self.cursor.row = row + 1;
+        self.cursor.col = indent.chars().count() + moved;
     }
 
     /// `Ctrl-t` / `Ctrl-d` in insert mode: indent / dedent the current line,
