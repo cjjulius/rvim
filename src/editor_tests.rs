@@ -4802,6 +4802,46 @@
     }
 
     #[test]
+    fn textwidth_auto_wraps_on_insert() {
+        let mut ed = ed_with("");
+        ed.textwidth = 10;
+        ed.handle_key(key('i'));
+        for c in "hello world".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Esc));
+        // "hello worl" is 10 chars; typing 'd' pushes past 10 and wraps the word.
+        assert_eq!(ed.buffer.line(0), Some("hello"));
+        assert_eq!(ed.buffer.line(1), Some("world"));
+    }
+
+    #[test]
+    fn textwidth_zero_never_wraps() {
+        let mut ed = ed_with("");
+        ed.textwidth = 0;
+        ed.handle_key(key('i'));
+        for c in "hello world this is long".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("hello world this is long"));
+        assert_eq!(ed.buffer.line(1), None);
+    }
+
+    #[test]
+    fn textwidth_leaves_unbreakable_word_long() {
+        let mut ed = ed_with("");
+        ed.textwidth = 5;
+        ed.handle_key(key('i'));
+        for c in "abcdefghij".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Esc));
+        // No blank to break on, so the long word stays on one line.
+        assert_eq!(ed.buffer.line(0), Some("abcdefghij"));
+    }
+
+    #[test]
     fn insert_ctrl_v_decimal_code() {
         let mut ed = ed_with("");
         ed.handle_key(key('i'));
