@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Themes
+- New built-in `gruvbox` dark theme (`:theme gruvbox`), the popular warm retro
+  palette.
+
 ### Indent
 - `:set shiftround` rounds `>`/`<` to a multiple of `shiftwidth` (e.g. a 2-space
   indent snaps to 4 instead of 6). Off by default; `:set noshiftround` restores

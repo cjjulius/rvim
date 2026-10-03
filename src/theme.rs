@@ -61,7 +61,7 @@ impl ThemeRegistry {
     /// theme built on the Okabe–Ito palette.
     pub fn with_builtins() -> Self {
         Self {
-            themes: vec![matrix(), retrowave(), cobalt(), high_contrast()],
+            themes: vec![matrix(), retrowave(), cobalt(), high_contrast(), gruvbox()],
             current: 0,
         }
     }
@@ -266,6 +266,44 @@ pub fn high_contrast() -> Theme {
     }
 }
 
+/// Gruvbox dark — the popular warm, earthy retro palette.
+pub fn gruvbox() -> Theme {
+    Theme {
+        name: "gruvbox".into(),
+        bg: rgb(40, 40, 40),
+        fg: rgb(235, 219, 178),
+        cursor_line_bg: rgb(60, 56, 54),
+        selection_bg: rgb(80, 73, 69),
+        search_bg: rgb(102, 92, 0),
+        cur_search_bg: rgb(250, 189, 47),
+        color_column_bg: rgb(60, 56, 54),
+        gutter_bg: rgb(50, 48, 47),
+        gutter_fg: rgb(124, 111, 100),
+        current_line_nr_fg: rgb(250, 189, 47),
+        status_bg: rgb(80, 73, 69),
+        status_fg: rgb(235, 219, 178),
+        mode_bg: rgb(254, 128, 25),
+        mode_fg: rgb(40, 40, 40),
+        message_fg: rgb(213, 196, 161),
+        tokens: token_map(&[
+            (TokenKind::Keyword, rgb(251, 73, 52)),       // red
+            (TokenKind::Type, rgb(250, 189, 47)),         // yellow
+            (TokenKind::Function, rgb(184, 187, 38)),     // green
+            (TokenKind::Builtin, rgb(142, 192, 124)),     // aqua
+            (TokenKind::String, rgb(184, 187, 38)),       // green
+            (TokenKind::Char, rgb(184, 187, 38)),
+            (TokenKind::Number, rgb(211, 134, 155)),      // purple
+            (TokenKind::Comment, rgb(146, 131, 116)),     // grey
+            (TokenKind::Operator, rgb(251, 73, 52)),
+            (TokenKind::Punctuation, rgb(189, 174, 147)),
+            (TokenKind::Preprocessor, rgb(254, 128, 25)), // orange
+            (TokenKind::Label, rgb(250, 189, 47)),
+            (TokenKind::Register, rgb(142, 192, 124)),
+            (TokenKind::Variable, rgb(131, 165, 152)),    // blue
+        ]),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -276,7 +314,7 @@ mod tests {
         assert_eq!(r.current().name, "matrix");
         assert_eq!(
             r.names(),
-            vec!["matrix", "retrowave", "cobalt", "high-contrast"]
+            vec!["matrix", "retrowave", "cobalt", "high-contrast", "gruvbox"]
         );
     }
 
@@ -303,7 +341,15 @@ mod tests {
         assert_eq!(r.cycle(), "retrowave");
         assert_eq!(r.cycle(), "cobalt");
         assert_eq!(r.cycle(), "high-contrast");
+        assert_eq!(r.cycle(), "gruvbox");
         assert_eq!(r.cycle(), "matrix");
+    }
+
+    #[test]
+    fn gruvbox_is_selectable() {
+        let mut r = ThemeRegistry::with_builtins();
+        assert!(r.set_current("gruvbox"));
+        assert_eq!(r.current().bg, rgb(40, 40, 40));
     }
 
     #[test]
