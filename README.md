@@ -475,8 +475,8 @@ even when scrolled.
   can see where you are in a long file at a glance.
 
 ### Mouse support
-`:set mouse` enables click-to-position and scroll-wheel paging;
-`:set nomouse` disables it.
+`:set mouse` enables click-to-position, drag-to-select (dragging starts a visual
+selection), and scroll-wheel paging; `:set nomouse` disables it.
 
 ---
 
@@ -546,7 +546,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **609 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **611 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, modes, and UI layout.
 
 ---
@@ -557,7 +557,7 @@ Still planned, not yet built:
 
 - Split windows (horizontal and vertical).
 - Code folding.
-- Richer mouse support (drag-select) and more menu-bar actions.
+- More menu-bar actions.
 - More accessibility options: screen-reader hints and configurable cues.
 - Dynamic plugin loading.
 
