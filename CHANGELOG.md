@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Indent
+- `:set shiftround` rounds `>`/`<` to a multiple of `shiftwidth` (e.g. a 2-space
+  indent snaps to 4 instead of 6). Off by default; `:set noshiftround` restores
+  the plain add/remove behavior.
+
 ### UI
 - `listchars` gains an `eol:` marker: `:set listchars=...,eol:#` sets the
   end-of-line glyph shown under `:set list` (previously a hardcoded `$`).

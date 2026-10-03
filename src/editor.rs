@@ -111,6 +111,8 @@ pub struct Editor {
     pub expandtab: bool,
     /// Columns inserted/removed by `>>`/`<<` and `=` (`:set shiftwidth`).
     pub shiftwidth: usize,
+    /// `:set shiftround` — round `>`/`<` indent to a multiple of `shiftwidth`.
+    pub shiftround: bool,
     /// Visual width of a tab, and spaces inserted by Tab (`:set tabstop`).
     pub tabstop: usize,
     pub view_rows: usize,
@@ -317,6 +319,7 @@ impl Editor {
             autoindent: true,
             expandtab: true,
             shiftwidth: 4,
+            shiftround: false,
             tabstop: 4,
             view_rows: 24,
             view_cols: 80,
@@ -730,6 +733,7 @@ impl Editor {
             "cursorline" | "cul" => flag(self.cursorline, "cursorline"),
             "cursorcolumn" | "cuc" => flag(self.cursorcolumn, "cursorcolumn"),
             "shiftwidth" | "sw" => format!("shiftwidth={}", self.shiftwidth),
+            "shiftround" | "sr" => flag(self.shiftround, "shiftround"),
             "tabstop" | "ts" => format!("tabstop={}", self.tabstop),
             "scrolloff" | "so" => format!("scrolloff={}", self.scrolloff),
             "sidescrolloff" | "siso" => format!("sidescrolloff={}", self.sidescrolloff),
@@ -821,8 +825,8 @@ impl Editor {
     const OPTION_NAMES: &'static [&'static str] = &[
         "number", "relativenumber", "hlsearch", "ignorecase", "smartcase",
         "incsearch", "autoindent", "expandtab", "list", "wrapscan", "cursorline",
-        "cursorcolumn", "shiftwidth", "tabstop", "scrolloff", "sidescrolloff",
-        "textwidth", "colorcolumn", "listchars", "filetype",
+        "cursorcolumn", "shiftwidth", "shiftround", "tabstop", "scrolloff",
+        "sidescrolloff", "textwidth", "colorcolumn", "listchars", "filetype",
     ];
 
     /// A `:set` / `:set all` listing: one option per line with its current value.
@@ -2018,9 +2022,9 @@ impl Editor {
         "filetype", "hlsearch", "ignorecase", "incsearch", "list", "listchars", "noautoindent",
         "nocursorcolumn", "nocursorline", "noexpandtab", "nohlsearch",
         "noignorecase", "noincsearch", "nolist", "nonumber", "norelativenumber",
-        "nosmartcase", "nowrapscan", "number", "relativenumber", "scrolloff",
-        "shiftwidth", "sidescrolloff", "smartcase", "tabstop", "textwidth",
-        "wrapscan",
+        "noshiftround", "nosmartcase", "nowrapscan", "number", "relativenumber",
+        "scrolloff", "shiftround", "shiftwidth", "sidescrolloff", "smartcase",
+        "tabstop", "textwidth", "wrapscan",
     ];
 
     /// Tab completion on the `:` command line. Completes the first word against
@@ -5423,7 +5427,34 @@ impl Editor {
         self.mode = Mode::Insert;
     }
 
+    /// Leading-whitespace width of `row` in display columns.
+    fn indent_width(&self, row: usize) -> usize {
+        let line = self.buffer.line(row).unwrap_or("");
+        let lead: String = line.chars().take_while(|c| *c == ' ' || *c == '\t').collect();
+        Self::expand_tabs(&lead, self.tabstop.max(1)).chars().count()
+    }
+
+    /// Rewrite `row`'s leading whitespace to `cols` display columns (tabs then
+    /// spaces when `noexpandtab`), keeping the rest of the line intact.
+    fn set_indent_columns(&mut self, row: usize, cols: usize) {
+        let line = self.buffer.line(row).unwrap_or("").to_string();
+        let rest: String = line.chars().skip_while(|c| *c == ' ' || *c == '\t').collect();
+        let indent = if self.expandtab {
+            " ".repeat(cols)
+        } else {
+            let ts = self.tabstop.max(1);
+            format!("{}{}", "\t".repeat(cols / ts), " ".repeat(cols % ts))
+        };
+        self.buffer.set_line(row, format!("{indent}{rest}"));
+    }
+
     fn indent_line(&mut self, row: usize) {
+        if self.shiftround {
+            let sw = self.shiftwidth.max(1);
+            let new = (self.indent_width(row) / sw + 1) * sw;
+            self.set_indent_columns(row, new);
+            return;
+        }
         let line = self.buffer.line(row).unwrap_or("").to_string();
         let prefix = if self.expandtab {
             " ".repeat(self.shiftwidth)
@@ -5435,6 +5466,13 @@ impl Editor {
 
     fn dedent_line(&mut self, row: usize) {
         let sw = self.shiftwidth.max(1);
+        if self.shiftround {
+            let cur = self.indent_width(row);
+            if cur > 0 {
+                self.set_indent_columns(row, (cur - 1) / sw * sw);
+            }
+            return;
+        }
         let line = self.buffer.line(row).unwrap_or("");
         let mut removed = 0;
         let new: String = {
