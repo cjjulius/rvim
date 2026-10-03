@@ -446,8 +446,8 @@ correctly colored even when scrolled.
 - **Whitespace view (`:set list`)** — show tabs (`▸···`) and trailing spaces (`·`)
   with an end-of-line `$` marker, so hidden whitespace is visible; `:set nolist`
   hides them again. Markers are width-preserving, so columns stay exact. Customize
-  them with `:set listchars=tab:>-,trail:~` (`tab:` takes two characters, `trail:`
-  one).
+  them with `:set listchars=tab:>-,trail:~,eol:#` (`tab:` takes two characters,
+  `trail:` and `eol:` one each).
 - **Color column (`:set colorcolumn=N`)** — highlight column N as a visual
   line-length guide (works past the end of short lines too); `:set cc=0` turns
   it off. Pair it with `:set textwidth` to see your wrap boundary.
