@@ -341,7 +341,7 @@ fn draw_text_line(
     block: Option<(usize, usize, usize, usize)>,
     match_col: Option<usize>,
     list: bool,
-    listchars: (char, char, char),
+    listchars: (char, char, char, char),
     color_col: Option<usize>,
     cursor_col: Option<usize>,
     cur_match: Option<(usize, usize)>,
@@ -456,7 +456,7 @@ fn draw_text_line(
             queue!(
                 out,
                 SetForegroundColor(theme.gutter_fg),
-                Print("$"),
+                Print(listchars.3),
                 Print(" ".repeat(width - printed - 1))
             )?;
         } else if let Some(screen) = color_col
@@ -913,7 +913,7 @@ mod tests {
         let mut buf: Vec<u8> = Vec::new();
         draw_text_line(
             &mut buf, "a\tb  ", &[], &theme, &layout, 0, 0, theme.bg, None, false, None, 4,
-            None, None, true, ('▸', '·', '·'), None, None, None,
+            None, None, true, ('▸', '·', '·', '$'), None, None, None,
         )
         .unwrap();
         let out = String::from_utf8_lossy(&buf);
@@ -929,7 +929,7 @@ mod tests {
         let mut buf: Vec<u8> = Vec::new();
         draw_text_line(
             &mut buf, "a\tb  ", &[], &theme, &layout, 0, 0, theme.bg, None, false, None, 4,
-            None, None, false, ('▸', '·', '·'), None, None, None,
+            None, None, false, ('▸', '·', '·', '$'), None, None, None,
         )
         .unwrap();
         let out = String::from_utf8_lossy(&buf);

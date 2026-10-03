@@ -166,10 +166,11 @@ pub struct Editor {
     pub textwidth: usize,
     /// `:set list` — show tabs and trailing whitespace with markers.
     pub list: bool,
-    /// `:set listchars` — the tab marker `(head, fill)` and the trailing-space
-    /// marker used when `list` is on.
+    /// `:set listchars` — the tab marker `(head, fill)`, the trailing-space
+    /// marker, and the end-of-line marker used when `list` is on.
     pub listchars_tab: (char, char),
     pub listchars_trail: char,
+    pub listchars_eol: char,
     /// `:set cursorline` — highlight the line the cursor is on (default on).
     pub cursorline: bool,
     /// `:set cursorcolumn` — highlight the column the cursor is on (default off).
@@ -353,6 +354,7 @@ impl Editor {
             list: false,
             listchars_tab: ('▸', '·'),
             listchars_trail: '·',
+            listchars_eol: '$',
             cursorline: true,
             cursorcolumn: false,
             colorcolumn: 0,
@@ -723,10 +725,7 @@ impl Editor {
             "autoindent" | "ai" => flag(self.autoindent, "autoindent"),
             "expandtab" | "et" => flag(self.expandtab, "expandtab"),
             "list" => flag(self.list, "list"),
-            "listchars" | "lcs" => format!(
-                "listchars=tab:{}{},trail:{}",
-                self.listchars_tab.0, self.listchars_tab.1, self.listchars_trail
-            ),
+            "listchars" | "lcs" => self.listchars_summary(),
             "wrapscan" | "ws" => flag(self.wrapscan, "wrapscan"),
             "cursorline" | "cul" => flag(self.cursorline, "cursorline"),
             "cursorcolumn" | "cuc" => flag(self.cursorcolumn, "cursorcolumn"),
@@ -741,13 +740,27 @@ impl Editor {
         }
     }
 
-    /// The `list` markers `(tab_head, tab_fill, trail)` for rendering.
-    pub fn listchars(&self) -> (char, char, char) {
-        (self.listchars_tab.0, self.listchars_tab.1, self.listchars_trail)
+    /// The `list` markers `(tab_head, tab_fill, trail, eol)` for rendering.
+    pub fn listchars(&self) -> (char, char, char, char) {
+        (
+            self.listchars_tab.0,
+            self.listchars_tab.1,
+            self.listchars_trail,
+            self.listchars_eol,
+        )
     }
 
-    /// `:set listchars=tab:xy,trail:z` — configure the `list` markers. `tab:` takes
-    /// two characters (head + fill); `trail:` takes one. Unknown keys are ignored.
+    /// A textual `listchars=...` summary for `:set listchars?` and messages.
+    fn listchars_summary(&self) -> String {
+        format!(
+            "listchars=tab:{}{},trail:{},eol:{}",
+            self.listchars_tab.0, self.listchars_tab.1, self.listchars_trail, self.listchars_eol
+        )
+    }
+
+    /// `:set listchars=tab:xy,trail:z,eol:e` — configure the `list` markers. `tab:`
+    /// takes two characters (head + fill); `trail:` and `eol:` take one. Unknown
+    /// keys are ignored.
     pub fn set_listchars(&mut self, spec: &str) {
         for item in spec.split(',') {
             let Some((key, val)) = item.split_once(':') else {
@@ -761,13 +774,13 @@ impl Editor {
                 "trail" if vchars.len() == 1 => {
                     self.listchars_trail = vchars[0];
                 }
+                "eol" if vchars.len() == 1 => {
+                    self.listchars_eol = vchars[0];
+                }
                 _ => {}
             }
         }
-        self.message = format!(
-            "listchars=tab:{}{},trail:{}",
-            self.listchars_tab.0, self.listchars_tab.1, self.listchars_trail
-        );
+        self.message = self.listchars_summary();
     }
 
     /// vim's `showmode` text for the bottom line — `-- INSERT --`, `-- VISUAL --`,

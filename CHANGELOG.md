@@ -6,6 +6,8 @@ All notable changes to rvim are recorded here. Versions follow
 ## [Unreleased]
 
 ### UI
+- `listchars` gains an `eol:` marker: `:set listchars=...,eol:#` sets the
+  end-of-line glyph shown under `:set list` (previously a hardcoded `$`).
 - Status line scroll indicator: shows `Top`, `Bot`, or `All` when the top,
   bottom, or whole file is visible, and a file percentage otherwise (vim's ruler
   position), replacing the plain cursor percentage.
