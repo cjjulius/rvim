@@ -1037,6 +1037,27 @@
     }
 
     #[test]
+    fn cmdline_ctrl_r_inserts_register() {
+        let mut ed = ed_with("hello world");
+        for c in "yiw".chars() {
+            ed.handle_key(key(c)); // yank "hello" into the unnamed register
+        }
+        ed.handle_key(key(':'));
+        ed.handle_key(ctrl('r'));
+        ed.handle_key(key('"')); // paste unnamed register
+        assert_eq!(ed.cmdline, "hello");
+    }
+
+    #[test]
+    fn cmdline_ctrl_r_ctrl_w_inserts_word_under_cursor() {
+        let mut ed = ed_with("alpha beta");
+        ed.handle_key(key(':'));
+        ed.handle_key(ctrl('r'));
+        ed.handle_key(ctrl('w')); // word under cursor
+        assert_eq!(ed.cmdline, "alpha");
+    }
+
+    #[test]
     fn cmdline_tab_completes_unique_command() {
         let mut ed = ed_with("");
         ed.handle_key(key(':'));

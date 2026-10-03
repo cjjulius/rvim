@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Command line
+- `Ctrl-r` inserts a register on the `:` / search line (e.g. `Ctrl-r "` pastes
+  the last yank), and `Ctrl-r Ctrl-w` inserts the word under the cursor.
+
 ### Performance
 - Rendering skips folding syntax state from the top of the buffer for languages
   with no line-spanning constructs (JSON, TOML, plain text, Z80), avoiding an
