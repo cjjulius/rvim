@@ -417,18 +417,32 @@ impl App {
             }
             return;
         }
+        // Screen cell -> buffer position, if the click is in the text area.
+        // Capture scroll offsets as locals so the closure doesn't borrow `self`.
+        let (view_top, view_left) = (self.editor.top, self.editor.left);
+        let text_pos = |m: &event::MouseEvent| -> Option<(usize, usize)> {
+            if m.row >= layout.top_offset && m.row < layout.top_offset + layout.text_rows {
+                let row = view_top + (m.row - layout.top_offset) as usize;
+                let col =
+                    view_left.saturating_add((m.column.saturating_sub(layout.gutter_width)) as usize);
+                Some((row, col))
+            } else {
+                None
+            }
+        };
         match m.kind {
             MouseEventKind::Down(MouseButton::Left) => {
-                if m.row >= layout.top_offset && m.row < layout.top_offset + layout.text_rows {
-                    let row = self.editor.top + (m.row - layout.top_offset) as usize;
-                    let col = self
-                        .editor
-                        .left
-                        .saturating_add((m.column.saturating_sub(layout.gutter_width)) as usize);
-                    let max_row = self.editor.buffer.line_count().saturating_sub(1);
-                    self.editor.cursor.row = row.min(max_row);
-                    let max_col = self.editor.buffer.line_len(self.editor.cursor.row);
-                    self.editor.cursor.col = col.min(max_col.saturating_sub(1));
+                // A fresh click clears any selection and positions the cursor.
+                self.editor.clear_visual();
+                if let Some((row, col)) = text_pos(&m) {
+                    self.editor.set_cursor_clamped(row, col);
+                }
+            }
+            MouseEventKind::Drag(MouseButton::Left) => {
+                // Dragging extends a character-wise selection from the click point.
+                if let Some((row, col)) = text_pos(&m) {
+                    self.editor.begin_mouse_visual();
+                    self.editor.set_cursor_clamped(row, col);
                 }
             }
             MouseEventKind::ScrollDown => {

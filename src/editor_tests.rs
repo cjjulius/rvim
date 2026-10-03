@@ -1037,6 +1037,32 @@
     }
 
     #[test]
+    fn mouse_drag_selects_characters() {
+        let mut ed = ed_with("alpha beta");
+        // Click at column 2 (as the mouse handler would).
+        ed.clear_visual();
+        ed.set_cursor_clamped(0, 2);
+        assert_eq!(ed.mode, Mode::Normal);
+        // Drag to column 6 -> enters Visual and extends the selection.
+        ed.begin_mouse_visual();
+        ed.set_cursor_clamped(0, 6);
+        assert_eq!(ed.mode, Mode::Visual);
+        let (s, e) = ed.selection().unwrap();
+        assert_eq!((s.col, e.col), (2, 6));
+        // A fresh click clears the selection.
+        ed.clear_visual();
+        assert_eq!(ed.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn set_cursor_clamped_clamps_to_line() {
+        let mut ed = ed_with("hi\nlonger line");
+        ed.set_cursor_clamped(99, 99); // beyond the buffer
+        assert_eq!(ed.cursor.row, 1); // last line
+        assert_eq!(ed.cursor.col, "longer line".len() - 1);
+    }
+
+    #[test]
     fn cmdline_ctrl_r_inserts_register() {
         let mut ed = ed_with("hello world");
         for c in "yiw".chars() {

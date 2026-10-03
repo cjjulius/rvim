@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Mouse
+- Drag-to-select: with `:set mouse`, dragging the left button starts and extends
+  a character-wise visual selection; a plain click clears it and repositions.
+
 ### Command line
 - `Ctrl-r` inserts a register on the `:` / search line (e.g. `Ctrl-r "` pastes
   the last yank), and `Ctrl-r Ctrl-w` inserts the word under the cursor.

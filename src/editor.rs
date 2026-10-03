@@ -6444,6 +6444,32 @@ impl Editor {
         self.clamp_cursor(false);
     }
 
+    /// Move the cursor to a buffer position from a mouse click (clamped to the
+    /// buffer). Leaves the mode unchanged.
+    pub fn set_cursor_clamped(&mut self, row: usize, col: usize) {
+        let max_row = self.buffer.line_count().saturating_sub(1);
+        self.cursor.row = row.min(max_row);
+        let len = self.cur_len();
+        self.cursor.col = col.min(len.saturating_sub(1));
+        self.clamp_cursor(false);
+    }
+
+    /// Begin a character-wise visual selection anchored at the current cursor
+    /// (used when a mouse drag starts).
+    pub fn begin_mouse_visual(&mut self) {
+        if !self.mode.is_visual() {
+            self.mode = Mode::Visual;
+            self.visual_anchor = self.cursor;
+        }
+    }
+
+    /// Clear a visual selection (used when a fresh mouse click lands).
+    pub fn clear_visual(&mut self) {
+        if self.mode.is_visual() {
+            self.mode = Mode::Normal;
+        }
+    }
+
     fn toggle_visual(&mut self, target: Mode) {
         if self.mode == target {
             self.mode = Mode::Normal;
