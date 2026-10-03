@@ -4829,6 +4829,25 @@
     }
 
     #[test]
+    fn textwidth_wrap_counts_tab_display_width() {
+        // A leading tab (width 4) plus "ab cd" is 6 chars but 9 display columns;
+        // with textwidth 8 it must wrap, which a char count would miss.
+        let mut ed = ed_with("");
+        ed.textwidth = 8;
+        ed.tabstop = 4;
+        ed.expandtab = false;
+        ed.autoindent = false;
+        ed.handle_key(key('i'));
+        ed.handle_key(special(KeyCode::Tab));
+        for c in "ab cde".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(0), Some("\tab"));
+        assert_eq!(ed.buffer.line(1), Some("cde"));
+    }
+
+    #[test]
     fn textwidth_leaves_unbreakable_word_long() {
         let mut ed = ed_with("");
         ed.textwidth = 5;

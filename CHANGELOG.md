@@ -8,7 +8,8 @@ All notable changes to rvim are recorded here. Versions follow
 ### Insert mode
 - Auto-wrap: with `:set textwidth=N`, typing past the limit breaks the line at
   the last blank and carries the trailing word (plus autoindent) to a new line.
-  A word with no blank to break on is left long. `textwidth=0` disables it.
+  The limit is measured in display columns, so tabs count by their width. A word
+  with no blank to break on is left long. `textwidth=0` disables it.
 - Literal / numeric entry with `Ctrl-v`: insert the next key verbatim (e.g.
   `Ctrl-v Tab` for a real tab under `expandtab`), or a character code via decimal
   digits, `u`+hex (unicode), `x`+hex, or `o`+octal.
