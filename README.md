@@ -304,6 +304,7 @@ Grouped by what they do. Most line commands accept a leading range such as
   - Display: `number`, `relativenumber`, `cursorline`, `colorcolumn=N`, `list`.
   - Search: `ignorecase`, `smartcase`, `incsearch`.
   - Indent: `expandtab`, `shiftwidth=N`, `tabstop=N`, `shiftround`.
+  - Joining: `joinspaces` (two spaces after a sentence when you press `J`).
   - Other: `scrolloff=N`, `textwidth=N`, `mouse`.
 
 **Other**
@@ -538,7 +539,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **599 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **600 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, modes, and UI layout.
 
 ---

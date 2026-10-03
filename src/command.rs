@@ -170,6 +170,8 @@ pub enum ExCommand {
     ToggleCursorLine(bool),
     /// `:set shiftround` / `:set noshiftround` — round `>`/`<` to a shiftwidth.
     ToggleShiftRound(bool),
+    /// `:set joinspaces` / `:set nojoinspaces` — two spaces after sentence end.
+    ToggleJoinSpaces(bool),
     /// `:set cursorcolumn` / `:set nocursorcolumn` — highlight the cursor's column.
     ToggleCursorColumn(bool),
     /// `:set colorcolumn=N` — highlight column N as a guide (0 disables).
@@ -905,6 +907,8 @@ fn parse_set(rest: &str) -> ExCommand {
         "nocursorcolumn" | "nocuc" => ExCommand::ToggleCursorColumn(false),
         "shiftround" | "sr" => ExCommand::ToggleShiftRound(true),
         "noshiftround" | "nosr" => ExCommand::ToggleShiftRound(false),
+        "joinspaces" | "js" => ExCommand::ToggleJoinSpaces(true),
+        "nojoinspaces" | "nojs" => ExCommand::ToggleJoinSpaces(false),
         _ => {
             if let Some(v) = opt
                 .strip_prefix("listchars=")
