@@ -6,7 +6,7 @@ use crate::buffer::Position;
 use crate::editor::Editor;
 use crate::menu::{MenuAction, MenuItem, MenuState};
 use crate::mode::Mode;
-use crate::syntax::{Registry, Token, TokenKind};
+use crate::syntax::{LineState, Registry, Token, TokenKind};
 use crate::theme::Theme;
 use crossterm::cursor::{Hide, MoveTo, Show};
 use crossterm::style::{
@@ -145,7 +145,7 @@ pub fn render(
     theme: &Theme,
     syntax: &Registry,
     tabs: &[TabEntry],
-    in_block_top: bool,
+    in_block_top: LineState,
 ) -> io::Result<()> {
     let (cols, rows) = crossterm::terminal::size()?;
     let show_tabline = tabs.len() > 1;

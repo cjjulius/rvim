@@ -5,7 +5,7 @@ use crate::command::{self, ExCommand};
 use crate::editor::{Action, Editor};
 use crate::mode::Mode;
 use crate::plugin::{PluginDoc, PluginManager};
-use crate::syntax::{Language, Registry};
+use crate::syntax::{Language, LineState, Registry};
 use crate::terminal::TerminalGuard;
 use crate::theme::ThemeRegistry;
 use crate::ui::{self, Layout};
@@ -29,7 +29,7 @@ pub struct App {
     /// (buffer revision, language, top row). Avoids re-folding from the top of the
     /// buffer every frame when the view hasn't changed (e.g. cursor moving
     /// on-screen).
-    block_memo: Option<(u64, Language, usize, bool)>,
+    block_memo: Option<(u64, Language, usize, LineState)>,
     /// Path of the buffer most recently switched away from (vim's alternate file,
     /// reachable with `Ctrl-^` / `:b#`).
     alternate: Option<String>,
@@ -274,7 +274,7 @@ impl App {
 
     /// The block-comment fold state feeding the first visible line, memoized by
     /// (buffer revision, language, top row) so an unchanged view is O(1).
-    fn block_state_top(&mut self) -> bool {
+    fn block_state_top(&mut self) -> LineState {
         let rev = self.editor.buffer.revision();
         let lang = self.editor.language;
         let top = self.editor.top;

@@ -375,11 +375,12 @@
             crate::buffer::Buffer::from_text("/* comment\nstill in\n*/\ncode");
         app.editor.set_language(crate::syntax::Language::Rust);
         app.editor.top = 1;
-        assert!(app.block_state_top()); // line 1 is inside the block comment
+        use crate::syntax::LineState;
+        assert_eq!(app.block_state_top(), LineState::Block); // line 1 inside the comment
         assert!(app.block_memo.is_some()); // result cached
-        assert!(app.block_state_top()); // cached path returns the same
+        assert_eq!(app.block_state_top(), LineState::Block); // cached path returns the same
         app.editor.top = 3;
-        assert!(!app.block_state_top()); // line 3 ("code") is outside the block
+        assert_eq!(app.block_state_top(), LineState::Normal); // line 3 ("code") is outside
     }
 
     #[test]
