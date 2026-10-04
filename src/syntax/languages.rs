@@ -43,8 +43,40 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(toml_spec())),
         Box::new(SpecHighlighter::new(javascript_spec())),
         Box::new(SpecHighlighter::new(go_spec())),
+        Box::new(SpecHighlighter::new(shell_spec())),
     ]
 }
+
+// ---- Shell ---------------------------------------------------------------
+
+const SIG_SHELL: &[char] = &['$'];
+
+fn shell_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Shell,
+        multiline_strings: &[],
+        line_comments: &["#"],
+        block_comment: None,
+        keywords: SHELL_KEYWORDS,
+        types: &[],
+        builtins: SHELL_BUILTINS,
+        string_delims: &['"', '\''],
+        case_insensitive: false,
+        // `$VAR` / `$1` highlight as variables.
+        var_sigils: SIG_SHELL,
+        detect_calls: false,
+    }
+}
+
+const SHELL_KEYWORDS: &[&str] = &[
+    "if", "then", "elif", "else", "fi", "for", "while", "until", "do", "done", "case", "esac",
+    "in", "function", "select", "time", "return", "break", "continue", "local", "export",
+    "readonly", "declare", "typeset",
+];
+const SHELL_BUILTINS: &[&str] = &[
+    "echo", "printf", "read", "cd", "pwd", "test", "source", "eval", "exec", "exit", "set",
+    "unset", "shift", "trap", "wait", "kill", "alias", "unalias", "getopts", "true", "false",
+];
 
 // ---- Go ------------------------------------------------------------------
 
@@ -527,6 +559,16 @@ mod tests {
         assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "on"
         assert!(toks.iter().any(|t| t.kind == TokenKind::Number)); // 42
         assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // true/null
+    }
+
+    #[test]
+    fn shell_highlights_keyword_builtin_variable() {
+        let h = SpecHighlighter::new(shell_spec());
+        let toks = h.highlight_line("for x in a; do echo $x; done # loop");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // for/do/done
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // echo
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Variable)); // $x
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // # loop
     }
 
     #[test]

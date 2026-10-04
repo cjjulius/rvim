@@ -62,6 +62,7 @@ pub enum Language {
     Toml,
     JavaScript,
     Go,
+    Shell,
 }
 
 impl Language {
@@ -81,6 +82,7 @@ impl Language {
             Language::Toml => "toml",
             Language::JavaScript => "javascript",
             Language::Go => "go",
+            Language::Shell => "shell",
         }
     }
 
@@ -100,6 +102,7 @@ impl Language {
             "toml" => Language::Toml,
             "javascript" | "js" | "node" => Language::JavaScript,
             "go" | "golang" => Language::Go,
+            "shell" | "sh" | "bash" | "zsh" => Language::Shell,
             _ => return None,
         })
     }
@@ -115,7 +118,7 @@ pub fn line_comment_token(lang: Language) -> Option<&'static str> {
         | Language::TrinoSql
         | Language::SnowflakeSql => Some("--"),
         Language::Z80 => Some(";"),
-        Language::Python | Language::Toml => Some("#"),
+        Language::Python | Language::Toml | Language::Shell => Some("#"),
         Language::JavaScript | Language::Go => Some("//"),
         // Strict JSON has no comments.
         Language::Json | Language::PlainText => None,
@@ -139,6 +142,7 @@ pub fn detect_language(path: Option<&Path>, first_line: &str) -> Language {
                 "toml" => return Language::Toml,
                 "js" | "mjs" | "cjs" | "jsx" => return Language::JavaScript,
                 "go" => return Language::Go,
+                "sh" | "bash" | "zsh" => return Language::Shell,
                 "sql" => {
                     // Refine a generic .sql file by a leading dialect hint comment,
                     // e.g. `-- dialect: pgsql`.
@@ -156,6 +160,13 @@ pub fn detect_language(path: Option<&Path>, first_line: &str) -> Language {
     }
     if l.starts_with("#!") && l.to_ascii_lowercase().contains("node") {
         return Language::JavaScript;
+    }
+    if l.starts_with("#!") {
+        let low = l.to_ascii_lowercase();
+        if low.contains("bash") || low.contains("zsh") || low.ends_with("sh") || low.contains("/sh")
+        {
+            return Language::Shell;
+        }
     }
     if l.starts_with(";") && l.to_ascii_lowercase().contains("z80") {
         return Language::Z80;
@@ -712,6 +723,16 @@ mod tests {
             detect_language(Some(&PathBuf::from("main.go")), ""),
             Language::Go
         );
+        assert_eq!(
+            detect_language(Some(&PathBuf::from("run.sh")), ""),
+            Language::Shell
+        );
+    }
+
+    #[test]
+    fn detect_shell_by_shebang() {
+        assert_eq!(detect_language(None, "#!/bin/bash"), Language::Shell);
+        assert_eq!(detect_language(None, "#!/usr/bin/env sh"), Language::Shell);
     }
 
     #[test]
