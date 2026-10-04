@@ -47,6 +47,7 @@ All notable changes to rvim are recorded here. Versions follow
 ### Themes
 - New built-in `gruvbox` dark theme (`:theme gruvbox`), the popular warm retro
   palette.
+- New built-in `nord` theme (`:theme nord`), the cool, muted arctic palette.
 
 ### Indent
 - `:set shiftround` rounds `>`/`<` to a multiple of `shiftwidth` (e.g. a 2-space

@@ -8,7 +8,7 @@ languages.
 
 > Status: **v0.2** — a mature, deeply vim-compatible editor. Modal editing, the
 > full operator/motion/text-object grammar, incremental search, line-range ex
-> commands, `:normal`, visual-mode operators, five themes, eleven language
+> commands, `:normal`, visual-mode operators, six themes, eleven language
 > highlighters, a plugin system, and mouse support are all working. See
 > [CHANGELOG.md](CHANGELOG.md) for what landed in 0.2.
 
@@ -420,6 +420,7 @@ bare `:theme`):
 | `retrowave`      | neon pink/cyan on deep purple                     |
 | `cobalt`         | warm gold/cyan accents on deep blue               |
 | `gruvbox`        | warm, earthy retro palette                         |
+| `nord`           | cool, muted arctic palette                          |
 | `high-contrast`  | **accessibility:** pure black/white, colorblind-safe (Okabe–Ito) token palette |
 
 ### Syntax highlighting + language autodetection
@@ -506,7 +507,7 @@ src/
 ├── pattern.rs     regex compilation (literal fallback) for search & :s
 ├── terminal.rs    raw-mode / alt-screen RAII guard (cross-platform)
 ├── ui.rs          gutter + highlighted text + status/command lines
-├── theme.rs       Theme + ThemeRegistry (matrix, retrowave, cobalt, gruvbox)
+├── theme.rs       Theme + ThemeRegistry (matrix, retrowave, cobalt, gruvbox, nord)
 ├── plugin.rs      Plugin trait + PluginManager (+ example plugin)
 └── syntax/
     ├── mod.rs        Highlighter trait, spec-driven tokenizer, detection
@@ -550,7 +551,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **619 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **620 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, modes, and UI layout.
 
 ---
