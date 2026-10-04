@@ -1422,6 +1422,42 @@
     }
 
     #[test]
+    fn block_yank_and_paste_rectangle() {
+        let mut ed = ed_with("abcd\nefgh\nijkl");
+        // Select the 2-wide block at columns 1..=2 over all three rows and yank.
+        ed.handle_key(key('l')); // col 1
+        ed.handle_key(ctrl('v'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('j')); // row 2
+        ed.handle_key(key('l')); // col 2
+        ed.handle_key(key('y')); // yank the block "bc"/"fg"/"jk"
+        assert_eq!(ed.mode, Mode::Normal);
+        assert_eq!(ed.cursor, Position::new(0, 1)); // cursor returns to block start
+        // Move to the start of line 0 and paste the block after the cursor.
+        ed.handle_key(key('0'));
+        ed.handle_key(key('p')); // paste block at column 1 on rows 0..2
+        assert_eq!(ed.buffer.line(0), Some("abcbcd"));
+        assert_eq!(ed.buffer.line(1), Some("efgfgh"));
+        assert_eq!(ed.buffer.line(2), Some("ijkjkl"));
+    }
+
+    #[test]
+    fn block_paste_pads_short_lines() {
+        let mut ed = ed_with("xxx\nyy\nzzz");
+        // Yank a 2-wide block (cols 0..=1) across the three rows.
+        ed.handle_key(ctrl('v'));
+        ed.handle_key(key('l')); // col 1
+        ed.handle_key(key('j'));
+        ed.handle_key(key('j')); // down to row 2
+        ed.handle_key(key('y')); // block "xx"/"yy"/"zz"; cursor back to (0,0)
+        ed.handle_key(key('$')); // col 2 (end of "xxx")
+        ed.handle_key(key('p')); // block paste after -> column 3
+        assert_eq!(ed.buffer.line(0), Some("xxxxx"));
+        assert_eq!(ed.buffer.line(1), Some("yy yy")); // short line padded to column 3
+        assert_eq!(ed.buffer.line(2), Some("zzzzz"));
+    }
+
+    #[test]
     fn block_insert_prepends_each_row() {
         let mut ed = ed_with("one\ntwo\nthree");
         ed.handle_key(ctrl('v'));
@@ -3824,7 +3860,7 @@
     #[test]
     fn gp_charwise_leaves_cursor_after_paste() {
         let mut ed = ed_with("abc");
-        ed.register = Register { text: "XY".into(), linewise: false };
+        ed.register = Register { text: "XY".into(), linewise: false, block: false };
         ed.cursor = Position::new(0, 0);
         ed.handle_key(key('g'));
         ed.handle_key(key('p'));
@@ -3835,7 +3871,7 @@
     #[test]
     fn gp_linewise_moves_below_block() {
         let mut ed = ed_with("a\nb");
-        ed.register = Register { text: "X\nY".into(), linewise: true };
+        ed.register = Register { text: "X\nY".into(), linewise: true, block: false };
         ed.cursor = Position::new(0, 0);
         ed.handle_key(key('g'));
         ed.handle_key(key('p'));
@@ -3847,7 +3883,7 @@
     #[test]
     fn bracket_p_reindents_to_current_line() {
         let mut ed = ed_with("        anchor");
-        ed.register = Register { text: "code".into(), linewise: true };
+        ed.register = Register { text: "code".into(), linewise: true, block: false };
         ed.cursor = Position::new(0, 8);
         ed.handle_key(key(']'));
         ed.handle_key(key('p')); // ]p -> paste below, indent to match "anchor"
@@ -3857,7 +3893,7 @@
     #[test]
     fn bracket_p_preserves_relative_indent() {
         let mut ed = ed_with("    anchor");
-        ed.register = Register { text: "a\n  b".into(), linewise: true };
+        ed.register = Register { text: "a\n  b".into(), linewise: true, block: false };
         ed.cursor = Position::new(0, 4);
         ed.handle_key(key(']'));
         ed.handle_key(key('p'));
@@ -3868,7 +3904,7 @@
     #[test]
     fn bracket_paste_above_with_indent() {
         let mut ed = ed_with("    anchor");
-        ed.register = Register { text: "x".into(), linewise: true };
+        ed.register = Register { text: "x".into(), linewise: true, block: false };
         ed.cursor = Position::new(0, 4);
         ed.handle_key(key('['));
         ed.handle_key(key('p')); // [p -> paste above, indent-adjusted
@@ -4065,7 +4101,7 @@
     #[test]
     fn visual_paste_replaces_charwise_selection() {
         let mut ed = ed_with("foo bar");
-        ed.register = Register { text: "XYZ".into(), linewise: false };
+        ed.register = Register { text: "XYZ".into(), linewise: false, block: false };
         ed.cursor = Position::new(0, 4); // on "bar"
         ed.handle_key(key('v'));
         ed.handle_key(key('l'));
@@ -4078,7 +4114,7 @@
     #[test]
     fn visual_paste_replaces_linewise_selection() {
         let mut ed = ed_with("a\nb\nc");
-        ed.register = Register { text: "X".into(), linewise: true };
+        ed.register = Register { text: "X".into(), linewise: true, block: false };
         ed.cursor = Position::new(1, 0); // on "b"
         ed.handle_key(key('V'));
         ed.handle_key(key('p'));
