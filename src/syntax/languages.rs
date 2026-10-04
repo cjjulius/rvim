@@ -53,6 +53,7 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
 fn c_spec() -> LangSpec {
     LangSpec {
         language: Language::C,
+        preprocessor: Some('#'),
         multiline_strings: &[],
         line_comments: &["//"],
         block_comment: Some(("/*", "*/")),
@@ -94,6 +95,7 @@ const SIG_SHELL: &[char] = &['$'];
 fn shell_spec() -> LangSpec {
     LangSpec {
         language: Language::Shell,
+        preprocessor: None,
         multiline_strings: &[],
         line_comments: &["#"],
         block_comment: None,
@@ -123,6 +125,7 @@ const SHELL_BUILTINS: &[&str] = &[
 fn go_spec() -> LangSpec {
     LangSpec {
         language: Language::Go,
+        preprocessor: None,
         // Raw string literals use backticks and span lines; tracked separately
         // from block comments by the per-line LineState.
         multiline_strings: &["`"],
@@ -158,6 +161,7 @@ const GO_BUILTINS: &[&str] = &[
 fn javascript_spec() -> LangSpec {
     LangSpec {
         language: Language::JavaScript,
+        preprocessor: None,
         // Backtick template literals span lines; tracked independently from block
         // comments by the per-line LineState.
         multiline_strings: &["`"],
@@ -194,6 +198,7 @@ const JS_BUILTINS: &[&str] = &[
 fn toml_spec() -> LangSpec {
     LangSpec {
         language: Language::Toml,
+        preprocessor: None,
         multiline_strings: &[],
         line_comments: &["#"],
         block_comment: None,
@@ -216,6 +221,7 @@ const TOML_KEYWORDS: &[&str] = &["true", "false", "inf", "nan"];
 fn python_spec() -> LangSpec {
     LangSpec {
         language: Language::Python,
+        preprocessor: None,
         multiline_strings: &["\"\"\"", "'''"],
         line_comments: &["#"],
         block_comment: None,
@@ -251,6 +257,7 @@ const PYTHON_BUILTINS: &[&str] = &[
 fn json_spec() -> LangSpec {
     LangSpec {
         language: Language::Json,
+        preprocessor: None,
         multiline_strings: &[],
         line_comments: &[],
         block_comment: None,
@@ -273,6 +280,7 @@ const JSON_KEYWORDS: &[&str] = &["true", "false", "null"];
 fn rust_spec() -> LangSpec {
     LangSpec {
         language: Language::Rust,
+        preprocessor: None,
         multiline_strings: &[],
         line_comments: &["//"],
         block_comment: Some(("/*", "*/")),
@@ -313,6 +321,7 @@ fn sql_spec(language: Language, var_sigils: &'static [char]) -> LangSpec {
     LangSpec {
         language,
         multiline_strings: &[],
+        preprocessor: None,
         line_comments: &["--"],
         block_comment: Some(("/*", "*/")),
         keywords: SQL_KEYWORDS,
@@ -610,6 +619,16 @@ mod tests {
         assert!(toks.iter().any(|t| t.kind == TokenKind::Function)); // main(
         assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "hi"
         assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // /* c */
+    }
+
+    #[test]
+    fn c_highlights_preprocessor_directive() {
+        let h = SpecHighlighter::new(c_spec());
+        let toks = h.highlight_line("  #include <stdio.h>");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Preprocessor)); // #include
+        // A stray `#` mid-line is not a directive.
+        let toks2 = h.highlight_line("int a = b # c;");
+        assert!(!toks2.iter().any(|t| t.kind == TokenKind::Preprocessor));
     }
 
     #[test]

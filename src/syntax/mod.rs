@@ -259,6 +259,10 @@ pub struct LangSpec {
     /// Multi-line string delimiters (e.g. Python's `"""` / `'''`). A string opened
     /// with one of these runs until the next matching delimiter, across lines.
     pub multiline_strings: &'static [&'static str],
+    /// A character that, as the first non-blank on a line, introduces a
+    /// preprocessor directive (e.g. C's `#include`). The `#` plus the directive
+    /// word is highlighted as [`TokenKind::Preprocessor`].
+    pub preprocessor: Option<char>,
 }
 
 /// A [`Highlighter`] driven entirely by a [`LangSpec`], plus prebuilt lookup
@@ -427,6 +431,20 @@ impl Highlighter for SpecHighlighter {
             if c.is_whitespace() {
                 i += 1;
                 continue;
+            }
+
+            // Preprocessor directive: the `#` plus its directive word, when `#` is
+            // the first non-blank on the line (e.g. C's `#include`).
+            if let Some(pp) = self.spec.preprocessor {
+                if c == pp && line[..start_b].trim().is_empty() {
+                    let mut j = i + 1;
+                    while j < chars.len() && is_ident_continue(chars[j].1) {
+                        j += 1;
+                    }
+                    tokens.push(Token::new(start_b, byte_at(j), TokenKind::Preprocessor));
+                    i = j;
+                    continue;
+                }
             }
 
             // Line comments.
