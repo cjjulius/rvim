@@ -66,7 +66,8 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
 ### Modal editing (vim-style)
 - **Modes:** Normal, Insert, Replace (`R` — overtype), Visual, Visual-Line,
   Visual-Block (`Ctrl-v`), Command.
-- **Motions:** `h j k l`, arrows, `w`/`b`/`e`/`ge` (word) and `W`/`B`/`E`/`gE` (WORD),
+- **Motions:** `h j k l` (`j`/`k` keep their goal column across shorter lines),
+  arrows, `w`/`b`/`e`/`ge` (word) and `W`/`B`/`E`/`gE` (WORD),
   `0`/`^`/`$`/`g_` (line ends), `|` (column), `+`/`-`/`Enter` (line first
   non-blank), `{`/`}` (paragraph), `(`/`)` (sentence, counted),
   `[[`/`]]`/`[]`/`][` (section — brace in
@@ -551,7 +552,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **620 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **624 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, modes, and UI layout.
 
 ---
