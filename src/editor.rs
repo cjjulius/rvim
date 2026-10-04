@@ -190,6 +190,13 @@ pub struct Editor {
     pending_replace_count: usize,
     /// Command-line `Ctrl-r`: the next key names the register to insert.
     cmdline_pending_reg: bool,
+    /// The goal column for vertical motion (vim's "curswant"): `j`/`k` aim for
+    /// this column so moving through a shorter line and on to a longer one
+    /// restores the original column. Maintained in `handle_key`.
+    want_col: usize,
+    /// Set by `move_up`/`move_down` so `handle_key` knows the last motion was
+    /// vertical and must not reset `want_col`.
+    vertical_motion: bool,
     /// Replace-mode overtype history: `Some(orig)` for an overwritten char,
     /// `None` for one appended past EOL — used to restore on Backspace.
     replace_stack: Vec<Option<char>>,
@@ -375,6 +382,8 @@ impl Editor {
             pending_replace: false,
             pending_replace_count: 1,
             cmdline_pending_reg: false,
+            want_col: 0,
+            vertical_motion: false,
             replace_stack: Vec::new(),
             insert_repeat: 1,
             insert_entry: 'i',
@@ -1822,6 +1831,18 @@ impl Editor {
                 _ => self.handle_normal(key),
             }
         };
+
+        // Maintain the vertical-motion goal column (vim's "curswant"): a vertical
+        // motion keeps the previous goal, any other cursor change resets it to the
+        // current column. Insert/Command edits don't affect it.
+        let was_vertical = std::mem::take(&mut self.vertical_motion);
+        if !was_vertical
+            && self.mode != Mode::Insert
+            && self.mode != Mode::Replace
+            && self.mode != Mode::Command
+        {
+            self.want_col = self.cursor.col;
+        }
 
         if let Some(v) = pre_visual {
             if !self.mode.is_visual() {
@@ -4558,24 +4579,32 @@ impl Editor {
 
     fn move_up(&mut self, n: usize) {
         self.cursor.row = self.cursor.row.saturating_sub(n);
+        self.cursor.col = self.want_col;
+        self.vertical_motion = true;
     }
 
     fn move_down(&mut self, n: usize) {
         self.cursor.row = (self.cursor.row + n).min(self.buffer.line_count().saturating_sub(1));
+        self.cursor.col = self.want_col;
+        self.vertical_motion = true;
     }
 
     fn move_line_end(&mut self) {
         self.cursor.col = self.cur_len().saturating_sub(1);
+        self.vertical_motion = false;
     }
 
     fn move_line_end_exclusive(&mut self) {
         self.cursor.col = self.cur_len();
+        self.vertical_motion = false;
     }
 
     fn move_first_nonblank(&mut self) {
         let line = self.buffer.line(self.cursor.row).unwrap_or("");
         let col = line.chars().take_while(|c| c.is_whitespace()).count();
         self.cursor.col = col.min(self.cur_len().saturating_sub(1));
+        // An explicit column position (e.g. after `+`/`-`) is the new goal.
+        self.vertical_motion = false;
     }
 
     fn goto_line_or_end(&mut self, count: usize) {
@@ -6537,6 +6566,7 @@ impl Editor {
         self.cursor.row = row.min(max_row);
         let len = self.cur_len();
         self.cursor.col = col.min(len.saturating_sub(1));
+        self.want_col = self.cursor.col;
         self.clamp_cursor(false);
     }
 

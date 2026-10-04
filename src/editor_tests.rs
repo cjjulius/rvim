@@ -1458,6 +1458,45 @@
     }
 
     #[test]
+    fn vertical_motion_keeps_goal_column_across_short_line() {
+        let mut ed = ed_with("hello\nx\nworld");
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // column 3
+        ed.handle_key(key('j')); // onto "x" -> clamped to column 0 for display
+        assert_eq!(ed.cursor, Position::new(1, 0));
+        ed.handle_key(key('j')); // onto "world" -> goal column 3 restored
+        assert_eq!(ed.cursor, Position::new(2, 3));
+    }
+
+    #[test]
+    fn horizontal_move_resets_goal_column() {
+        let mut ed = ed_with("hello\nworld");
+        ed.handle_key(key('$')); // column 4
+        ed.handle_key(key('h')); // column 3 -> new goal
+        ed.handle_key(key('j')); // onto "world" at column 3
+        assert_eq!(ed.cursor, Position::new(1, 3));
+    }
+
+    #[test]
+    fn block_select_keeps_width_across_short_line() {
+        // Regression for the block column collapsing when moving through a short
+        // line: the yanked block keeps its columns on the longer lines.
+        let mut ed = ed_with("abcde\nx\nabcde");
+        ed.handle_key(key('l')); // column 1 (block anchor)
+        ed.handle_key(ctrl('v'));
+        ed.handle_key(key('l')); // extend to column 2
+        ed.handle_key(key('j')); // through the short "x"
+        ed.handle_key(key('j')); // onto the second "abcde" at column 2
+        ed.handle_key(key('y'));
+        ed.handle_key(key('0'));
+        ed.handle_key(key('P')); // block paste before column 0
+        assert_eq!(ed.buffer.line(0), Some("bcabcde"));
+        assert_eq!(ed.buffer.line(1), Some("x"));
+        assert_eq!(ed.buffer.line(2), Some("bcabcde"));
+    }
+
+    #[test]
     fn block_insert_prepends_each_row() {
         let mut ed = ed_with("one\ntwo\nthree");
         ed.handle_key(ctrl('v'));
