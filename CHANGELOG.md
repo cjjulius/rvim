@@ -32,6 +32,11 @@ All notable changes to rvim are recorded here. Versions follow
 - `Ctrl-r` inserts a register on the `:` / search line (e.g. `Ctrl-r "` pastes
   the last yank), and `Ctrl-r Ctrl-w` inserts the word under the cursor.
 
+### Internal
+- Language metadata (name, `:set ft` aliases, file extensions, comment marker) is
+  now a single data table, so adding a language is one row plus its highlighter
+  instead of edits across several match arms. No behavior change.
+
 ### Performance
 - Rendering skips folding syntax state from the top of the buffer for languages
   with no line-spanning constructs (JSON, TOML, plain text, Z80), avoiding an

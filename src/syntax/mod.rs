@@ -67,68 +67,67 @@ pub enum Language {
     Java,
 }
 
+/// One language's metadata, driving `name`, `from_name`, `line_comment_token`,
+/// and detection by file extension. Adding a language is one row here plus its
+/// highlighter (and any special shebang/dialect sniffing below).
+struct LangInfo {
+    lang: Language,
+    /// Canonical name (status line, `:set ft`).
+    name: &'static str,
+    /// Extra `:set ft=<x>` names besides `name`.
+    aliases: &'static [&'static str],
+    /// File extensions (lowercase, no dot) that select this language.
+    extensions: &'static [&'static str],
+    /// Line-comment marker, if any.
+    comment: Option<&'static str>,
+}
+
+/// `.sql` is intentionally absent from `extensions` (it is dialect-sniffed).
+const LANG_TABLE: &[LangInfo] = &[
+    LangInfo { lang: Language::PlainText, name: "text", aliases: &["txt", "plain"], extensions: &["txt", "text", "md"], comment: None },
+    LangInfo { lang: Language::Rust, name: "rust", aliases: &["rs"], extensions: &["rs"], comment: Some("//") },
+    LangInfo { lang: Language::SqlAnsi, name: "sql", aliases: &["ansi"], extensions: &[], comment: Some("--") },
+    LangInfo { lang: Language::TSql, name: "tsql", aliases: &["mssql", "sqlserver"], extensions: &["tsql"], comment: Some("--") },
+    LangInfo { lang: Language::PgSql, name: "pgsql", aliases: &["postgres", "postgresql", "psql"], extensions: &["pgsql", "psql"], comment: Some("--") },
+    LangInfo { lang: Language::TrinoSql, name: "trino", aliases: &["presto", "starburst"], extensions: &["trino", "trinosql", "presto"], comment: Some("--") },
+    LangInfo { lang: Language::SnowflakeSql, name: "snowflake", aliases: &["snow", "snowsql"], extensions: &["snow", "snowsql", "snowflake"], comment: Some("--") },
+    LangInfo { lang: Language::Z80, name: "z80", aliases: &["asm", "assembly"], extensions: &["z80", "asm", "s"], comment: Some(";") },
+    LangInfo { lang: Language::Json, name: "json", aliases: &[], extensions: &["json"], comment: None },
+    LangInfo { lang: Language::Python, name: "python", aliases: &["py"], extensions: &["py", "pyw"], comment: Some("#") },
+    LangInfo { lang: Language::Toml, name: "toml", aliases: &[], extensions: &["toml"], comment: Some("#") },
+    LangInfo { lang: Language::JavaScript, name: "javascript", aliases: &["js", "node"], extensions: &["js", "mjs", "cjs", "jsx"], comment: Some("//") },
+    LangInfo { lang: Language::Go, name: "go", aliases: &["golang"], extensions: &["go"], comment: Some("//") },
+    LangInfo { lang: Language::Shell, name: "shell", aliases: &["sh", "bash", "zsh"], extensions: &["sh", "bash", "zsh"], comment: Some("#") },
+    LangInfo { lang: Language::C, name: "c", aliases: &["cpp", "c++", "cxx", "cc", "h", "hpp"], extensions: &["c", "h", "cpp", "cc", "cxx", "hpp", "hh"], comment: Some("//") },
+    LangInfo { lang: Language::Java, name: "java", aliases: &[], extensions: &["java"], comment: Some("//") },
+];
+
 impl Language {
     /// Human-readable name shown in the status line / `:set ft`.
     pub fn name(&self) -> &'static str {
-        match self {
-            Language::PlainText => "text",
-            Language::Rust => "rust",
-            Language::SqlAnsi => "sql",
-            Language::TSql => "tsql",
-            Language::PgSql => "pgsql",
-            Language::TrinoSql => "trino",
-            Language::SnowflakeSql => "snowflake",
-            Language::Z80 => "z80",
-            Language::Json => "json",
-            Language::Python => "python",
-            Language::Toml => "toml",
-            Language::JavaScript => "javascript",
-            Language::Go => "go",
-            Language::Shell => "shell",
-            Language::C => "c",
-            Language::Java => "java",
-        }
+        LANG_TABLE
+            .iter()
+            .find(|e| e.lang == *self)
+            .map(|e| e.name)
+            .unwrap_or("text")
     }
 
     /// Resolve a filetype name (as typed in `:set ft=<x>`) to a language.
     pub fn from_name(name: &str) -> Option<Language> {
-        Some(match name.to_ascii_lowercase().as_str() {
-            "text" | "txt" | "plain" => Language::PlainText,
-            "rust" | "rs" => Language::Rust,
-            "sql" | "ansi" => Language::SqlAnsi,
-            "tsql" | "mssql" | "sqlserver" => Language::TSql,
-            "pgsql" | "postgres" | "postgresql" | "psql" => Language::PgSql,
-            "trino" | "presto" | "starburst" => Language::TrinoSql,
-            "snowflake" | "snow" | "snowsql" => Language::SnowflakeSql,
-            "z80" | "asm" | "assembly" => Language::Z80,
-            "json" => Language::Json,
-            "python" | "py" => Language::Python,
-            "toml" => Language::Toml,
-            "javascript" | "js" | "node" => Language::JavaScript,
-            "go" | "golang" => Language::Go,
-            "shell" | "sh" | "bash" | "zsh" => Language::Shell,
-            "c" | "cpp" | "c++" | "cxx" | "cc" | "h" | "hpp" => Language::C,
-            "java" => Language::Java,
-            _ => return None,
-        })
+        let n = name.to_ascii_lowercase();
+        LANG_TABLE
+            .iter()
+            .find(|e| e.name == n || e.aliases.contains(&n.as_str()))
+            .map(|e| e.lang)
     }
 }
 
 /// The primary line-comment marker for a language (for comment toggling).
 pub fn line_comment_token(lang: Language) -> Option<&'static str> {
-    match lang {
-        Language::Rust => Some("//"),
-        Language::SqlAnsi
-        | Language::TSql
-        | Language::PgSql
-        | Language::TrinoSql
-        | Language::SnowflakeSql => Some("--"),
-        Language::Z80 => Some(";"),
-        Language::Python | Language::Toml | Language::Shell => Some("#"),
-        Language::JavaScript | Language::Go | Language::C | Language::Java => Some("//"),
-        // Strict JSON has no comments.
-        Language::Json | Language::PlainText => None,
-    }
+    LANG_TABLE
+        .iter()
+        .find(|e| e.lang == lang)
+        .and_then(|e| e.comment)
 }
 
 /// Autodetect a language from a file path (by extension) and, as a fallback,
@@ -136,28 +135,17 @@ pub fn line_comment_token(lang: Language) -> Option<&'static str> {
 pub fn detect_language(path: Option<&Path>, first_line: &str) -> Language {
     if let Some(path) = path {
         if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-            match ext.to_ascii_lowercase().as_str() {
-                "rs" => return Language::Rust,
-                "tsql" => return Language::TSql,
-                "pgsql" | "psql" => return Language::PgSql,
-                "trino" | "trinosql" | "presto" => return Language::TrinoSql,
-                "snow" | "snowsql" | "snowflake" => return Language::SnowflakeSql,
-                "z80" | "asm" | "s" => return Language::Z80,
-                "json" => return Language::Json,
-                "py" | "pyw" => return Language::Python,
-                "toml" => return Language::Toml,
-                "js" | "mjs" | "cjs" | "jsx" => return Language::JavaScript,
-                "go" => return Language::Go,
-                "sh" | "bash" | "zsh" => return Language::Shell,
-                "c" | "h" | "cpp" | "cc" | "cxx" | "hpp" | "hh" => return Language::C,
-                "java" => return Language::Java,
-                "sql" => {
-                    // Refine a generic .sql file by a leading dialect hint comment,
-                    // e.g. `-- dialect: pgsql`.
-                    return sniff_sql_dialect(first_line).unwrap_or(Language::SqlAnsi);
-                }
-                "txt" | "text" | "md" => return Language::PlainText,
-                _ => {}
+            let ext = ext.to_ascii_lowercase();
+            if ext == "sql" {
+                // Refine a generic .sql file by a leading dialect hint comment,
+                // e.g. `-- dialect: pgsql`.
+                return sniff_sql_dialect(first_line).unwrap_or(Language::SqlAnsi);
+            }
+            if let Some(e) = LANG_TABLE
+                .iter()
+                .find(|e| e.extensions.contains(&ext.as_str()))
+            {
+                return e.lang;
             }
         }
     }
@@ -706,6 +694,26 @@ impl Default for Registry {
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    #[test]
+    fn lang_table_names_round_trip() {
+        // Every language's canonical name resolves back to itself, and each
+        // extension and alias resolves to its language.
+        for e in LANG_TABLE {
+            assert_eq!(e.lang.name(), e.name);
+            assert_eq!(Language::from_name(e.name), Some(e.lang), "name {}", e.name);
+            for a in e.aliases {
+                assert_eq!(Language::from_name(a), Some(e.lang), "alias {a}");
+            }
+            for x in e.extensions {
+                assert_eq!(
+                    detect_language(Some(&PathBuf::from(format!("f.{x}"))), ""),
+                    e.lang,
+                    "ext {x}"
+                );
+            }
+        }
+    }
 
     #[test]
     fn detect_by_extension() {
