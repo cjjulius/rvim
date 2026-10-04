@@ -42,6 +42,9 @@ All notable changes to rvim are recorded here. Versions follow
 - Go highlighting (`.go`): keywords, builtin types and functions, strings, numbers,
   `//` / `/* */` comments, and multi-line raw-string backticks; detected by
   extension or `:set ft=go`.
+- Shell highlighting (`.sh`, `.bash`, `.zsh`): keywords, builtin commands, strings,
+  `$`-variables, and `#` comments; detected by extension, a shell shebang, or
+  `:set ft=shell`.
 - Multi-line strings are tracked across lines (via `LangSpec.multiline_strings`),
   so Python triple-quoted strings and docstrings stay colored past the first
   line.
