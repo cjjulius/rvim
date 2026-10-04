@@ -11,6 +11,7 @@ USAGE:
 
 OPTIONS:
     +N               open FILE at line N (bare + opens at the last line)
+    +/PATTERN        open FILE at the first line matching PATTERN
     --theme <name>   start with a color theme (matrix, retrowave, cobalt,
                      gruvbox, nord, high-contrast)
     --no-config      skip loading ~/.rvimrc
@@ -24,22 +25,26 @@ fn main() -> ExitCode {
     let mut file: Option<String> = None;
     let mut no_config = false;
     let mut start_line: Option<usize> = None;
+    let mut start_search: Option<String> = None;
 
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
-        // `+N` opens at line N; bare `+` opens at the last line (vim).
+        // `+N` opens at line N; bare `+` opens at the last line; `+/pat` opens at
+        // the first match of `pat` (vim).
         if let Some(rest) = arg.strip_prefix('+') {
-            start_line = Some(if rest.is_empty() {
-                usize::MAX // bare `+`: last line (clamped by goto_line)
+            if let Some(pat) = rest.strip_prefix('/') {
+                start_search = Some(pat.to_string());
+            } else if rest.is_empty() {
+                start_line = Some(usize::MAX); // bare `+`: last line (clamped)
             } else {
                 match rest.parse::<usize>() {
-                    Ok(n) => n.max(1),
+                    Ok(n) => start_line = Some(n.max(1)),
                     Err(_) => {
                         eprintln!("error: invalid line number '+{rest}'");
                         return ExitCode::FAILURE;
                     }
                 }
-            });
+            }
             continue;
         }
         match arg.as_str() {
@@ -86,11 +91,13 @@ fn main() -> ExitCode {
         app.set_theme(&t);
     }
 
-    // `+N` positions the cursor once the file is loaded (the first frame scrolls
-    // it into view). Ignored when no file was given.
-    if let Some(line) = start_line {
-        if file.is_some() {
+    // `+N` / `+/pat` position the cursor once the file is loaded (the first frame
+    // scrolls it into view). Ignored when no file was given.
+    if file.is_some() {
+        if let Some(line) = start_line {
             app.editor.goto_line(line);
+        } else if let Some(pat) = start_search {
+            app.editor.search_from_start(&pat);
         }
     }
 
