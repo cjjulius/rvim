@@ -65,6 +65,7 @@ pub enum Language {
     Shell,
     C,
     Java,
+    Yaml,
 }
 
 /// One language's metadata, driving `name`, `from_name`, `line_comment_token`,
@@ -100,6 +101,7 @@ const LANG_TABLE: &[LangInfo] = &[
     LangInfo { lang: Language::Shell, name: "shell", aliases: &["sh", "bash", "zsh"], extensions: &["sh", "bash", "zsh"], comment: Some("#") },
     LangInfo { lang: Language::C, name: "c", aliases: &["cpp", "c++", "cxx", "cc", "h", "hpp"], extensions: &["c", "h", "cpp", "cc", "cxx", "hpp", "hh"], comment: Some("//") },
     LangInfo { lang: Language::Java, name: "java", aliases: &[], extensions: &["java"], comment: Some("//") },
+    LangInfo { lang: Language::Yaml, name: "yaml", aliases: &["yml"], extensions: &["yaml", "yml"], comment: Some("#") },
 ];
 
 impl Language {
@@ -704,14 +706,15 @@ mod tests {
             Language::PlainText, Language::Rust, Language::SqlAnsi, Language::TSql,
             Language::PgSql, Language::TrinoSql, Language::SnowflakeSql, Language::Z80,
             Language::Json, Language::Python, Language::Toml, Language::JavaScript,
-            Language::Go, Language::Shell, Language::C, Language::Java,
+            Language::Go, Language::Shell, Language::C, Language::Java, Language::Yaml,
         ];
         for lang in all {
             match lang {
                 Language::PlainText | Language::Rust | Language::SqlAnsi | Language::TSql
                 | Language::PgSql | Language::TrinoSql | Language::SnowflakeSql | Language::Z80
                 | Language::Json | Language::Python | Language::Toml | Language::JavaScript
-                | Language::Go | Language::Shell | Language::C | Language::Java => {}
+                | Language::Go | Language::Shell | Language::C | Language::Java
+                | Language::Yaml => {}
             }
             assert!(
                 LANG_TABLE.iter().any(|e| e.lang == lang),
@@ -797,6 +800,10 @@ mod tests {
         assert_eq!(
             detect_language(Some(&PathBuf::from("App.java")), ""),
             Language::Java
+        );
+        assert_eq!(
+            detect_language(Some(&PathBuf::from("config.yml")), ""),
+            Language::Yaml
         );
     }
 
