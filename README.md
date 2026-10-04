@@ -28,6 +28,12 @@ Open a file (language is autodetected from the extension):
 cargo run --release -- src/main.rs
 ```
 
+Open several files at once (the rest become buffers, reachable with `:bn`/`:bp`):
+
+```bash
+cargo run --release -- src/main.rs src/editor.rs
+```
+
 Open at a specific line with `+N` (bare `+` opens at the last line), or at the
 first match of a pattern with `+/PATTERN`:
 
@@ -565,7 +571,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **633 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **634 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, modes, and UI layout.
 
 ---

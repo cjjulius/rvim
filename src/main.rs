@@ -7,7 +7,7 @@ const USAGE: &str = "\
 rvim — a modular, vim-emulating terminal editor
 
 USAGE:
-    rvim [OPTIONS] [+N] [FILE]
+    rvim [OPTIONS] [+N|+/PATTERN] [FILE...]
 
 OPTIONS:
     +N               open FILE at line N (bare + opens at the last line)
@@ -22,7 +22,7 @@ Inside the editor, press :help for keybindings, :q to quit.";
 
 fn main() -> ExitCode {
     let mut theme: Option<String> = None;
-    let mut file: Option<String> = None;
+    let mut files: Vec<String> = Vec::new();
     let mut no_config = false;
     let mut start_line: Option<usize> = None;
     let mut start_search: Option<String> = None;
@@ -68,12 +68,14 @@ fn main() -> ExitCode {
                 eprintln!("error: unknown option '{other}'\n\n{USAGE}");
                 return ExitCode::FAILURE;
             }
-            other => file = Some(other.to_string()),
+            other => files.push(other.to_string()),
         }
     }
 
-    let mut app = match file {
-        Some(ref path) => match App::open(path) {
+    // The first file becomes the active buffer; any others load as inactive
+    // buffers reachable with `:bn`/`:bp`.
+    let mut app = match files.first() {
+        Some(path) => match App::open(path) {
             Ok(app) => app,
             Err(e) => {
                 eprintln!("rvim: cannot open '{path}': {e}");
@@ -82,6 +84,11 @@ fn main() -> ExitCode {
         },
         None => App::new(),
     };
+    for path in files.iter().skip(1) {
+        if let Err(e) = app.open_additional(path) {
+            eprintln!("rvim: cannot open '{path}': {e}");
+        }
+    }
 
     // Config first, so an explicit --theme on the CLI wins over the rvimrc.
     if !no_config {
@@ -93,7 +100,7 @@ fn main() -> ExitCode {
 
     // `+N` / `+/pat` position the cursor once the file is loaded (the first frame
     // scrolls it into view). Ignored when no file was given.
-    if file.is_some() {
+    if !files.is_empty() {
         if let Some(line) = start_line {
             app.editor.goto_line(line);
         } else if let Some(pat) = start_search {

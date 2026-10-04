@@ -10,6 +10,8 @@ All notable changes to rvim are recorded here. Versions follow
   line), e.g. `rvim +42 file.rs`. The theme list in `--help` is also current.
 - `+/PATTERN` command-line option opens the file at the first line matching the
   pattern, and leaves it as the active search for `n`/`N`.
+- Multiple files on the command line (`rvim a.rs b.rs`) open the first as the
+  active buffer and the rest as buffers reachable with `:bn`/`:bp`.
 
 ### Editing
 - Vertical motion remembers its goal column (vim's "curswant"): moving `j`/`k`
