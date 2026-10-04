@@ -8,7 +8,8 @@ All notable changes to rvim are recorded here. Versions follow
 ### Editing
 - Vertical motion remembers its goal column (vim's "curswant"): moving `j`/`k`
   through a shorter line and on to a longer one restores the original column, and
-  block selections keep their width across short lines.
+  block selections keep their width across short lines. After `$` the goal is the
+  line end, so `j`/`k` follow each line's end.
 - Block-wise yank and paste: `Ctrl-v` + `y` yanks a rectangle, and `p`/`P` pastes
   it back as a rectangle (padding short lines and adding lines past the end).
 - `:set matchpairs` configures the bracket pairs `%` jumps between, so you can add
