@@ -6,6 +6,8 @@ All notable changes to rvim are recorded here. Versions follow
 ## [Unreleased]
 
 ### Editing
+- Block-wise yank and paste: `Ctrl-v` + `y` yanks a rectangle, and `p`/`P` pastes
+  it back as a rectangle (padding short lines and adding lines past the end).
 - `:set matchpairs` configures the bracket pairs `%` jumps between, so you can add
   pairs like `<:>` for HTML/XML (`:set matchpairs=(:),{:},[:],<:>`).
 

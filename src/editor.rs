@@ -29,6 +29,9 @@ pub enum Action {
 struct Register {
     text: String,
     linewise: bool,
+    /// Block-wise (vim `Ctrl-v` yank): `text` is the block's rows joined by `\n`,
+    /// pasted as a rectangle at the cursor column.
+    block: bool,
 }
 
 /// Active insert-mode keyword completion (`Ctrl-n`/`Ctrl-p`): the column where
@@ -2830,11 +2833,13 @@ impl Editor {
                     .map(|p| p.display().to_string())
                     .unwrap_or_default(),
                 linewise: false,
+                block: false,
             },
             // `.` is the read-only last-inserted-text register.
             '.' => Register {
                 text: self.last_insert_text.clone(),
                 linewise: false,
+                block: false,
             },
             // `+` / `*` read the system clipboard. A trailing newline marks
             // line-wise text (stripped to match the internal representation).
@@ -2846,7 +2851,7 @@ impl Editor {
                     if linewise {
                         text.pop();
                     }
-                    Register { text, linewise }
+                    Register { text, linewise, block: false }
                 }
                 None => self.registers.get(&'+').cloned().unwrap_or_default(),
             },
@@ -2886,7 +2891,7 @@ impl Editor {
                     } else {
                         format!("{}{}", existing.text, reg.text)
                     };
-                    Register { text, linewise }
+                    Register { text, linewise, block: reg.block }
                 }
                 _ => reg,
             };
@@ -5922,7 +5927,26 @@ impl Editor {
             self.pending_register = None;
             return;
         }
-        let reg = Register { text, linewise };
+        let reg = Register { text, linewise, block: false };
+        if let Some(name) = self.pending_register.take() {
+            self.write_named_register(name, reg.clone());
+        } else {
+            self.registers.insert('0', reg.clone());
+        }
+        self.register = reg;
+    }
+
+    /// Store a block-wise yank (`Ctrl-v` + `y`) into `"0` / the pending register.
+    fn store_block_yank(&mut self, text: String) {
+        if self.pending_register == Some('_') {
+            self.pending_register = None;
+            return;
+        }
+        let reg = Register {
+            text,
+            linewise: false,
+            block: true,
+        };
         if let Some(name) = self.pending_register.take() {
             self.write_named_register(name, reg.clone());
         } else {
@@ -5940,7 +5964,7 @@ impl Editor {
             self.pending_register = None;
             return;
         }
-        let reg = Register { text, linewise };
+        let reg = Register { text, linewise, block: false };
         if let Some(name) = self.pending_register.take() {
             self.write_named_register(name, reg.clone());
         } else if linewise || reg.text.contains('\n') {
@@ -6048,6 +6072,37 @@ impl Editor {
     /// Insert register `reg` at/after the cursor. Shared by `p`/`P` and visual
     /// paste; the caller is responsible for the undo checkpoint.
     fn paste_text(&mut self, reg: &Register, after: bool) {
+        if reg.block {
+            // Block-wise paste: drop each row of the block at the cursor column on
+            // successive lines, padding short lines and adding lines past the end.
+            let col = if after && self.cur_len() > 0 {
+                self.cursor.col + 1
+            } else {
+                self.cursor.col
+            };
+            let rows: Vec<&str> = reg.text.split('\n').collect();
+            let base = self.cursor.row;
+            for (i, seg) in rows.iter().enumerate() {
+                let r = base + i;
+                while self.buffer.line_count() <= r {
+                    let n = self.buffer.line_count();
+                    self.buffer.insert_line(n, String::new());
+                }
+                let len = self.buffer.line(r).map(|l| l.chars().count()).unwrap_or(0);
+                if len < col {
+                    let line = self.buffer.line(r).unwrap_or("").to_string();
+                    self.buffer.set_line(r, format!("{line}{}", " ".repeat(col - len)));
+                }
+                self.buffer.insert_str(Position::new(r, col), seg);
+            }
+            self.set_change_marks(
+                Position::new(base, col),
+                Position::new(base + rows.len().saturating_sub(1), col),
+            );
+            self.cursor = Position::new(base, col);
+            self.clamp_cursor(false);
+            return;
+        }
         if reg.linewise {
             let row = if after {
                 self.cursor.row + 1
@@ -6628,6 +6683,26 @@ impl Editor {
     }
 
     fn visual_yank(&mut self) {
+        // Block-wise yank: capture the rectangle column-by-column.
+        if let Some((rmin, rmax, cmin, cmax)) = self.block_rect() {
+            let rows: Vec<String> = (rmin..=rmax)
+                .map(|r| {
+                    let chars: Vec<char> = self.buffer.line(r).unwrap_or("").chars().collect();
+                    let start = cmin.min(chars.len());
+                    let end = (cmax + 1).min(chars.len());
+                    if start < end {
+                        chars[start..end].iter().collect()
+                    } else {
+                        String::new()
+                    }
+                })
+                .collect();
+            self.store_block_yank(rows.join("\n"));
+            self.set_change_marks(Position::new(rmin, cmin), Position::new(rmax, cmax));
+            self.cursor = Position::new(rmin, cmin);
+            self.mode = Mode::Normal;
+            return;
+        }
         if let Some((start, end)) = self.selection() {
             let linewise = self.mode == Mode::VisualLine;
             let text = self.extract_range(start, end, linewise);
