@@ -4577,24 +4577,39 @@ impl Editor {
         self.cursor.col = (self.cursor.col + n).min(max);
     }
 
+    /// The column `j`/`k` should land on for the current line: the goal column
+    /// clamped to the line, or the line's end when the goal is the "sticky end"
+    /// sentinel (set by `$`).
+    fn goal_col(&self) -> usize {
+        let last = self.cur_len().saturating_sub(1);
+        if self.want_col == usize::MAX {
+            last
+        } else {
+            self.want_col.min(last)
+        }
+    }
+
     fn move_up(&mut self, n: usize) {
         self.cursor.row = self.cursor.row.saturating_sub(n);
-        // Aim for the goal column, clamped to this line (want_col is preserved so a
-        // later longer line can restore it). Self-clamping keeps the cursor valid
-        // even for callers that return before handle_normal's tail clamp.
-        self.cursor.col = self.want_col.min(self.cur_len().saturating_sub(1));
+        // Aim for the goal column (want_col is preserved so a later longer line can
+        // restore it). Self-clamping keeps the cursor valid even for callers that
+        // return before handle_normal's tail clamp.
+        self.cursor.col = self.goal_col();
         self.vertical_motion = true;
     }
 
     fn move_down(&mut self, n: usize) {
         self.cursor.row = (self.cursor.row + n).min(self.buffer.line_count().saturating_sub(1));
-        self.cursor.col = self.want_col.min(self.cur_len().saturating_sub(1));
+        self.cursor.col = self.goal_col();
         self.vertical_motion = true;
     }
 
     fn move_line_end(&mut self) {
         self.cursor.col = self.cur_len().saturating_sub(1);
-        self.vertical_motion = false;
+        // `$` makes the end of the line the sticky goal, so `j`/`k` follow each
+        // line's end. `vertical_motion` keeps handle_key from resetting want_col.
+        self.want_col = usize::MAX;
+        self.vertical_motion = true;
     }
 
     fn move_line_end_exclusive(&mut self) {

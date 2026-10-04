@@ -1470,6 +1470,26 @@
     }
 
     #[test]
+    fn dollar_is_sticky_goal_column() {
+        let mut ed = ed_with("ab\nhello\nx");
+        ed.handle_key(key('$')); // end of "ab" -> column 1
+        assert_eq!(ed.cursor, Position::new(0, 1));
+        ed.handle_key(key('j')); // follows to end of "hello"
+        assert_eq!(ed.cursor, Position::new(1, 4));
+        ed.handle_key(key('j')); // and end of "x"
+        assert_eq!(ed.cursor, Position::new(2, 0));
+    }
+
+    #[test]
+    fn horizontal_move_clears_sticky_end() {
+        let mut ed = ed_with("hello\nworld!!");
+        ed.handle_key(key('$')); // column 4, sticky end
+        ed.handle_key(key('h')); // column 3 -> sticky cleared, goal is 3
+        ed.handle_key(key('j'));
+        assert_eq!(ed.cursor, Position::new(1, 3));
+    }
+
+    #[test]
     fn half_page_scroll_keeps_column_in_range() {
         // Ctrl-d returns early (before the tail clamp), so move_down must keep the
         // column valid on a shorter target line.
