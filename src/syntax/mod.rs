@@ -696,6 +696,31 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
+    fn every_language_variant_is_in_the_table() {
+        // The exhaustive match is a tripwire: adding a Language variant fails to
+        // compile here until it is listed, and the assert then requires a table row
+        // (restoring the guarantee the old exhaustive match arms gave).
+        let all = [
+            Language::PlainText, Language::Rust, Language::SqlAnsi, Language::TSql,
+            Language::PgSql, Language::TrinoSql, Language::SnowflakeSql, Language::Z80,
+            Language::Json, Language::Python, Language::Toml, Language::JavaScript,
+            Language::Go, Language::Shell, Language::C, Language::Java,
+        ];
+        for lang in all {
+            match lang {
+                Language::PlainText | Language::Rust | Language::SqlAnsi | Language::TSql
+                | Language::PgSql | Language::TrinoSql | Language::SnowflakeSql | Language::Z80
+                | Language::Json | Language::Python | Language::Toml | Language::JavaScript
+                | Language::Go | Language::Shell | Language::C | Language::Java => {}
+            }
+            assert!(
+                LANG_TABLE.iter().any(|e| e.lang == lang),
+                "{lang:?} missing from LANG_TABLE"
+            );
+        }
+    }
+
+    #[test]
     fn lang_table_names_round_trip() {
         // Every language's canonical name resolves back to itself, and each
         // extension and alias resolves to its language.
