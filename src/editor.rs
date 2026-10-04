@@ -981,6 +981,19 @@ impl Editor {
         }
     }
 
+    /// Set the search pattern and jump to its first match from the top of the
+    /// buffer (used by the `+/pattern` command-line option). Leaves the pattern
+    /// as the current search so `n`/`N` continue from it.
+    pub fn search_from_start(&mut self, pat: &str) {
+        self.set_search(pat.to_string());
+        self.search_forward = true;
+        if let Some(re) = self.search_re.clone() {
+            if let Some(pos) = self.first_match_in_file(&re) {
+                self.cursor = pos;
+            }
+        }
+    }
+
     /// Jump to a 1-based line number (clamped), landing on the first non-blank.
     pub fn goto_line(&mut self, one_based: usize) {
         let target = one_based.saturating_sub(1);

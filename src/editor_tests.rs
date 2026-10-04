@@ -1470,6 +1470,16 @@
     }
 
     #[test]
+    fn search_from_start_jumps_to_first_match() {
+        let mut ed = ed_with("alpha\nbeta target\ngamma target");
+        ed.search_from_start("target");
+        assert_eq!(ed.cursor, Position::new(1, 5)); // first "target"
+        // The pattern becomes the active search, so `n` continues to the next.
+        ed.handle_key(key('n'));
+        assert_eq!(ed.cursor.row, 2);
+    }
+
+    #[test]
     fn goto_line_jumps_and_clamps() {
         let mut ed = ed_with("one\ntwo\nthree\nfour");
         ed.goto_line(3);
