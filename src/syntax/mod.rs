@@ -304,6 +304,28 @@ impl SpecHighlighter {
     }
 }
 
+/// Byte offset within `s` of the first *unescaped* occurrence of `delim`.
+/// Backslash escapes are honored only for single-character delimiters (e.g. a
+/// JavaScript template-literal backtick); multi-character delimiters like `"""`
+/// cannot be meaningfully escaped, so they match literally.
+fn find_unescaped(s: &str, delim: &str) -> Option<usize> {
+    if delim.len() != 1 {
+        return s.find(delim);
+    }
+    let dch = delim.as_bytes()[0] as char;
+    let mut escaped = false;
+    for (i, c) in s.char_indices() {
+        if escaped {
+            escaped = false;
+        } else if c == '\\' {
+            escaped = true;
+        } else if c == dch {
+            return Some(i);
+        }
+    }
+    None
+}
+
 fn is_ident_start(c: char) -> bool {
     c.is_alphabetic() || c == '_'
 }
@@ -362,7 +384,7 @@ impl Highlighter for SpecHighlighter {
                 // should not happen for the current language) falls through as
                 // Normal rather than sticking in-string forever.
                 if let Some(&delim) = self.spec.multiline_strings.get(idx) {
-                    match line.find(delim) {
+                    match find_unescaped(line, delim) {
                         Some(p) => {
                             let end = p + delim.len();
                             tokens.push(Token::new(0, end, TokenKind::String));
@@ -433,7 +455,7 @@ impl Highlighter for SpecHighlighter {
             {
                 let open = self.spec.multiline_strings[idx];
                 let after = start_b + open.len();
-                match line[after..].find(open) {
+                match find_unescaped(&line[after..], open) {
                     Some(p) => {
                         let close_at = after + p + open.len();
                         tokens.push(Token::new(start_b, close_at, TokenKind::String));
@@ -798,6 +820,17 @@ mod tests {
         assert_eq!(s2, LineState::MultiStr(1)); // """ must not close a ''' block
         let (_t3, s3) = r.highlight_stateful(Language::Python, "end''' x", s2);
         assert_eq!(s3, LineState::Normal);
+    }
+
+    #[test]
+    fn javascript_template_literal_escaped_backtick_does_not_close() {
+        let r = Registry::with_builtins();
+        // The escaped backtick must not end the template literal, so the state
+        // stays in-string to the real (unescaped) closer on the next line.
+        let (_t, s) = r.highlight_stateful(Language::JavaScript, "x = `a\\`b", LineState::Normal);
+        assert_eq!(s, LineState::MultiStr(0));
+        let (_t2, s2) = r.highlight_stateful(Language::JavaScript, "done`;", s);
+        assert_eq!(s2, LineState::Normal);
     }
 
     #[test]

@@ -39,6 +39,8 @@ All notable changes to rvim are recorded here. Versions follow
 - Per-line syntax state widened to a `LineState` enum, so a language can track
   block comments and multi-line strings independently; JavaScript template
   literals now span lines correctly alongside `/* */` comments.
+- Multi-line strings honor backslash escapes for single-character delimiters, so
+  an escaped backtick inside a JS template literal no longer ends it early.
 
 ### Themes
 - New built-in `gruvbox` dark theme (`:theme gruvbox`), the popular warm retro
