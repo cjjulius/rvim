@@ -57,6 +57,9 @@ All notable changes to rvim are recorded here. Versions follow
 - C/C++ highlighting (`.c`, `.h`, `.cpp`, `.cc`, `.hpp`): keywords, builtin types
   and library functions, strings, char literals, numbers, `//` / `/* */` comments,
   and `#` preprocessor directives; detected by extension or `:set ft=c`.
+- Java highlighting (`.java`): keywords, builtin types and common classes, strings,
+  char literals, numbers, and `//` / `/* */` comments; detected by extension or
+  `:set ft=java`.
 - Preprocessor directives: a `preprocessor` character in a language spec colors a
   leading `#include` / `#define` etc. as a preprocessor token.
 - Multi-line strings are tracked across lines (via `LangSpec.multiline_strings`),

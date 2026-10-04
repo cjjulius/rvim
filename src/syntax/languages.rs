@@ -45,8 +45,46 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(go_spec())),
         Box::new(SpecHighlighter::new(shell_spec())),
         Box::new(SpecHighlighter::new(c_spec())),
+        Box::new(SpecHighlighter::new(java_spec())),
     ]
 }
+
+// ---- Java ----------------------------------------------------------------
+
+fn java_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Java,
+        multiline_strings: &[],
+        preprocessor: None,
+        line_comments: &["//"],
+        block_comment: Some(("/*", "*/")),
+        keywords: JAVA_KEYWORDS,
+        types: JAVA_TYPES,
+        builtins: JAVA_BUILTINS,
+        string_delims: &['"', '\''],
+        case_insensitive: false,
+        var_sigils: &[],
+        detect_calls: true,
+    }
+}
+
+const JAVA_KEYWORDS: &[&str] = &[
+    "abstract", "assert", "break", "case", "catch", "class", "const", "continue", "default", "do",
+    "else", "enum", "extends", "final", "finally", "for", "goto", "if", "implements", "import",
+    "instanceof", "interface", "native", "new", "package", "private", "protected", "public",
+    "return", "static", "strictfp", "super", "switch", "synchronized", "this", "throw", "throws",
+    "transient", "try", "volatile", "while", "var", "yield", "record", "sealed", "permits",
+    "true", "false", "null",
+];
+const JAVA_TYPES: &[&str] = &[
+    "boolean", "byte", "char", "short", "int", "long", "float", "double", "void", "String",
+    "Object", "Integer", "Long", "Double", "Float", "Boolean", "Character", "Byte", "Short",
+    "List", "Map", "Set", "ArrayList", "HashMap", "HashSet", "Optional",
+];
+const JAVA_BUILTINS: &[&str] = &[
+    "System", "Math", "Arrays", "Objects", "Collections", "Thread", "Exception",
+    "RuntimeException", "Override", "Deprecated", "SuppressWarnings",
+];
 
 // ---- C / C++ -------------------------------------------------------------
 
@@ -608,6 +646,16 @@ mod tests {
         assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "on"
         assert!(toks.iter().any(|t| t.kind == TokenKind::Number)); // 42
         assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // true/null
+    }
+
+    #[test]
+    fn java_highlights_keyword_type_string() {
+        let h = SpecHighlighter::new(java_spec());
+        let toks = h.highlight_line("public class A { String s = \"hi\"; } // c");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // public/class
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // String
+        assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "hi"
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // // c
     }
 
     #[test]
