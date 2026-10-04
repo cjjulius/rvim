@@ -213,9 +213,9 @@ pub enum ExCommand {
     Normal { range: Option<SubRange>, keys: String },
     /// `:ls` / `:buffers` — list open buffers.
     BufferList,
-    /// `:bn` / `:bnext`
+    /// `:bn` / `:bnext` / `:n` / `:next`
     BufferNext,
-    /// `:bp` / `:bprev`
+    /// `:bp` / `:bprev` / `:N` / `:prev`
     BufferPrev,
     /// `:b <n>` — switch to buffer number n.
     Buffer(usize),
@@ -395,8 +395,8 @@ pub fn parse(input: &str) -> ExCommand {
         },
         "noh" | "nohl" | "nohlsearch" => ExCommand::ToggleHlSearch(false),
         "ls" | "buffers" | "files" => ExCommand::BufferList,
-        "bn" | "bnext" => ExCommand::BufferNext,
-        "bp" | "bprev" | "bprevious" => ExCommand::BufferPrev,
+        "bn" | "bnext" | "n" | "next" => ExCommand::BufferNext,
+        "bp" | "bprev" | "bprevious" | "N" | "prev" | "previous" => ExCommand::BufferPrev,
         "bd" | "bdelete" => ExCommand::BufferDelete,
         "b#" | "e#" => ExCommand::BufferAlternate,
         "b" | "bu" | "buf" | "buffer" if arg.as_deref() == Some("#") => {

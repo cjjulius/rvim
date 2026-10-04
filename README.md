@@ -267,7 +267,7 @@ Open several files and switch between them:
 |----------------------|------------------------------------------|
 | `:e <file>`          | open a file (switches to it if already open) |
 | `:ls` / `:buffers`   | list open buffers (active marked `%`, `+` = unsaved) |
-| `:bn` / `:bp`        | next / previous buffer                    |
+| `:bn` / `:bp` (or `:n` / `:N`) | next / previous buffer          |
 | `:b <n>`             | switch to buffer number `n`               |
 | `Ctrl-^` / `:b#`     | switch to the alternate (last) buffer     |
 | `:bd`                | close the current buffer                  |
@@ -291,7 +291,7 @@ Grouped by what they do. Most line commands accept a leading range such as
 - `:w [file]`, `:wq`, `:x`, `:q`, `:q!` — write and quit (`!` discards changes). `:N,Mw file` writes just those lines to a file.
 - `:qa` / `:wa` / `:wqa` — quit or write every buffer at once.
 - `:e <file>` opens a file; `:e` / `:e!` reloads the current one. `:r <file>` inserts a file below the cursor, and `:r !cmd` inserts a command's output.
-- `:ls` lists buffers; `:bn` / `:bp` / `:b <n>` / `:bd` switch or close them; `Ctrl-^` (or `:b#`) returns to the previous buffer.
+- `:ls` lists buffers; `:bn` / `:bp` (or `:n` / `:N`) / `:b <n>` / `:bd` switch or close them; `Ctrl-^` (or `:b#`) returns to the previous buffer.
 - `:<n>` jumps to line `n`.
 
 **Search and replace**

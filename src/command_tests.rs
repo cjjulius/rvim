@@ -461,6 +461,11 @@
         assert_eq!(parse("buffers"), ExCommand::BufferList);
         assert_eq!(parse("bn"), ExCommand::BufferNext);
         assert_eq!(parse("bprev"), ExCommand::BufferPrev);
+        // vim arglist aliases (case-sensitive: :n forward, :N backward).
+        assert_eq!(parse("next"), ExCommand::BufferNext);
+        assert_eq!(parse("n"), ExCommand::BufferNext);
+        assert_eq!(parse("prev"), ExCommand::BufferPrev);
+        assert_eq!(parse("N"), ExCommand::BufferPrev);
         assert_eq!(parse("bd"), ExCommand::BufferDelete);
         assert_eq!(parse("b#"), ExCommand::BufferAlternate);
         assert_eq!(parse("e#"), ExCommand::BufferAlternate);
