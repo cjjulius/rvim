@@ -73,6 +73,9 @@ All notable changes to rvim are recorded here. Versions follow
   `:set ft=java`.
 - YAML highlighting (`.yaml`, `.yml`): booleans/null, strings, numbers, `&anchor`
   / `*alias` references, and `#` comments; detected by extension or `:set ft=yaml`.
+- TypeScript highlighting (`.ts`, `.tsx`, `.mts`, `.cts`): JavaScript plus TS
+  keywords (`interface`, `type`, `enum`, …) and types, template literals, and
+  `//` / `/* */` comments; detected by extension or `:set ft=typescript`.
 - Preprocessor directives: a `preprocessor` character in a language spec colors a
   leading `#include` / `#define` etc. as a preprocessor token.
 - Multi-line strings are tracked across lines (via `LangSpec.multiline_strings`),
