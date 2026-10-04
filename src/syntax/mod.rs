@@ -61,6 +61,7 @@ pub enum Language {
     Python,
     Toml,
     JavaScript,
+    Go,
 }
 
 impl Language {
@@ -79,6 +80,7 @@ impl Language {
             Language::Python => "python",
             Language::Toml => "toml",
             Language::JavaScript => "javascript",
+            Language::Go => "go",
         }
     }
 
@@ -97,6 +99,7 @@ impl Language {
             "python" | "py" => Language::Python,
             "toml" => Language::Toml,
             "javascript" | "js" | "node" => Language::JavaScript,
+            "go" | "golang" => Language::Go,
             _ => return None,
         })
     }
@@ -113,7 +116,7 @@ pub fn line_comment_token(lang: Language) -> Option<&'static str> {
         | Language::SnowflakeSql => Some("--"),
         Language::Z80 => Some(";"),
         Language::Python | Language::Toml => Some("#"),
-        Language::JavaScript => Some("//"),
+        Language::JavaScript | Language::Go => Some("//"),
         // Strict JSON has no comments.
         Language::Json | Language::PlainText => None,
     }
@@ -135,6 +138,7 @@ pub fn detect_language(path: Option<&Path>, first_line: &str) -> Language {
                 "py" | "pyw" => return Language::Python,
                 "toml" => return Language::Toml,
                 "js" | "mjs" | "cjs" | "jsx" => return Language::JavaScript,
+                "go" => return Language::Go,
                 "sql" => {
                     // Refine a generic .sql file by a leading dialect hint comment,
                     // e.g. `-- dialect: pgsql`.
@@ -703,6 +707,10 @@ mod tests {
         assert_eq!(
             detect_language(Some(&PathBuf::from("app.js")), ""),
             Language::JavaScript
+        );
+        assert_eq!(
+            detect_language(Some(&PathBuf::from("main.go")), ""),
+            Language::Go
         );
     }
 
