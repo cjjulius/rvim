@@ -972,7 +972,11 @@ impl App {
     }
 
     fn open_help(&mut self) {
-        let help = help_text(&self.themes.names(), &self.plugins.all_commands());
+        let help = help_text(
+            &self.themes.names(),
+            &crate::syntax::language_names(),
+            &self.plugins.all_commands(),
+        );
         self.open_scratch(&help, "quick help", "help — :bd to close");
     }
 }
@@ -983,7 +987,7 @@ impl Default for App {
     }
 }
 
-fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
+fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
     format!(
         "rvim {ver} — quick help  (press :bd to close)\n\
          \n\
@@ -1004,6 +1008,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tv / V / Ctrl-v     visual / visual-line / visual-block\n\
          \t  (v-block) d I A c  delete / insert / append / change rectangle\n\
          \t  (v-block) $A      append at each line's own end (ragged-right)\n\
+         \t  (v-block) y / p   yank the rectangle / paste it back as a rectangle\n\
          \t  (visual) J / gJ  join the selected lines (with / without space)\n\
          \t  (visual) r<c>    replace every selected char with c\n\
          \t  (visual) C-a/C-x increment / decrement number on each line\n\
@@ -1054,6 +1059,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t\"a yy / \"a p       named registers a-z (\"A-\"Z append); auto: \"0 \"1-9 \"-\n\
          \t\"_dd               black-hole register (delete, keep registers)\n\
          \t\"%p                paste the current file name (% register)\n\
+         \t\"+y \"+p            system clipboard (\"* = PRIMARY selection on X11)\n\
          \tJ / gJ             join lines (with / without space)\n\
          \tu / Ctrl-r          undo / redo (counted; also :earlier N / :later N)\n\
          \t.  <n>.            repeat last change (n times)\n\
@@ -1082,12 +1088,14 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t(command line) Up/Down  recall previous commands / searches\n\
          \t(command line) Tab      complete command / :set option (wildmenu, cycles)\n\
          \t(command line) C-w/C-u  delete previous word / whole line\n\
+         \t(command line) C-r<r>   insert register (C-r C-w = word under cursor)\n\
          \t:w [file]  :q  :q!  :wq  :x   write / quit variants\n\
          \t:qa  :wa  :wqa     quit / write / write-quit all buffers (! to force)\n\
          \tZZ / ZQ            write & quit / quit without saving\n\
          \t:e <file>          open file     :r <file>  read file below cursor\n\
          \t:e / :e!            reload current file (! discards changes)\n\
          \t:ls :bn :bp :b<n>  list / next / prev / goto buffer   :bd close\n\
+         \t  (:n / :N are aliases for :bn / :bp)\n\
          \tCtrl-^ / :b#       switch to the alternate (last) buffer\n\
          \t:marks :reg :jumps list marks / registers / jump list\n\
          \t:changes           list the change list (g; / g, navigate it)\n\
@@ -1100,6 +1108,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set number|nonumber   :set relativenumber|nornu\n\
          \t:set autoindent|noai   :set expandtab|noet\n\
          \t:set shiftwidth=N  :set tabstop=N  :set scrolloff=N  :set textwidth=N\n\
+         \t:set shiftround|nosr   :set joinspaces|nojs   :set matchpairs=(:),<:>\n\
          \t:set sidescrolloff=N   horizontal context columns\n\
          \t:set {{option}}?        show an option's current value\n\
          \t:set / :set all        list modified / all options\n\
@@ -1113,7 +1122,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set cursorcolumn|nocuc  highlight the cursor's column\n\
          \t:set colorcolumn=N     highlight column N (cc=0 off)\n\
          \t:set wrapscan|nows     search wraps around the file (default on)\n\
-         \t:set ft=<lang>     rust tsql pgsql trino snowflake z80 sql\n\
+         \t:set ft=<lang>     {langs}\n\
          \t:set mouse|nomouse toggle mouse support\n\
          \t:[range]sort[!] [uni] sort (! rev, u uniq, n numeric, i ic, /pat/[r])\n\
          \t:[range]m {{addr}}   move lines    :[range]t/co {{addr}}  copy lines\n\
@@ -1126,6 +1135,7 @@ fn help_text(themes: &[&str], plugin_cmds: &[&str]) -> String {
          \tplugin commands:   {plugins}\n",
         ver = crate::VERSION,
         themes = themes.join(", "),
+        langs = langs.join(" "),
         plugins = plugin_cmds.join(", "),
     )
 }
