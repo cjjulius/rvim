@@ -64,6 +64,7 @@ pub enum Language {
     Go,
     Shell,
     C,
+    Java,
 }
 
 impl Language {
@@ -85,6 +86,7 @@ impl Language {
             Language::Go => "go",
             Language::Shell => "shell",
             Language::C => "c",
+            Language::Java => "java",
         }
     }
 
@@ -106,6 +108,7 @@ impl Language {
             "go" | "golang" => Language::Go,
             "shell" | "sh" | "bash" | "zsh" => Language::Shell,
             "c" | "cpp" | "c++" | "cxx" | "cc" | "h" | "hpp" => Language::C,
+            "java" => Language::Java,
             _ => return None,
         })
     }
@@ -122,7 +125,7 @@ pub fn line_comment_token(lang: Language) -> Option<&'static str> {
         | Language::SnowflakeSql => Some("--"),
         Language::Z80 => Some(";"),
         Language::Python | Language::Toml | Language::Shell => Some("#"),
-        Language::JavaScript | Language::Go | Language::C => Some("//"),
+        Language::JavaScript | Language::Go | Language::C | Language::Java => Some("//"),
         // Strict JSON has no comments.
         Language::Json | Language::PlainText => None,
     }
@@ -147,6 +150,7 @@ pub fn detect_language(path: Option<&Path>, first_line: &str) -> Language {
                 "go" => return Language::Go,
                 "sh" | "bash" | "zsh" => return Language::Shell,
                 "c" | "h" | "cpp" | "cc" | "cxx" | "hpp" | "hh" => return Language::C,
+                "java" => return Language::Java,
                 "sql" => {
                     // Refine a generic .sql file by a leading dialect hint comment,
                     // e.g. `-- dialect: pgsql`.
@@ -756,6 +760,10 @@ mod tests {
         assert_eq!(
             detect_language(Some(&PathBuf::from("app.hpp")), ""),
             Language::C
+        );
+        assert_eq!(
+            detect_language(Some(&PathBuf::from("App.java")), ""),
+            Language::Java
         );
     }
 
