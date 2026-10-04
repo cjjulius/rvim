@@ -2862,20 +2862,27 @@ impl Editor {
                 linewise: false,
                 block: false,
             },
-            // `+` / `*` read the system clipboard. A trailing newline marks
-            // line-wise text (stripped to match the internal representation).
-            // When no clipboard tool is available, fall back to the mirror
-            // kept under `+`.
-            '+' | '*' => match crate::clipboard::read() {
-                Some(mut text) => {
-                    let linewise = text.ends_with('\n');
-                    if linewise {
-                        text.pop();
+            // `+` reads the system clipboard; `*` the PRIMARY selection (the same
+            // clipboard off X11/Wayland). A trailing newline marks line-wise text
+            // (stripped to match the internal representation). When no clipboard
+            // tool is available, fall back to the mirror kept under that name.
+            '+' | '*' => {
+                let sel = if name == '*' {
+                    crate::clipboard::Sel::Primary
+                } else {
+                    crate::clipboard::Sel::Clipboard
+                };
+                match crate::clipboard::read(sel) {
+                    Some(mut text) => {
+                        let linewise = text.ends_with('\n');
+                        if linewise {
+                            text.pop();
+                        }
+                        Register { text, linewise, block: false }
                     }
-                    Register { text, linewise, block: false }
+                    None => self.registers.get(&name).cloned().unwrap_or_default(),
                 }
-                None => self.registers.get(&'+').cloned().unwrap_or_default(),
-            },
+            }
             other => {
                 // An uppercase register name reads its lowercase register.
                 let key = other.to_ascii_lowercase();
@@ -2889,17 +2896,22 @@ impl Editor {
     /// any other name replaces.
     fn write_named_register(&mut self, name: char, reg: Register) {
         if name == '+' || name == '*' {
-            // Push to the system clipboard; append a newline for line-wise
-            // text so other applications paste it as whole lines. Mirror it
-            // under `+` so `:registers` shows it and reads still work when no
-            // clipboard tool is present.
+            // Push to the selection (`+` clipboard, `*` PRIMARY); append a newline
+            // for line-wise text so other applications paste it as whole lines.
+            // Mirror it under the same name so `:registers` shows it and reads
+            // still work when no clipboard tool is present.
+            let sel = if name == '*' {
+                crate::clipboard::Sel::Primary
+            } else {
+                crate::clipboard::Sel::Clipboard
+            };
             let payload = if reg.linewise {
                 format!("{}\n", reg.text)
             } else {
                 reg.text.clone()
             };
-            crate::clipboard::write(&payload);
-            self.registers.insert('+', reg);
+            crate::clipboard::write(sel, &payload);
+            self.registers.insert(name, reg);
             return;
         }
         if name.is_ascii_uppercase() {
