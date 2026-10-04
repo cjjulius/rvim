@@ -77,6 +77,23 @@
     }
 
     #[test]
+    fn open_additional_loads_extra_buffers() {
+        let dir = std::env::temp_dir();
+        let pid = std::process::id();
+        let a = dir.join(format!("rvim_multi_a_{pid}.txt"));
+        let b = dir.join(format!("rvim_multi_b_{pid}.txt"));
+        std::fs::write(&a, "AAA\n").unwrap();
+        std::fs::write(&b, "BBB\n").unwrap();
+        let mut app = App::open(a.to_str().unwrap()).unwrap();
+        app.open_additional(b.to_str().unwrap()).unwrap();
+        assert_eq!(app.editor.buffer.line(0), Some("AAA")); // first stays active
+        app.run_ex("bn"); // cycle to the second
+        assert_eq!(app.editor.buffer.line(0), Some("BBB"));
+        std::fs::remove_file(&a).ok();
+        std::fs::remove_file(&b).ok();
+    }
+
+    #[test]
     fn alternate_buffer_without_alternate_reports() {
         let mut app = App::new();
         app.run_ex("b#");

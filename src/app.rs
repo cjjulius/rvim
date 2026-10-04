@@ -83,6 +83,15 @@ impl App {
         Ok(app)
     }
 
+    /// Load `path` into an inactive buffer (for extra files given on the command
+    /// line); the first file stays active. Reachable afterward with `:bn`/`:bp`.
+    pub fn open_additional(&mut self, path: &str) -> io::Result<()> {
+        let mut ed = Editor::from_file(path)?;
+        self.inherit_prefs(&mut ed);
+        self.others.push(ed);
+        Ok(())
+    }
+
     /// Pick a starting theme by name (falls back to the default silently).
     pub fn set_theme(&mut self, name: &str) {
         self.themes.set_current(name);
