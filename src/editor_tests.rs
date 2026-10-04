@@ -1470,6 +1470,18 @@
     }
 
     #[test]
+    fn half_page_scroll_keeps_column_in_range() {
+        // Ctrl-d returns early (before the tail clamp), so move_down must keep the
+        // column valid on a shorter target line.
+        let mut ed = big_buffer(100);
+        ed.handle_key(key('l'));
+        ed.handle_key(key('l')); // column 2
+        ed.handle_key(ctrl('d')); // half-page down
+        let len = ed.buffer.line(ed.cursor.row).map(|l| l.chars().count()).unwrap_or(0);
+        assert!(ed.cursor.col < len.max(1)); // never past end of line
+    }
+
+    #[test]
     fn horizontal_move_resets_goal_column() {
         let mut ed = ed_with("hello\nworld");
         ed.handle_key(key('$')); // column 4

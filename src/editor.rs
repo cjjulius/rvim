@@ -4579,13 +4579,16 @@ impl Editor {
 
     fn move_up(&mut self, n: usize) {
         self.cursor.row = self.cursor.row.saturating_sub(n);
-        self.cursor.col = self.want_col;
+        // Aim for the goal column, clamped to this line (want_col is preserved so a
+        // later longer line can restore it). Self-clamping keeps the cursor valid
+        // even for callers that return before handle_normal's tail clamp.
+        self.cursor.col = self.want_col.min(self.cur_len().saturating_sub(1));
         self.vertical_motion = true;
     }
 
     fn move_down(&mut self, n: usize) {
         self.cursor.row = (self.cursor.row + n).min(self.buffer.line_count().saturating_sub(1));
-        self.cursor.col = self.want_col;
+        self.cursor.col = self.want_col.min(self.cur_len().saturating_sub(1));
         self.vertical_motion = true;
     }
 
