@@ -8,7 +8,7 @@ languages.
 
 > Status: **v0.2** — a mature, deeply vim-compatible editor. Modal editing, the
 > full operator/motion/text-object grammar, incremental search, line-range ex
-> commands, `:normal`, visual-mode operators, six themes, eleven language
+> commands, `:normal`, visual-mode operators, six themes, twelve language
 > highlighters, a plugin system, and mouse support are all working. See
 > [CHANGELOG.md](CHANGELOG.md) for what landed in 0.2.
 
@@ -441,12 +441,14 @@ then tokenized and color-coded:
 | Python                | `.py`, `.pyw` (+ `python` shebang)  |
 | TOML                  | `.toml`                             |
 | JavaScript            | `.js`, `.mjs`, `.cjs`, `.jsx`       |
+| Go                    | `.go`                               |
 
 A generic `.sql` file can be pinned to a dialect with a first-line hint such as
 `-- dialect: trino`, or at runtime with `:set ft=snowflake`. Multi-line
 constructs — block comments (`/* … */`), Python triple-quoted strings, and
-JavaScript template literals — are tracked across line boundaries (and
-independently of each other), so they stay correctly colored even when scrolled.
+JavaScript template literals / Go raw strings — are tracked across line
+boundaries (and independently of each other), so they stay correctly colored
+even when scrolled.
 
 ### Accessibility & navigation
 - **High-contrast theme** (`:theme high-contrast`) — pure black/white chrome with
@@ -552,7 +554,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **624 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **625 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, modes, and UI layout.
 
 ---

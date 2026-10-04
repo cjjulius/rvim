@@ -42,8 +42,44 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(python_spec())),
         Box::new(SpecHighlighter::new(toml_spec())),
         Box::new(SpecHighlighter::new(javascript_spec())),
+        Box::new(SpecHighlighter::new(go_spec())),
     ]
 }
+
+// ---- Go ------------------------------------------------------------------
+
+fn go_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Go,
+        // Raw string literals use backticks and span lines; tracked separately
+        // from block comments by the per-line LineState.
+        multiline_strings: &["`"],
+        line_comments: &["//"],
+        block_comment: Some(("/*", "*/")),
+        keywords: GO_KEYWORDS,
+        types: GO_TYPES,
+        builtins: GO_BUILTINS,
+        string_delims: &['"', '\''],
+        case_insensitive: false,
+        var_sigils: &[],
+        detect_calls: true,
+    }
+}
+
+const GO_KEYWORDS: &[&str] = &[
+    "break", "case", "chan", "const", "continue", "default", "defer", "else", "fallthrough", "for",
+    "func", "go", "goto", "if", "import", "interface", "map", "package", "range", "return",
+    "select", "struct", "switch", "type", "var", "nil", "true", "false", "iota",
+];
+const GO_TYPES: &[&str] = &[
+    "bool", "string", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16",
+    "uint32", "uint64", "uintptr", "byte", "rune", "float32", "float64", "complex64", "complex128",
+    "error", "any",
+];
+const GO_BUILTINS: &[&str] = &[
+    "append", "cap", "close", "complex", "copy", "delete", "imag", "len", "make", "new", "panic",
+    "print", "println", "real", "recover",
+];
 
 // ---- JavaScript ----------------------------------------------------------
 
@@ -491,6 +527,17 @@ mod tests {
         assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "on"
         assert!(toks.iter().any(|t| t.kind == TokenKind::Number)); // 42
         assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // true/null
+    }
+
+    #[test]
+    fn go_highlights_keyword_type_builtin() {
+        let h = SpecHighlighter::new(go_spec());
+        let toks = h.highlight_line("func main() { var s string = `raw`; len(s) } // c");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // func/var
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // string
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // len
+        assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // `raw`
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // // c
     }
 
     #[test]
