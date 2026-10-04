@@ -61,7 +61,14 @@ impl ThemeRegistry {
     /// theme built on the Okabe–Ito palette.
     pub fn with_builtins() -> Self {
         Self {
-            themes: vec![matrix(), retrowave(), cobalt(), high_contrast(), gruvbox()],
+            themes: vec![
+                matrix(),
+                retrowave(),
+                cobalt(),
+                high_contrast(),
+                gruvbox(),
+                nord(),
+            ],
             current: 0,
         }
     }
@@ -304,6 +311,44 @@ pub fn gruvbox() -> Theme {
     }
 }
 
+/// Nord — the popular cool, muted arctic palette.
+pub fn nord() -> Theme {
+    Theme {
+        name: "nord".into(),
+        bg: rgb(46, 52, 64),
+        fg: rgb(216, 222, 233),
+        cursor_line_bg: rgb(59, 66, 82),
+        selection_bg: rgb(67, 76, 94),
+        search_bg: rgb(94, 86, 40),
+        cur_search_bg: rgb(235, 203, 139),
+        color_column_bg: rgb(59, 66, 82),
+        gutter_bg: rgb(40, 46, 56),
+        gutter_fg: rgb(76, 86, 106),
+        current_line_nr_fg: rgb(136, 192, 208),
+        status_bg: rgb(76, 86, 106),
+        status_fg: rgb(236, 239, 244),
+        mode_bg: rgb(136, 192, 208),
+        mode_fg: rgb(46, 52, 64),
+        message_fg: rgb(216, 222, 233),
+        tokens: token_map(&[
+            (TokenKind::Keyword, rgb(129, 161, 193)),     // frost blue
+            (TokenKind::Type, rgb(143, 188, 187)),        // frost teal
+            (TokenKind::Function, rgb(136, 192, 208)),    // frost cyan
+            (TokenKind::Builtin, rgb(136, 192, 208)),
+            (TokenKind::String, rgb(163, 190, 140)),      // aurora green
+            (TokenKind::Char, rgb(163, 190, 140)),
+            (TokenKind::Number, rgb(180, 142, 173)),      // aurora purple
+            (TokenKind::Comment, rgb(97, 110, 136)),      // muted slate
+            (TokenKind::Operator, rgb(129, 161, 193)),
+            (TokenKind::Punctuation, rgb(216, 222, 233)),
+            (TokenKind::Preprocessor, rgb(94, 129, 172)), // frost deep blue
+            (TokenKind::Label, rgb(235, 203, 139)),       // aurora yellow
+            (TokenKind::Register, rgb(143, 188, 187)),
+            (TokenKind::Variable, rgb(216, 222, 233)),
+        ]),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -314,7 +359,7 @@ mod tests {
         assert_eq!(r.current().name, "matrix");
         assert_eq!(
             r.names(),
-            vec!["matrix", "retrowave", "cobalt", "high-contrast", "gruvbox"]
+            vec!["matrix", "retrowave", "cobalt", "high-contrast", "gruvbox", "nord"]
         );
     }
 
@@ -342,6 +387,7 @@ mod tests {
         assert_eq!(r.cycle(), "cobalt");
         assert_eq!(r.cycle(), "high-contrast");
         assert_eq!(r.cycle(), "gruvbox");
+        assert_eq!(r.cycle(), "nord");
         assert_eq!(r.cycle(), "matrix");
     }
 
@@ -350,6 +396,13 @@ mod tests {
         let mut r = ThemeRegistry::with_builtins();
         assert!(r.set_current("gruvbox"));
         assert_eq!(r.current().bg, rgb(40, 40, 40));
+    }
+
+    #[test]
+    fn nord_is_selectable() {
+        let mut r = ThemeRegistry::with_builtins();
+        assert!(r.set_current("nord"));
+        assert_eq!(r.current().bg, rgb(46, 52, 64));
     }
 
     #[test]
