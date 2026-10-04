@@ -185,6 +185,10 @@ pub fn render(
 
     for y in 0..layout.text_rows {
         queue!(out, MoveTo(0, layout.top_offset + y))?;
+        // The gutter is painted for every row, including those past the end of the
+        // buffer (where it draws blank cells), so the tilde always sits in the text
+        // column and the gutter never shows stale content.
+        draw_gutter(out, editor, theme, &layout, row)?;
 
         if row >= editor.buffer.line_count() {
             // Past end of buffer: tilde like vim.
@@ -203,7 +207,6 @@ pub fn render(
         if row == editor.cursor.row {
             cursor_y = Some(y);
         }
-        draw_gutter(out, editor, theme, &layout, row)?;
 
         // A closed fold collapses `[row, end]` into a single header row. The
         // hidden lines still advance the multi-line syntax state so highlighting
@@ -990,6 +993,27 @@ mod tests {
     fn fold_text_truncates_when_narrow() {
         let s = fold_text(2, "something long here", 3, 8);
         assert_eq!(s.chars().count(), 8);
+    }
+
+    #[test]
+    fn past_end_rows_paint_gutter_before_tilde() {
+        use crate::buffer::Buffer;
+        let mut ed = Editor::new();
+        ed.buffer = Buffer::from_text("one\ntwo"); // 2 lines, tall window => tildes
+        ed.show_line_numbers = true;
+        ed.set_viewport(10, 20);
+        let theme = crate::theme::matrix();
+        let syntax = Registry::default();
+        let mut buf: Vec<u8> = Vec::new();
+        render(&mut buf, &ed, &theme, &syntax, &[], LineState::Normal).unwrap();
+        let out = String::from_utf8_lossy(&buf);
+        // Strip ANSI escape sequences so we see the actual printed glyphs.
+        let re = regex::Regex::new("\u{1b}\\[[0-9;?]*[A-Za-z]").unwrap();
+        let plain = re.replace_all(&out, "");
+        // The gutter (4 cells here) is painted before the tilde, so '~' is never at
+        // column 0 — it follows the gutter's blank cells.
+        assert!(plain.contains('~'));
+        assert!(plain.contains("    ~"), "tilde should sit after the gutter, got: {plain:?}");
     }
 
     #[test]

@@ -995,7 +995,14 @@ impl Editor {
     pub fn scroll_indicator(&self) -> String {
         let total = self.buffer.line_count();
         let above = self.top;
-        let below = total.saturating_sub(self.top + self.view_rows);
+        // Count lines below the last *visible* row. With folds a single row can
+        // cover many buffer lines, so the bottom is found by walking display rows.
+        let below = if self.folding() {
+            let last_visible = self.nth_visible_down(self.top, self.view_rows.saturating_sub(1));
+            total.saturating_sub(1).saturating_sub(last_visible)
+        } else {
+            total.saturating_sub(self.top + self.view_rows)
+        };
         if below == 0 {
             if above == 0 {
                 "All".into()
