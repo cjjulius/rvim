@@ -1041,6 +1041,13 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \tCtrl-f / Ctrl-b    full-page forward / back (counted)\n\
          \tCtrl-e / Ctrl-y    scroll one line down / up\n\
          \n\
+         FOLDING\n\
+         \tzf{{motion}} / zF   create fold (V_zf folds selection; <n>zF n lines)\n\
+         \tzo / zc / za       open / close / toggle fold under cursor\n\
+         \tzR / zM            open all / close all folds\n\
+         \tzd / zE            delete fold under cursor / all folds\n\
+         \tzi                 toggle folding on / off\n\
+         \n\
          EDITING\n\
          \tx / X              delete char under / before   r<c>  replace\n\
          \tY                  yank line (= yy)\n\

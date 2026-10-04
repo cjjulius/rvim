@@ -7,6 +7,7 @@
 
 use crate::buffer::{Buffer, Position};
 use crate::command::{AlignKind, HistoryKind, LineAddr, SubRange, SubstituteSpec};
+use crate::fold::Folds;
 use crate::menu::{MenuOutcome, MenuState};
 use crate::mode::Mode;
 use crate::pattern;
@@ -290,6 +291,12 @@ pub struct Editor {
     dot_replaying: bool,
     /// The Alt-activated menu bar, when open.
     menu: Option<MenuState>,
+    /// Manual folds (`zf`/`zo`/`zc`/`za`/…). Empty by default, so the no-fold
+    /// render and motion paths stay exactly as they were.
+    folds: Folds,
+    /// `:set foldenable` / `zi` — when false every fold is shown open regardless
+    /// of its own state (default on, matching vim).
+    pub foldenable: bool,
 }
 
 /// Whether the key after `q` / `@` records into or replays a macro register.
@@ -430,7 +437,138 @@ impl Editor {
             dot_rev_at_rest: 0,
             dot_replaying: false,
             menu: None,
+            folds: Folds::default(),
+            foldenable: true,
         }
+    }
+
+    // ---- folding ---------------------------------------------------------
+
+    /// The folds, for the renderer.
+    pub fn folds(&self) -> &Folds {
+        &self.folds
+    }
+
+    /// Whether folding currently affects the display: enabled *and* at least one
+    /// fold exists. Every fold-aware code path is gated on this, so a buffer with
+    /// no folds behaves identically to before folding existed.
+    pub fn folding(&self) -> bool {
+        self.foldenable && !self.folds.is_empty()
+    }
+
+    /// `zf{motion}` / visual `zf` / `zF` — create a closed fold over `[a, b]`.
+    fn create_fold(&mut self, a: usize, b: usize) {
+        let last = self.buffer.line_count().saturating_sub(1);
+        let (lo, hi) = (a.min(b).min(last), a.max(b).min(last));
+        if self.folds.create(lo, hi) {
+            self.cursor.row = lo;
+            self.move_first_nonblank();
+            self.message = format!("created fold of {} lines", hi - lo + 1);
+            self.scroll_into_view();
+        }
+    }
+
+    /// `zo` — open the fold under the cursor.
+    fn fold_open(&mut self) {
+        self.folds.open_at(self.cursor.row);
+        self.scroll_into_view();
+    }
+
+    /// `zc` — close the fold under the cursor and sit on its header.
+    fn fold_close(&mut self) {
+        if let Some(start) = self.folds.close_at(self.cursor.row) {
+            self.cursor.row = start;
+            self.move_first_nonblank();
+        }
+        self.scroll_into_view();
+    }
+
+    /// `za` — toggle the fold under the cursor.
+    fn fold_toggle(&mut self) {
+        if let Some(start) = self.folds.toggle_at(self.cursor.row) {
+            if self.folds.is_hidden(self.cursor.row) || self.folds.header(start).is_some() {
+                self.cursor.row = start;
+                self.move_first_nonblank();
+            }
+        }
+        self.scroll_into_view();
+    }
+
+    /// `zR` — open every fold.
+    fn fold_open_all(&mut self) {
+        self.folds.open_all();
+        self.scroll_into_view();
+    }
+
+    /// `zM` — close every fold.
+    fn fold_close_all(&mut self) {
+        self.folds.close_all();
+        self.scroll_into_view();
+    }
+
+    /// `zd` — delete the fold under the cursor.
+    fn fold_delete(&mut self) {
+        self.folds.delete_at(self.cursor.row);
+        self.scroll_into_view();
+    }
+
+    /// `zE` — eliminate all folds.
+    fn fold_eliminate(&mut self) {
+        self.folds.clear();
+        self.scroll_into_view();
+    }
+
+    /// `zi` — toggle whether folds are applied at all.
+    fn fold_toggle_enable(&mut self) {
+        self.foldenable = !self.foldenable;
+        self.message = if self.foldenable {
+            "foldenable".into()
+        } else {
+            "nofoldenable".into()
+        };
+        self.scroll_into_view();
+    }
+
+    /// Step `n` displayed lines down from `line`, stopping at the last line.
+    fn nth_visible_down(&self, line: usize, n: usize) -> usize {
+        let last = self.buffer.line_count().saturating_sub(1);
+        let mut row = line.min(last);
+        for _ in 0..n {
+            let next = self.folds.next_visible(row);
+            if next > last {
+                break;
+            }
+            row = next;
+        }
+        row
+    }
+
+    /// Step `n` displayed lines up from `line`, stopping at the first line.
+    fn nth_visible_up(&self, line: usize, n: usize) -> usize {
+        let mut row = line;
+        for _ in 0..n {
+            if row == 0 {
+                break;
+            }
+            row = self.folds.prev_visible(row);
+        }
+        row
+    }
+
+    /// Count of displayed rows from `top` down to and including `line`
+    /// (`line >= top` in display order; both assumed visible). At least 1.
+    fn display_rows_between(&self, top: usize, line: usize) -> usize {
+        let last = self.buffer.line_count().saturating_sub(1);
+        let mut row = top;
+        let mut count = 1usize;
+        while row < line {
+            row = self.folds.next_visible(row);
+            count += 1;
+            if count > last + 2 {
+                break; // safety against a malformed fold set
+            }
+        }
+        count
     }
 
     /// Open the menu bar (only from Normal mode).
@@ -1700,21 +1838,56 @@ impl Editor {
     }
 
     fn scroll_into_view(&mut self) {
-        // Keep `scrolloff` lines of context above and below the cursor, capped to
-        // half the window so the margin can never exceed what fits. Near the file
-        // edges the margin shrinks naturally rather than scrolling past the ends.
+        if self.folding() {
+            self.scroll_into_view_folded();
+        } else {
+            // Keep `scrolloff` lines of context above and below the cursor, capped
+            // to half the window so the margin can never exceed what fits. Near the
+            // file edges the margin shrinks naturally rather than scrolling past
+            // the ends.
+            let last = self.buffer.line_count().saturating_sub(1);
+            let so = self.scrolloff.min(self.view_rows.saturating_sub(1) / 2);
+            let top_margin = self.cursor.row.saturating_sub(so);
+            if top_margin < self.top {
+                self.top = top_margin;
+            }
+            let bottom_margin = (self.cursor.row + so).min(last);
+            if bottom_margin >= self.top + self.view_rows {
+                self.top = bottom_margin + 1 - self.view_rows;
+            }
+        }
+        self.scroll_horizontal();
+    }
+
+    /// Vertical scrolling in display space: counts collapsed folds as one row, and
+    /// keeps the cursor on a visible line (never inside a closed fold).
+    fn scroll_into_view_folded(&mut self) {
         let last = self.buffer.line_count().saturating_sub(1);
+        // The cursor can never rest inside a closed fold — snap it to the header.
+        self.cursor.row = self.folds.display_line(self.cursor.row.min(last));
+        self.clamp_cursor(false);
+        // `top` must be a visible line too.
+        self.top = self.folds.display_line(self.top.min(last));
+
+        if self.cursor.row < self.top {
+            self.top = self.cursor.row;
+        }
         let so = self.scrolloff.min(self.view_rows.saturating_sub(1) / 2);
-        let top_margin = self.cursor.row.saturating_sub(so);
-        if top_margin < self.top {
-            self.top = top_margin;
+        let want_top = self.nth_visible_up(self.cursor.row, so);
+        if want_top < self.top {
+            self.top = want_top;
         }
-        let bottom_margin = (self.cursor.row + so).min(last);
-        if bottom_margin >= self.top + self.view_rows {
-            self.top = bottom_margin + 1 - self.view_rows;
+        // Scroll down until the cursor (plus its lower margin) fits within
+        // `view_rows` displayed rows from the top.
+        let target = self.nth_visible_down(self.cursor.row, so);
+        while self.display_rows_between(self.top, target) > self.view_rows && self.top < target {
+            self.top = self.folds.next_visible(self.top).min(last);
         }
-        // Horizontal: keep `sidescrolloff` columns of context left/right of the
-        // cursor, capped to half the window width.
+    }
+
+    /// Horizontal scrolling: keep `sidescrolloff` columns of context left/right of
+    /// the cursor, capped to half the window width.
+    fn scroll_horizontal(&mut self) {
         let siso = self.sidescrolloff.min(self.view_cols.saturating_sub(1) / 2);
         let left_margin = self.cursor.col.saturating_sub(siso);
         if left_margin < self.left {
@@ -3993,8 +4166,45 @@ impl Editor {
                     self.line_to_bottom();
                     self.move_first_nonblank();
                 }
+                // ---- folding (manual) ----
+                KeyCode::Char('f') => {
+                    // `zf` on a visual selection folds it now; in Normal it is an
+                    // operator awaiting a motion (`zfj`, `zf}`, …).
+                    if let Some((s, e)) = self.selection() {
+                        self.create_fold(s.row, e.row);
+                        self.mode = Mode::Normal;
+                    } else {
+                        self.pending_op = Some('F');
+                        self.pending_op_count = Some(count);
+                    }
+                }
+                KeyCode::Char('F') => {
+                    // `zF` — fold `count` lines from the cursor.
+                    let last = self.buffer.line_count().saturating_sub(1);
+                    self.create_fold(self.cursor.row, (self.cursor.row + count - 1).min(last));
+                }
+                KeyCode::Char('o') => self.fold_open(),
+                KeyCode::Char('c') => self.fold_close(),
+                KeyCode::Char('a') => self.fold_toggle(),
+                KeyCode::Char('R') => self.fold_open_all(),
+                KeyCode::Char('M') => self.fold_close_all(),
+                KeyCode::Char('d') => self.fold_delete(),
+                KeyCode::Char('E') => self.fold_eliminate(),
+                KeyCode::Char('i') => self.fold_toggle_enable(),
                 _ => {}
             },
+            // `zf{motion}` — fold the lines spanned by the motion.
+            'F' => {
+                let last = self.buffer.line_count().saturating_sub(1);
+                let rows = if code == KeyCode::Char('f') {
+                    Some((self.cursor.row, (self.cursor.row + count - 1).min(last)))
+                } else {
+                    self.motion_target(code, count).map(|t| self.target_rows(t))
+                };
+                if let Some((a, b)) = rows {
+                    self.create_fold(a, b);
+                }
+            }
             '>' | '<' => {
                 let last = self.buffer.line_count().saturating_sub(1);
                 let rows = if code == KeyCode::Char(op) {
@@ -4615,7 +4825,12 @@ impl Editor {
     }
 
     fn move_up(&mut self, n: usize) {
-        self.cursor.row = self.cursor.row.saturating_sub(n);
+        // With folds, `k` moves by visible rows, stepping over collapsed folds.
+        self.cursor.row = if self.folding() {
+            self.nth_visible_up(self.folds.display_line(self.cursor.row), n)
+        } else {
+            self.cursor.row.saturating_sub(n)
+        };
         // Aim for the goal column (want_col is preserved so a later longer line can
         // restore it). Self-clamping keeps the cursor valid even for callers that
         // return before handle_normal's tail clamp.
@@ -4624,7 +4839,11 @@ impl Editor {
     }
 
     fn move_down(&mut self, n: usize) {
-        self.cursor.row = (self.cursor.row + n).min(self.buffer.line_count().saturating_sub(1));
+        self.cursor.row = if self.folding() {
+            self.nth_visible_down(self.folds.display_line(self.cursor.row), n)
+        } else {
+            (self.cursor.row + n).min(self.buffer.line_count().saturating_sub(1))
+        };
         self.cursor.col = self.goal_col();
         self.vertical_motion = true;
     }

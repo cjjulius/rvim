@@ -502,6 +502,25 @@ even when scrolled.
   the top, bottom, or whole file is on screen, and a percentage otherwise, so you
   can see where you are in a long file at a glance.
 
+### Code folding
+Collapse ranges of lines to a single summary row so you can read structure
+without the noise. Folds are manual (you choose the ranges):
+
+- Create a fold with `zf` plus a motion (`zf5j`, `zfG`, `zf}`), or select lines
+  in visual mode and press `zf`. `zF` folds a count of lines (`3zF`).
+- A closed fold shows as a dimmed `+-- N lines: <first line>` bar; the line
+  number of its first line stays in the gutter.
+- `zo` opens the fold under the cursor, `zc` closes it, and `za` toggles it.
+  `zR` opens every fold, `zM` closes every fold.
+- `zd` removes the fold under the cursor (keeping the text), `zE` removes all.
+- `zi` turns folding off and on without discarding your folds.
+
+Movement respects folds: `j` and `k` step over a closed fold as if it were one
+line, and the cursor always rests on the fold's header rather than vanishing
+inside it. Folds can be nested. (Manual folds track line ranges and are not
+auto-adjusted across large structural edits — recreate them, or `zR` to reveal
+everything, after reshaping the file.)
+
 ### Mouse support
 `:set mouse` enables click-to-position, drag-to-select (dragging starts a visual
 selection), and scroll-wheel paging; `:set nomouse` disables it.
@@ -574,8 +593,8 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **640 tests** across buffer, editor, clipboard, menu, syntax,
-themes, commands, config, pattern, plugins, modes, and UI layout.
+Current suite: **664 tests** across buffer, editor, clipboard, menu, syntax,
+themes, commands, config, pattern, plugins, folds, modes, and UI layout.
 
 ---
 
@@ -584,7 +603,7 @@ themes, commands, config, pattern, plugins, modes, and UI layout.
 Still planned, not yet built:
 
 - Split windows (horizontal and vertical).
-- Code folding.
+- Automatic fold methods (`:set foldmethod=indent/syntax`); folds are manual for now.
 - More menu-bar actions.
 - More accessibility options: screen-reader hints and configurable cues.
 - Dynamic plugin loading.

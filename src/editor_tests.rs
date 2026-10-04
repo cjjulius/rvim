@@ -5184,3 +5184,192 @@
         ed.handle_key(special(KeyCode::Tab));
         assert_eq!(ed.buffer.line(0), Some("\t"));
     }
+
+    // ---- folding ---------------------------------------------------------
+
+    fn folded_lines(ed: &Editor) -> Vec<usize> {
+        (0..ed.buffer.line_count())
+            .filter(|&l| ed.folds().is_hidden(l))
+            .collect()
+    }
+
+    #[test]
+    fn zf_motion_creates_closed_fold() {
+        let mut ed = ed_with("a\nb\nc\nd\ne");
+        // zf3j — fold the cursor line plus three down (lines 0..=3).
+        ed.handle_key(key('z'));
+        ed.handle_key(key('f'));
+        ed.handle_key(key('3'));
+        ed.handle_key(key('j'));
+        assert_eq!(ed.folds().header(0), Some((0, 3)));
+        assert_eq!(folded_lines(&ed), vec![1, 2, 3]);
+        // The cursor sits on the fold header.
+        assert_eq!(ed.cursor.row, 0);
+    }
+
+    #[test]
+    fn zf_capital_folds_count_lines() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.handle_key(key('z'));
+        ed.handle_key(key('F')); // zF with no count folds 1 line -> rejected
+        assert!(ed.folds().is_empty());
+        // 3zF folds three lines.
+        ed.handle_key(key('3'));
+        ed.handle_key(key('z'));
+        ed.handle_key(key('F'));
+        assert_eq!(ed.folds().header(0), Some((0, 2)));
+    }
+
+    #[test]
+    fn visual_zf_folds_selection() {
+        let mut ed = ed_with("a\nb\nc\nd\ne");
+        ed.handle_key(key('j')); // to line 1
+        ed.handle_key(key('V'));
+        ed.handle_key(key('j')); // select lines 1..=2
+        ed.handle_key(key('z'));
+        ed.handle_key(key('f'));
+        assert_eq!(ed.mode, Mode::Normal);
+        assert_eq!(ed.folds().header(1), Some((1, 2)));
+    }
+
+    #[test]
+    fn zo_zc_za_open_close_toggle() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.handle_key(key('z'));
+        ed.handle_key(key('f'));
+        ed.handle_key(key('2'));
+        ed.handle_key(key('j')); // fold 0..=2, closed
+        assert!(ed.folds().is_hidden(1));
+        // zo opens it.
+        ed.handle_key(key('z'));
+        ed.handle_key(key('o'));
+        assert!(!ed.folds().is_hidden(1));
+        // zc closes it again.
+        ed.handle_key(key('z'));
+        ed.handle_key(key('c'));
+        assert!(ed.folds().is_hidden(1));
+        // za toggles open.
+        ed.handle_key(key('z'));
+        ed.handle_key(key('a'));
+        assert!(!ed.folds().is_hidden(1));
+    }
+
+    #[test]
+    fn j_k_step_over_closed_fold() {
+        let mut ed = ed_with("a\nb\nc\nd\ne");
+        // Fold lines 1..=3 (place cursor on line 1 first).
+        ed.handle_key(key('j'));
+        ed.handle_key(key('z'));
+        ed.handle_key(key('f'));
+        ed.handle_key(key('2'));
+        ed.handle_key(key('j'));
+        // Back to the top.
+        ed.handle_key(key('g'));
+        ed.handle_key(key('g'));
+        assert_eq!(ed.cursor.row, 0);
+        // j from line 0 lands on the fold header (line 1)...
+        ed.handle_key(key('j'));
+        assert_eq!(ed.cursor.row, 1);
+        // ...and the next j jumps past the collapsed body to line 4.
+        ed.handle_key(key('j'));
+        assert_eq!(ed.cursor.row, 4);
+        // k comes straight back to the header.
+        ed.handle_key(key('k'));
+        assert_eq!(ed.cursor.row, 1);
+    }
+
+    #[test]
+    fn zr_zm_open_and_close_all() {
+        let mut ed = ed_with("a\nb\nc\nd\ne\nf");
+        ed.handle_key(key('z'));
+        ed.handle_key(key('f'));
+        ed.handle_key(key('j')); // fold 0..=1
+        ed.handle_key(key('G')); // to last line
+        ed.handle_key(key('z'));
+        ed.handle_key(key('f'));
+        ed.handle_key(key('k')); // fold 4..=5
+        assert!(!folded_lines(&ed).is_empty());
+        // zR opens everything.
+        ed.handle_key(key('z'));
+        ed.handle_key(key('R'));
+        assert!(folded_lines(&ed).is_empty());
+        // zM closes everything.
+        ed.handle_key(key('z'));
+        ed.handle_key(key('M'));
+        assert_eq!(folded_lines(&ed), vec![1, 5]);
+    }
+
+    #[test]
+    fn zd_deletes_fold_ze_eliminates_all() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.handle_key(key('z'));
+        ed.handle_key(key('f'));
+        ed.handle_key(key('j'));
+        assert!(!ed.folds().is_empty());
+        ed.handle_key(key('z'));
+        ed.handle_key(key('d'));
+        assert!(ed.folds().is_empty());
+        // Recreate, then zE.
+        ed.handle_key(key('z'));
+        ed.handle_key(key('f'));
+        ed.handle_key(key('j'));
+        ed.handle_key(key('z'));
+        ed.handle_key(key('E'));
+        assert!(ed.folds().is_empty());
+    }
+
+    #[test]
+    fn zi_toggles_fold_display() {
+        let mut ed = ed_with("a\nb\nc\nd");
+        ed.handle_key(key('z'));
+        ed.handle_key(key('f'));
+        ed.handle_key(key('2'));
+        ed.handle_key(key('j'));
+        assert!(ed.folding());
+        // zi disables folding display without deleting folds.
+        ed.handle_key(key('z'));
+        ed.handle_key(key('i'));
+        assert!(!ed.folding());
+        assert!(!ed.folds().is_empty());
+        ed.handle_key(key('z'));
+        ed.handle_key(key('i'));
+        assert!(ed.folding());
+    }
+
+    #[test]
+    fn cursor_cannot_rest_inside_closed_fold() {
+        let mut ed = ed_with("a\nb\nc\nd\ne");
+        // Fold 1..=3 while on line 1.
+        ed.handle_key(key('j'));
+        ed.handle_key(key('z'));
+        ed.handle_key(key('f'));
+        ed.handle_key(key('2'));
+        ed.handle_key(key('j'));
+        ed.set_viewport(10, 20);
+        // Jump to a line inside the closed fold; it snaps to the header.
+        ed.handle_key(key('3'));
+        ed.handle_key(key('G')); // line 2, hidden
+        assert!(!ed.folds().is_hidden(ed.cursor.row));
+        assert_eq!(ed.cursor.row, 1);
+    }
+
+    #[test]
+    fn fold_keeps_cursor_visible_in_small_window() {
+        let mut ed = ed_with(&(0..50).map(|i| format!("line{i}")).collect::<Vec<_>>().join("\n"));
+        ed.set_viewport(5, 20);
+        // Fold a big middle range so the display is much shorter than the buffer.
+        ed.handle_key(key('1'));
+        ed.handle_key(key('0'));
+        ed.handle_key(key('G')); // line 9
+        ed.handle_key(key('z'));
+        ed.handle_key(key('f'));
+        ed.handle_key(key('2'));
+        ed.handle_key(key('0'));
+        ed.handle_key(key('j')); // fold 9..=29
+        ed.handle_key(key('G')); // to last line
+        ed.set_viewport(5, 20);
+        // The last line must be within `view_rows` display rows of `top`.
+        assert!(ed.cursor.row >= ed.top);
+        let rows = ed.display_rows_between(ed.top, ed.cursor.row);
+        assert!(rows <= ed.view_rows, "cursor {} rows below top (view {})", rows, ed.view_rows);
+    }
