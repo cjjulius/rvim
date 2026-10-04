@@ -46,8 +46,10 @@ All notable changes to rvim are recorded here. Versions follow
   `$`-variables, and `#` comments; detected by extension, a shell shebang, or
   `:set ft=shell`.
 - C/C++ highlighting (`.c`, `.h`, `.cpp`, `.cc`, `.hpp`): keywords, builtin types
-  and library functions, strings, char literals, numbers, and `//` / `/* */`
-  comments; detected by extension or `:set ft=c`.
+  and library functions, strings, char literals, numbers, `//` / `/* */` comments,
+  and `#` preprocessor directives; detected by extension or `:set ft=c`.
+- Preprocessor directives: a `preprocessor` character in a language spec colors a
+  leading `#include` / `#define` etc. as a preprocessor token.
 - Multi-line strings are tracked across lines (via `LangSpec.multiline_strings`),
   so Python triple-quoted strings and docstrings stay colored past the first
   line.
