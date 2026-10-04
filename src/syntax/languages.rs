@@ -44,8 +44,48 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(javascript_spec())),
         Box::new(SpecHighlighter::new(go_spec())),
         Box::new(SpecHighlighter::new(shell_spec())),
+        Box::new(SpecHighlighter::new(c_spec())),
     ]
 }
+
+// ---- C / C++ -------------------------------------------------------------
+
+fn c_spec() -> LangSpec {
+    LangSpec {
+        language: Language::C,
+        multiline_strings: &[],
+        line_comments: &["//"],
+        block_comment: Some(("/*", "*/")),
+        keywords: C_KEYWORDS,
+        types: C_TYPES,
+        builtins: C_BUILTINS,
+        string_delims: &['"', '\''],
+        case_insensitive: false,
+        var_sigils: &[],
+        detect_calls: true,
+    }
+}
+
+const C_KEYWORDS: &[&str] = &[
+    // C
+    "auto", "break", "case", "const", "continue", "default", "do", "else", "enum", "extern",
+    "for", "goto", "if", "inline", "register", "restrict", "return", "sizeof", "static", "struct",
+    "switch", "typedef", "union", "volatile", "while",
+    // C++
+    "class", "namespace", "template", "typename", "public", "private", "protected", "virtual",
+    "override", "new", "delete", "this", "using", "try", "catch", "throw", "operator", "friend",
+    "explicit", "constexpr", "noexcept", "nullptr", "true", "false",
+];
+const C_TYPES: &[&str] = &[
+    "void", "bool", "char", "short", "int", "long", "float", "double", "signed", "unsigned",
+    "wchar_t", "size_t", "ssize_t", "ptrdiff_t", "int8_t", "int16_t", "int32_t", "int64_t",
+    "uint8_t", "uint16_t", "uint32_t", "uint64_t", "intptr_t", "uintptr_t", "FILE", "va_list",
+    "string", "vector", "map",
+];
+const C_BUILTINS: &[&str] = &[
+    "printf", "fprintf", "sprintf", "scanf", "malloc", "calloc", "realloc", "free", "memcpy",
+    "memset", "strlen", "strcmp", "strcpy", "strcat", "assert", "NULL",
+];
 
 // ---- Shell ---------------------------------------------------------------
 
@@ -559,6 +599,17 @@ mod tests {
         assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "on"
         assert!(toks.iter().any(|t| t.kind == TokenKind::Number)); // 42
         assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // true/null
+    }
+
+    #[test]
+    fn c_highlights_keyword_type_builtin_string() {
+        let h = SpecHighlighter::new(c_spec());
+        let toks = h.highlight_line("int main() { char *s = \"hi\"; return 0; } /* c */");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // return
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // int/char
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Function)); // main(
+        assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "hi"
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // /* c */
     }
 
     #[test]

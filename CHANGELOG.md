@@ -45,6 +45,9 @@ All notable changes to rvim are recorded here. Versions follow
 - Shell highlighting (`.sh`, `.bash`, `.zsh`): keywords, builtin commands, strings,
   `$`-variables, and `#` comments; detected by extension, a shell shebang, or
   `:set ft=shell`.
+- C/C++ highlighting (`.c`, `.h`, `.cpp`, `.cc`, `.hpp`): keywords, builtin types
+  and library functions, strings, char literals, numbers, and `//` / `/* */`
+  comments; detected by extension or `:set ft=c`.
 - Multi-line strings are tracked across lines (via `LangSpec.multiline_strings`),
   so Python triple-quoted strings and docstrings stay colored past the first
   line.

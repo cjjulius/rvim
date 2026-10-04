@@ -63,6 +63,7 @@ pub enum Language {
     JavaScript,
     Go,
     Shell,
+    C,
 }
 
 impl Language {
@@ -83,6 +84,7 @@ impl Language {
             Language::JavaScript => "javascript",
             Language::Go => "go",
             Language::Shell => "shell",
+            Language::C => "c",
         }
     }
 
@@ -103,6 +105,7 @@ impl Language {
             "javascript" | "js" | "node" => Language::JavaScript,
             "go" | "golang" => Language::Go,
             "shell" | "sh" | "bash" | "zsh" => Language::Shell,
+            "c" | "cpp" | "c++" | "cxx" | "cc" | "h" | "hpp" => Language::C,
             _ => return None,
         })
     }
@@ -119,7 +122,7 @@ pub fn line_comment_token(lang: Language) -> Option<&'static str> {
         | Language::SnowflakeSql => Some("--"),
         Language::Z80 => Some(";"),
         Language::Python | Language::Toml | Language::Shell => Some("#"),
-        Language::JavaScript | Language::Go => Some("//"),
+        Language::JavaScript | Language::Go | Language::C => Some("//"),
         // Strict JSON has no comments.
         Language::Json | Language::PlainText => None,
     }
@@ -143,6 +146,7 @@ pub fn detect_language(path: Option<&Path>, first_line: &str) -> Language {
                 "js" | "mjs" | "cjs" | "jsx" => return Language::JavaScript,
                 "go" => return Language::Go,
                 "sh" | "bash" | "zsh" => return Language::Shell,
+                "c" | "h" | "cpp" | "cc" | "cxx" | "hpp" | "hh" => return Language::C,
                 "sql" => {
                     // Refine a generic .sql file by a leading dialect hint comment,
                     // e.g. `-- dialect: pgsql`.
@@ -726,6 +730,14 @@ mod tests {
         assert_eq!(
             detect_language(Some(&PathBuf::from("run.sh")), ""),
             Language::Shell
+        );
+        assert_eq!(
+            detect_language(Some(&PathBuf::from("main.c")), ""),
+            Language::C
+        );
+        assert_eq!(
+            detect_language(Some(&PathBuf::from("app.hpp")), ""),
+            Language::C
         );
     }
 
