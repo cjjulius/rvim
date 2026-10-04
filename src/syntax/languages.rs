@@ -47,8 +47,46 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(c_spec())),
         Box::new(SpecHighlighter::new(java_spec())),
         Box::new(SpecHighlighter::new(yaml_spec())),
+        Box::new(SpecHighlighter::new(typescript_spec())),
     ]
 }
+
+// ---- TypeScript ----------------------------------------------------------
+
+fn typescript_spec() -> LangSpec {
+    LangSpec {
+        language: Language::TypeScript,
+        multiline_strings: &["`"],
+        preprocessor: None,
+        line_comments: &["//"],
+        block_comment: Some(("/*", "*/")),
+        keywords: TS_KEYWORDS,
+        types: TS_TYPES,
+        builtins: JS_BUILTINS,
+        string_delims: &['"', '\''],
+        case_insensitive: false,
+        var_sigils: &[],
+        detect_calls: true,
+    }
+}
+
+const TS_KEYWORDS: &[&str] = &[
+    // JavaScript
+    "var", "let", "const", "function", "return", "if", "else", "for", "while", "do", "switch",
+    "case", "break", "continue", "new", "delete", "typeof", "instanceof", "in", "of", "this",
+    "class", "extends", "super", "import", "export", "from", "as", "default", "try", "catch",
+    "finally", "throw", "async", "await", "yield", "void", "static", "get", "set", "true", "false",
+    "null", "undefined",
+    // TypeScript
+    "interface", "type", "enum", "implements", "namespace", "declare", "abstract", "readonly",
+    "public", "private", "protected", "keyof", "infer", "is", "satisfies", "override", "out",
+    "constructor",
+];
+const TS_TYPES: &[&str] = &[
+    "string", "number", "boolean", "any", "unknown", "never", "void", "object", "symbol", "bigint",
+    "Array", "Promise", "Record", "Partial", "Readonly", "Map", "Set", "Object", "String",
+    "Number", "Boolean",
+];
 
 // ---- YAML ----------------------------------------------------------------
 
@@ -673,6 +711,16 @@ mod tests {
         assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "on"
         assert!(toks.iter().any(|t| t.kind == TokenKind::Number)); // 42
         assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // true/null
+    }
+
+    #[test]
+    fn typescript_highlights_ts_keyword_type_string() {
+        let h = SpecHighlighter::new(typescript_spec());
+        let toks = h.highlight_line("interface A { name: string } const x = `hi`; // c");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // interface/const
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // string
+        assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // `hi`
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // // c
     }
 
     #[test]
