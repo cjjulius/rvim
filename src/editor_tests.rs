@@ -5008,15 +5008,24 @@
         }
         assert_eq!(ed.buffer.line(1), Some("line1"));
 
-        // "* is an alias for the same clipboard.
-        let mut ed = ed_with("abc");
-        for c in "\"*p".chars() {
+        // "* is the PRIMARY selection: a separate store (clipboard path + .primary).
+        let mut primary = path.clone();
+        let mut pname = primary.file_name().unwrap().to_os_string();
+        pname.push(".primary");
+        primary.set_file_name(pname);
+        let _ = std::fs::remove_file(&primary);
+
+        let mut ed = ed_with("alpha");
+        for c in "\"*yiw".chars() {
             ed.handle_key(key(c));
         }
-        assert_eq!(ed.buffer.line(1), Some("line1"));
+        assert_eq!(std::fs::read_to_string(&primary).unwrap(), "alpha");
+        // The clipboard ("+) still holds its own content, unaffected by "*.
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "line1\n");
 
         std::env::remove_var("RVIM_CLIPBOARD");
         let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&primary);
     }
 
     #[test]

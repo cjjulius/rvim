@@ -129,11 +129,12 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   The read-only `"%` register holds the current file name (`"%p`, or `Ctrl-r %`
   in insert mode), and `".` holds the last inserted text (`".p`, `Ctrl-r .`, or
   `Ctrl-a` in insert mode to re-insert it).
-- **System clipboard:** the `"+` and `"*` registers share the clipboard with
-  other applications, so `"+y` copies and `"+p` pastes across programs. rvim uses
-  your platform's clipboard tool (Windows, macOS, `wl-clipboard`/`xclip`/`xsel`
-  on Linux). Where none is available, set `RVIM_CLIPBOARD` to a file path to use
-  that file as a shared clipboard instead.
+- **System clipboard:** `"+` is the system clipboard and `"*` is the X11/Wayland
+  PRIMARY selection (middle-click paste); on Windows and macOS both are the one
+  clipboard. So `"+y` copies and `"+p` pastes across programs. rvim uses your
+  platform's clipboard tool (Windows, macOS, `wl-clipboard`/`xclip`/`xsel` on
+  Linux). Where none is available, set `RVIM_CLIPBOARD` to a file path to use that
+  file as a shared clipboard instead.
 - **Marks:** `m<letter>` sets a mark, `` `<letter> `` jumps to it (exact),
   `'<letter>` jumps to its line; `` `` `` / `''` return to the previous position
   (also set by `G`, `gg`, and searches). Automatic marks: `` `. `` (last change),

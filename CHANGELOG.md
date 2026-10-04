@@ -82,6 +82,9 @@ All notable changes to rvim are recorded here. Versions follow
   digits, `u`+hex (unicode), `x`+hex, or `o`+octal.
 
 ### Registers
+- `"*` now maps to the X11/Wayland PRIMARY selection (middle-click paste),
+  distinct from `"+` (the system clipboard); both are the one clipboard on Windows
+  and macOS.
 - System clipboard: the `"+` and `"*` registers read and write the OS clipboard,
   so `"+y` copies to other applications and `"+p` pastes from them. Uses the
   platform clipboard tool (Windows, macOS, `wl-clipboard`/`xclip`/`xsel` on
