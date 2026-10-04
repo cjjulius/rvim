@@ -46,8 +46,35 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(shell_spec())),
         Box::new(SpecHighlighter::new(c_spec())),
         Box::new(SpecHighlighter::new(java_spec())),
+        Box::new(SpecHighlighter::new(yaml_spec())),
     ]
 }
+
+// ---- YAML ----------------------------------------------------------------
+
+const SIG_YAML: &[char] = &['&', '*'];
+
+fn yaml_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Yaml,
+        multiline_strings: &[],
+        preprocessor: None,
+        line_comments: &["#"],
+        block_comment: None,
+        keywords: YAML_KEYWORDS,
+        types: &[],
+        builtins: &[],
+        string_delims: &['"', '\''],
+        case_insensitive: false,
+        // `&anchor` / `*alias` highlight as variables.
+        var_sigils: SIG_YAML,
+        detect_calls: false,
+    }
+}
+
+const YAML_KEYWORDS: &[&str] = &[
+    "true", "false", "null", "yes", "no", "on", "off", "True", "False", "Null",
+];
 
 // ---- Java ----------------------------------------------------------------
 
@@ -646,6 +673,16 @@ mod tests {
         assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "on"
         assert!(toks.iter().any(|t| t.kind == TokenKind::Number)); // 42
         assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // true/null
+    }
+
+    #[test]
+    fn yaml_highlights_bool_string_comment_anchor() {
+        let h = SpecHighlighter::new(yaml_spec());
+        let toks = h.highlight_line("enabled: true  name: \"x\"  ref: &a  # note");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // true
+        assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "x"
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // # note
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Variable)); // &a anchor
     }
 
     #[test]

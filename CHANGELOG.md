@@ -65,6 +65,8 @@ All notable changes to rvim are recorded here. Versions follow
 - Java highlighting (`.java`): keywords, builtin types and common classes, strings,
   char literals, numbers, and `//` / `/* */` comments; detected by extension or
   `:set ft=java`.
+- YAML highlighting (`.yaml`, `.yml`): booleans/null, strings, numbers, `&anchor`
+  / `*alias` references, and `#` comments; detected by extension or `:set ft=yaml`.
 - Preprocessor directives: a `preprocessor` character in a language spec colors a
   leading `#include` / `#define` etc. as a preprocessor token.
 - Multi-line strings are tracked across lines (via `LangSpec.multiline_strings`),
