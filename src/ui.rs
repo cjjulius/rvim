@@ -177,11 +177,56 @@ pub fn render(
     // Multi-line syntax state feeding the first visible line (computed by the
     // caller, memoized), then threaded through the visible rows.
     let mut line_state = top_state;
+    // With folds, consecutive screen rows no longer map to consecutive buffer
+    // lines, so we walk display rows and track where the cursor lands on screen.
+    let folding = editor.folding();
+    let mut row = editor.top;
+    let mut cursor_y: Option<u16> = None;
 
     for y in 0..layout.text_rows {
-        let row = editor.top + y as usize;
         queue!(out, MoveTo(0, layout.top_offset + y))?;
+        // The gutter is painted for every row, including those past the end of the
+        // buffer (where it draws blank cells), so the tilde always sits in the text
+        // column and the gutter never shows stale content.
         draw_gutter(out, editor, theme, &layout, row)?;
+
+        if row >= editor.buffer.line_count() {
+            // Past end of buffer: tilde like vim.
+            queue!(
+                out,
+                SetBackgroundColor(theme.bg),
+                SetForegroundColor(theme.gutter_fg),
+                Print("~"),
+                SetBackgroundColor(theme.bg),
+                Print(" ".repeat(layout.text_cols.saturating_sub(1) as usize)),
+                ResetColor,
+            )?;
+            continue;
+        }
+
+        if row == editor.cursor.row {
+            cursor_y = Some(y);
+        }
+
+        // A closed fold collapses `[row, end]` into a single header row. The
+        // hidden lines still advance the multi-line syntax state so highlighting
+        // past the fold stays correct.
+        let header = if folding { editor.folds().header(row) } else { None };
+        if let Some((_, end)) = header {
+            draw_fold_line(out, editor, theme, &layout, row, end)?;
+            let mut l = row;
+            while l <= end && l < editor.buffer.line_count() {
+                if let Some(line) = editor.buffer.line(l) {
+                    let (_t, next_state) =
+                        syntax.highlight_stateful(editor.language, line, line_state);
+                    line_state = next_state;
+                }
+                l += 1;
+            }
+            row = end + 1;
+            queue!(out, ResetColor)?;
+            continue;
+        }
 
         let line_bg = if editor.cursorline && row == editor.cursor.row {
             theme.cursor_line_bg
@@ -210,17 +255,8 @@ pub fn render(
                 search, editor.tabstop.max(1), block, match_col, editor.list,
                 editor.listchars(), color_col, cursor_col, cur_match,
             )?;
-        } else {
-            // Past end of buffer: tilde like vim.
-            queue!(
-                out,
-                SetBackgroundColor(theme.bg),
-                SetForegroundColor(theme.gutter_fg),
-                Print("~"),
-                SetBackgroundColor(theme.bg),
-                Print(" ".repeat(layout.text_cols.saturating_sub(1) as usize)),
-            )?;
         }
+        row += 1;
         queue!(out, ResetColor)?;
     }
 
@@ -239,7 +275,14 @@ pub fn render(
         queue!(out, MoveTo(x.min(layout.cols.saturating_sub(1)), layout.rows - 1), Show)?;
     } else {
         let cx = layout.gutter_width + (editor.cursor.col.saturating_sub(editor.left)) as u16;
-        let cy = layout.top_offset + (editor.cursor.row.saturating_sub(editor.top)) as u16;
+        // With folds the cursor's screen row is where the walk above drew its line
+        // (the fold header, if the cursor sits in a closed fold); without folds it
+        // is simply the distance below the top line.
+        let cy = cursor_y
+            .map(|y| layout.top_offset + y)
+            .unwrap_or_else(|| {
+                layout.top_offset + (editor.cursor.row.saturating_sub(editor.top)) as u16
+            });
         queue!(
             out,
             MoveTo(
@@ -320,6 +363,38 @@ fn draw_gutter(
         out,
         SetBackgroundColor(theme.gutter_bg),
         SetForegroundColor(fg),
+        Print(text)
+    )
+}
+
+/// The foldtext for a closed fold: `+--  N lines: <first line>` padded to the
+/// text width with dots, mirroring vim's default. Exposed for testing.
+pub fn fold_text(level: usize, start_line: &str, count: usize, width: usize) -> String {
+    let dashes = "-".repeat(level.min(width.max(1)).max(1));
+    let body = format!("+{dashes}{count} lines: {} ", start_line.trim_start());
+    let mut s: String = body.chars().take(width).collect();
+    let fill = width.saturating_sub(s.chars().count());
+    s.push_str(&"·".repeat(fill));
+    s
+}
+
+/// Draw a closed fold's header row: a dimmed `+-- N lines: …` bar.
+fn draw_fold_line(
+    out: &mut impl Write,
+    editor: &Editor,
+    theme: &Theme,
+    layout: &Layout,
+    start: usize,
+    end: usize,
+) -> io::Result<()> {
+    let count = end - start + 1;
+    let first = editor.buffer.line(start).unwrap_or("");
+    let level = editor.folds().level(start);
+    let text = fold_text(level, first, count, layout.text_cols as usize);
+    queue!(
+        out,
+        SetBackgroundColor(theme.cursor_line_bg),
+        SetForegroundColor(theme.gutter_fg),
         Print(text)
     )
 }
@@ -905,6 +980,62 @@ fn draw_dropdown(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fold_text_shows_line_count_and_fills() {
+        let s = fold_text(1, "    fn main() {", 12, 30);
+        assert_eq!(s.chars().count(), 30);
+        assert!(s.starts_with("+-12 lines: fn main() {"));
+        assert!(s.ends_with('·')); // padded with dots
+    }
+
+    #[test]
+    fn fold_text_truncates_when_narrow() {
+        let s = fold_text(2, "something long here", 3, 8);
+        assert_eq!(s.chars().count(), 8);
+    }
+
+    #[test]
+    fn past_end_rows_paint_gutter_before_tilde() {
+        use crate::buffer::Buffer;
+        let mut ed = Editor::new();
+        ed.buffer = Buffer::from_text("one\ntwo"); // 2 lines, tall window => tildes
+        ed.show_line_numbers = true;
+        ed.set_viewport(10, 20);
+        let theme = crate::theme::matrix();
+        let syntax = Registry::default();
+        let mut buf: Vec<u8> = Vec::new();
+        render(&mut buf, &ed, &theme, &syntax, &[], LineState::Normal).unwrap();
+        let out = String::from_utf8_lossy(&buf);
+        // Strip ANSI escape sequences so we see the actual printed glyphs.
+        let re = regex::Regex::new("\u{1b}\\[[0-9;?]*[A-Za-z]").unwrap();
+        let plain = re.replace_all(&out, "");
+        // The gutter (4 cells here) is painted before the tilde, so '~' is never at
+        // column 0 — it follows the gutter's blank cells.
+        assert!(plain.contains('~'));
+        assert!(plain.contains("    ~"), "tilde should sit after the gutter, got: {plain:?}");
+    }
+
+    #[test]
+    fn render_draws_fold_header_for_closed_fold() {
+        use crate::buffer::Buffer;
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        let mut ed = Editor::new();
+        ed.buffer = Buffer::from_text("alpha\nbeta\ngamma\ndelta");
+        ed.set_viewport(10, 20);
+        // Fold lines 0..=2.
+        for c in ['z', 'f', '2', 'j'] {
+            ed.handle_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+        }
+        let theme = crate::theme::matrix();
+        let syntax = Registry::default();
+        let mut buf: Vec<u8> = Vec::new();
+        render(&mut buf, &ed, &theme, &syntax, &[], LineState::Normal).unwrap();
+        let out = String::from_utf8_lossy(&buf);
+        assert!(out.contains("3 lines: alpha")); // the fold header
+        assert!(out.contains("delta")); // the line after the fold still shows
+        assert!(!out.contains("beta")); // hidden inside the fold
+    }
 
     #[test]
     fn list_mode_marks_tabs_trailing_space_and_eol() {

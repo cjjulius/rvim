@@ -5,6 +5,13 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Folding
+- Manual code folding: `zf{motion}` / visual `zf` / `zF` create a fold, `zo`/`zc`/
+  `za` open/close/toggle it, `zR`/`zM` open/close all, `zd`/`zE` delete one/all,
+  and `zi` toggles folding on and off. Closed folds collapse to a dimmed
+  `+-- N lines: …` header; `j`/`k` step over them and the cursor never rests
+  inside a closed fold. Folds can be nested.
+
 ### Help
 - `:help` is refreshed and the `:set ft=` language list is now generated from the
   language table (no more drift); it also covers the system clipboard, block-wise
