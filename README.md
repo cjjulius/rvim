@@ -28,6 +28,12 @@ Open a file (language is autodetected from the extension):
 cargo run --release -- src/main.rs
 ```
 
+Open at a specific line with `+N` (bare `+` opens at the last line):
+
+```bash
+cargo run --release -- +42 src/main.rs
+```
+
 Start with a specific theme:
 
 ```bash
@@ -558,7 +564,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **631 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **632 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, modes, and UI layout.
 
 ---

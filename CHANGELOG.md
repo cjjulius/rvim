@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Command line
+- `+N` command-line option opens the file at line N (bare `+` opens at the last
+  line), e.g. `rvim +42 file.rs`. The theme list in `--help` is also current.
+
 ### Editing
 - Vertical motion remembers its goal column (vim's "curswant"): moving `j`/`k`
   through a shorter line and on to a longer one restores the original column, and
