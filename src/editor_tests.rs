@@ -1470,6 +1470,16 @@
     }
 
     #[test]
+    fn goto_line_jumps_and_clamps() {
+        let mut ed = ed_with("one\ntwo\nthree\nfour");
+        ed.goto_line(3);
+        assert_eq!(ed.cursor.row, 2); // 1-based line 3
+        // Past the end (used by the bare `+` option) clamps to the last line.
+        ed.goto_line(usize::MAX);
+        assert_eq!(ed.cursor.row, 3);
+    }
+
+    #[test]
     fn dollar_is_sticky_goal_column() {
         let mut ed = ed_with("ab\nhello\nx");
         ed.handle_key(key('$')); // end of "ab" -> column 1
