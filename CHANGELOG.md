@@ -5,6 +5,12 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Help
+- `:help` is refreshed and the `:set ft=` language list is now generated from the
+  language table (no more drift); it also covers the system clipboard, block-wise
+  yank/paste, command-line `Ctrl-r`, `:n`/`:N`, and `shiftround`/`joinspaces`/
+  `matchpairs`.
+
 ### Command line
 - `+N` command-line option opens the file at line N (bare `+` opens at the last
   line), e.g. `rvim +42 file.rs`. The theme list in `--help` is also current.

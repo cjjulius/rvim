@@ -358,6 +358,21 @@
     }
 
     #[test]
+    fn help_lists_languages_dynamically() {
+        let mut app = App::new();
+        app.run_ex("help");
+        let text: String = (0..app.editor.buffer.line_count())
+            .filter_map(|r| app.editor.buffer.line(r))
+            .collect::<Vec<_>>()
+            .join("\n");
+        // The :set ft= line is built from the language table, so recent additions
+        // appear without editing the help text.
+        assert!(text.contains("yaml"));
+        assert!(text.contains("java"));
+        assert!(text.contains("clipboard")); // the "+ / "* help line
+    }
+
+    #[test]
     fn help_does_not_stack() {
         let mut app = App::new();
         app.run_ex("help");

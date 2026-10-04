@@ -124,6 +124,15 @@ impl Language {
     }
 }
 
+/// All highlighter language names (for `:help` / `:set ft=`), excluding plain text.
+pub fn language_names() -> Vec<&'static str> {
+    LANG_TABLE
+        .iter()
+        .filter(|e| e.lang != Language::PlainText)
+        .map(|e| e.name)
+        .collect()
+}
+
 /// The primary line-comment marker for a language (for comment toggling).
 pub fn line_comment_token(lang: Language) -> Option<&'static str> {
     LANG_TABLE
