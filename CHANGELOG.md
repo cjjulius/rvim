@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Registers
+- The read-only `"/` (last search pattern) and `":` (last command line) registers
+  are now available for paste and `Ctrl-r` (e.g. `Ctrl-r /` while typing a `:s`).
+
 ### Performance
 - Split windows memoize each pane's first-visible-line syntax state, so scrolling
   or moving the cursor no longer re-scans every pane from the top of the buffer

@@ -5719,3 +5719,44 @@
         assert_eq!(s.row, 1);
         assert_eq!(e.row, 1);
     }
+
+    // ---- special registers: / (last search) and : (last command) ---------
+
+    #[test]
+    fn slash_register_holds_last_search_pattern() {
+        let mut ed = ed_with("foo bar baz");
+        ed.handle_key(key('/'));
+        for c in "bar".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Enter));
+        assert_eq!(ed.register_text('/').text, "bar");
+    }
+
+    #[test]
+    fn colon_register_holds_last_command() {
+        let mut ed = ed_with("x");
+        ed.handle_key(key(':'));
+        for c in "noh".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Enter));
+        assert_eq!(ed.register_text(':').text, "noh");
+    }
+
+    #[test]
+    fn ctrl_r_slash_inserts_last_search() {
+        let mut ed = ed_with("hello world");
+        // Search so the `/` register is populated.
+        ed.handle_key(key('/'));
+        for c in "wor".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Enter));
+        // Insert mode, Ctrl-r / pastes the pattern.
+        ed.handle_key(key('o')); // open a new line
+        ed.handle_key(ctrl('r'));
+        ed.handle_key(key('/'));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(1), Some("wor"));
+    }
