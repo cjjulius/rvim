@@ -241,6 +241,8 @@ pub enum ExCommand {
     OnlyWindow { force: bool },
     /// `:bufdo {cmd}` — run an ex command on every open buffer.
     BufDo(String),
+    /// `:windo {cmd}` — run an ex command in every window.
+    WinDo(String),
     /// `:ls` / `:buffers` — list open buffers.
     BufferList,
     /// `:bn` / `:bnext` / `:n` / `:next`
@@ -447,6 +449,7 @@ pub fn parse(input: &str) -> ExCommand {
         "on!" | "only!" => ExCommand::OnlyWindow { force: true },
         "ls" | "buffers" | "files" => ExCommand::BufferList,
         "bufdo" => ExCommand::BufDo(arg.unwrap_or_default()),
+        "windo" => ExCommand::WinDo(arg.unwrap_or_default()),
         "bn" | "bnext" | "n" | "next" => ExCommand::BufferNext,
         "bp" | "bprev" | "bprevious" | "N" | "prev" | "previous" => ExCommand::BufferPrev,
         "bd" | "bdelete" => ExCommand::BufferDelete,

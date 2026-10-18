@@ -551,7 +551,7 @@ with `:only`. Rearrange them with `Ctrl-w x` (swap with the next window) and
 left; `:set splitbelow` and `:set splitright` flip that. Resize the focused window
 with `Ctrl-w +` / `Ctrl-w -` (taller/shorter) and `Ctrl-w >` / `Ctrl-w <`
 (wider/narrower), and `Ctrl-w =` makes them equal again. Each window keeps its own
-cursor and scroll position.
+cursor and scroll position. `:windo {cmd}` runs a command in every window.
 
 Note: two windows opened on the same file are independent views, so edits in one
 are not mirrored live in the other yet. Different files side by side work exactly
@@ -632,7 +632,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **778 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **781 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

@@ -1041,3 +1041,32 @@
         app.run_ex("bufdo set number");
         assert_eq!(app.editor.buffer.line(0), Some("start")); // focus restored
     }
+
+    // ---- :windo ----------------------------------------------------------
+
+    #[test]
+    fn windo_runs_command_in_every_window() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("a");
+        app.run_ex("vsplit"); // two windows over copies of "a"
+        app.run_ex("windo %s/a/b/");
+        assert_eq!(app.editor.buffer.line(0), Some("b"));
+        assert_eq!(app.panes[0].editor.buffer.line(0), Some("b"));
+    }
+
+    #[test]
+    fn windo_restores_the_starting_window() {
+        let mut app = App::new();
+        app.run_ex("vsplit");
+        let start = app.focused;
+        app.run_ex("windo set number");
+        assert_eq!(app.focused, start);
+    }
+
+    #[test]
+    fn windo_single_window_runs_once() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("a");
+        app.run_ex("windo %s/a/b/");
+        assert_eq!(app.editor.buffer.line(0), Some("b"));
+    }
