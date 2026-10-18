@@ -454,6 +454,48 @@ impl App {
         }
     }
 
+    /// `Ctrl-w x` — exchange the focused window's content with the next window's.
+    /// Focus stays put; the two windows swap what they show.
+    fn window_exchange(&mut self) {
+        let Some(next) = self.layout.next(self.focused) else {
+            return;
+        };
+        if next == self.focused {
+            return;
+        }
+        if let Some(p) = self.panes.iter_mut().find(|p| p.id == next) {
+            std::mem::swap(&mut self.editor, &mut p.editor);
+        }
+    }
+
+    /// `Ctrl-w r` — rotate every window's content one slot along the layout order
+    /// (the last window's content wraps to the first). Focus stays on its window.
+    fn window_rotate(&mut self) {
+        let ids = self.layout.ids();
+        if ids.len() < 2 {
+            return;
+        }
+        // Pull each window's editor out in layout order.
+        let mut eds: Vec<Editor> = Vec::with_capacity(ids.len());
+        for &id in &ids {
+            if id == self.focused {
+                eds.push(std::mem::take(&mut self.editor));
+            } else if let Some(pos) = self.panes.iter().position(|p| p.id == id) {
+                eds.push(self.panes.remove(pos).editor);
+            }
+        }
+        eds.rotate_right(1);
+        // Reassign in layout order.
+        self.panes.clear();
+        for (&id, ed) in ids.iter().zip(eds) {
+            if id == self.focused {
+                self.editor = ed;
+            } else {
+                self.panes.push(WinPane { id, editor: ed });
+            }
+        }
+    }
+
     /// `Ctrl-w h/j/k/l` — move focus to the adjacent window in `area`.
     fn focus_dir(&mut self, dir: Move, area: window::Rect) {
         if let Some(t) = self.layout.neighbor(self.focused, dir, area) {
@@ -477,6 +519,8 @@ impl App {
                 self.close_window(false);
             }
             KeyCode::Char('o') => self.only_window(false),
+            KeyCode::Char('x') => self.window_exchange(),
+            KeyCode::Char('r') => self.window_rotate(),
             _ => {}
         }
     }
@@ -1413,6 +1457,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \tCtrl-w w / Ctrl-w W cycle focus forward / back\n\
          \tCtrl-w c / :close   close the focused window\n\
          \tCtrl-w o / :only    keep only the focused window\n\
+         \tCtrl-w x / Ctrl-w r swap with next window / rotate all windows\n\
          \n\
          EDITING\n\
          \tx / X              delete char under / before   r<c>  replace\n\

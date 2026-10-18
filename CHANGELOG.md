@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Windows
+- Rearrange splits: `Ctrl-w x` swaps the focused window with the next, and
+  `Ctrl-w r` rotates every window's content one slot.
+
 ### Mouse
 - Double-click selects the word under the pointer; triple-click selects the whole
   line (in any window when the screen is split).

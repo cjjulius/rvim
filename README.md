@@ -537,7 +537,9 @@ to stack windows top and bottom, or `:vsplit` to place them side by side; add a
 file name to open it in the new window. Move between windows with `Ctrl-w` then a
 direction key (`h` `j` `k` `l`), or cycle with `Ctrl-w w`. Close the focused
 window with `:close` (or `Ctrl-w c`), and drop everything but the focused one
-with `:only`. Each window keeps its own cursor and scroll position.
+with `:only`. Rearrange them with `Ctrl-w x` (swap with the next window) and
+`Ctrl-w r` (rotate all of them). Each window keeps its own cursor and scroll
+position.
 
 Note: two windows opened on the same file are independent views, so edits in one
 are not mirrored live in the other yet. Different files side by side work exactly
@@ -618,7 +620,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **731 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **734 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
