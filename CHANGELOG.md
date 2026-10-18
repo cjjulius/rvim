@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Themes
+- New `paper` theme: a light color scheme (dark text on a warm background) for
+  bright environments — the first non-dark built-in. Switch with `:theme paper`.
+
 ### Internal
 - Rendering cleanup: the per-line draw helper takes a small `RenderCtx` of
   frame-constant parameters instead of nineteen positional arguments (no behavior
