@@ -16,6 +16,9 @@ All notable changes to rvim are recorded here. Versions follow
   (all on by default).
 
 ### Internal
+- Syntax carry-over state now skips full tokenization for lines that cannot open
+  a block comment or multi-line string (the common case), so recomputing the
+  highlight state above the viewport is cheaper on large files.
 - Added a UTF-8 regression suite (multibyte delete/replace/toggle-case, word
   motions, `$`, and visual-block delete) to guard the char/byte boundary.
 

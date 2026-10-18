@@ -242,6 +242,16 @@ pub trait Highlighter: Send + Sync {
     fn has_multiline(&self) -> bool {
         false
     }
+
+    /// A cheap short-circuit for advancing carry-over state without tokenizing.
+    /// Given the state a line *begins* in, returns `Some(end_state)` when the
+    /// result is certain without a full scan, or `None` when the caller must run
+    /// [`highlight_line_stateful`](Highlighter::highlight_line_stateful). The
+    /// default is always `None` (no short-circuit).
+    fn fast_block_state(&self, line: &str, state: LineState) -> Option<LineState> {
+        let _ = (line, state);
+        None
+    }
 }
 
 /// A declarative description of a language's lexical surface.
@@ -373,6 +383,32 @@ fn is_punct_char(c: char) -> bool {
 impl Highlighter for SpecHighlighter {
     fn has_multiline(&self) -> bool {
         self.spec.block_comment.is_some() || !self.spec.multiline_strings.is_empty()
+    }
+
+    fn fast_block_state(&self, line: &str, state: LineState) -> Option<LineState> {
+        // Only short-circuit from Normal. The next line can leave Normal only if
+        // a block comment or a multi-line string *opens* here, and either requires
+        // its delimiter substring to be present. When none appear, no construct can
+        // open, so the next line is still Normal — no tokenization needed. (A line
+        // that does contain such a delimiter falls through to the full scan, which
+        // correctly handles delimiters sitting inside strings or line comments.)
+        if state != LineState::Normal {
+            return None;
+        }
+        let has_delim = self
+            .spec
+            .block_comment
+            .is_some_and(|(open, _)| line.contains(open))
+            || self
+                .spec
+                .multiline_strings
+                .iter()
+                .any(|d| line.contains(d));
+        if has_delim {
+            None
+        } else {
+            Some(LineState::Normal)
+        }
     }
 
     fn language(&self) -> Language {
@@ -724,13 +760,18 @@ impl Registry {
     pub fn block_state_at(&self, lang: Language, lines: &[String], row: usize) -> LineState {
         // Languages without any line-spanning construct never carry state, so skip
         // folding from the top of the buffer entirely.
-        match self.get(lang) {
-            Some(h) if h.has_multiline() => {}
+        let h = match self.get(lang) {
+            Some(h) if h.has_multiline() => h,
             _ => return LineState::Normal,
-        }
+        };
         let mut state = LineState::Normal;
         for line in lines.iter().take(row) {
-            state = self.highlight_stateful(lang, line, state).1;
+            // Skip full tokenization on lines that provably cannot change state
+            // (the common case: most lines carry no comment/string delimiters).
+            state = match h.fast_block_state(line, state) {
+                Some(s) => s,
+                None => h.highlight_line_stateful(line, state).1,
+            };
         }
         state
     }
@@ -1006,6 +1047,38 @@ mod tests {
         // A block comment is tracked separately from template-literal state.
         let (_c, cs) = r.highlight_stateful(Language::JavaScript, "a /* open", LineState::Normal);
         assert_eq!(cs, LineState::Block);
+    }
+
+    #[test]
+    fn fast_block_state_matches_full_scan() {
+        let r = Registry::with_builtins();
+        let h = r.get(Language::Rust).unwrap();
+        // Tricky lines: delimiters inside strings/line comments must NOT be
+        // short-circuited into a wrong state. The fast path either agrees with
+        // the full tokenizer or defers to it (returning None).
+        let lines = [
+            "let x = 1;",            // plain: fast path -> Normal
+            "let s = \"a /* b\";",   // "/*" inside a string literal
+            "// a /* comment */",    // "/*" inside a line comment
+            "code /* open",          // genuinely opens a block comment
+            "still inside",          // inside the block (begins in Block)
+            "close */ done",         // closes the block
+            "fn f() {}",             // plain again
+        ];
+        let mut state = LineState::Normal;
+        for line in lines {
+            let full = h.highlight_line_stateful(line, state).1;
+            if let Some(fast) = h.fast_block_state(line, state) {
+                assert_eq!(fast, full, "fast path disagreed on {line:?}");
+            }
+            state = full;
+        }
+        // Plain lines with no delimiters always take the fast path.
+        assert_eq!(h.fast_block_state("let x = 1;", LineState::Normal), Some(LineState::Normal));
+        // A line opening a comment defers to the full scan.
+        assert_eq!(h.fast_block_state("a /* b", LineState::Normal), None);
+        // The fast path never fires once inside a block.
+        assert_eq!(h.fast_block_state("anything", LineState::Block), None);
     }
 
     #[test]
