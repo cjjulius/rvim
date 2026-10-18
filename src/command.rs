@@ -99,6 +99,10 @@ pub enum ExCommand {
     ToggleTitle(bool),
     /// `:set backup` / `:set nobackup` — keep a `~` backup on overwrite.
     ToggleBackup(bool),
+    /// `:set showmode|showcmd|ruler` (and `no…`) — status-line display toggles.
+    ToggleShowMode(bool),
+    ToggleShowCmd(bool),
+    ToggleRuler(bool),
     /// `:set expandtab` / `:set noexpandtab`
     ToggleExpandTab(bool),
     /// `:set shiftwidth=N`
@@ -974,6 +978,12 @@ fn parse_set(rest: &str) -> ExCommand {
         "notitle" => ExCommand::ToggleTitle(false),
         "backup" | "bk" => ExCommand::ToggleBackup(true),
         "nobackup" | "nobk" => ExCommand::ToggleBackup(false),
+        "showmode" | "smd" => ExCommand::ToggleShowMode(true),
+        "noshowmode" | "nosmd" => ExCommand::ToggleShowMode(false),
+        "showcmd" | "sc" => ExCommand::ToggleShowCmd(true),
+        "noshowcmd" | "nosc" => ExCommand::ToggleShowCmd(false),
+        "ruler" | "ru" => ExCommand::ToggleRuler(true),
+        "noruler" | "noru" => ExCommand::ToggleRuler(false),
         "splitbelow" | "sb" => ExCommand::ToggleSplitBelow(true),
         "nosplitbelow" | "nosb" => ExCommand::ToggleSplitBelow(false),
         "splitright" | "spr" => ExCommand::ToggleSplitRight(true),

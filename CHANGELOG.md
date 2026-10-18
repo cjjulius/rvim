@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### UI
+- Status-line display toggles: `:set noshowmode`, `:set noshowcmd`, `:set noruler`
+  trim the mode indicator, pending-command display, and cursor-position ruler
+  (all on by default).
+
 ### Internal
 - Added a UTF-8 regression suite (multibyte delete/replace/toggle-case, word
   motions, `$`, and visual-block delete) to guard the char/byte boundary.
