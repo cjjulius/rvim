@@ -363,9 +363,14 @@ fn draw_text_area(
                 line_bg,
                 LineHl { match_col, cursor_col, cur_match },
             )?;
-            // Edge markers: `<` when text is hidden to the left (scrolled right),
-            // `>` when the line continues past the right edge.
-            let precedes = editor.left > 0 && !line.is_empty();
+            // Edge markers (configurable via listchars; a space hides one): the
+            // precedes glyph when text is hidden to the left (scrolled right), the
+            // extends glyph when the line continues past the right edge.
+            let pre = editor.listchars_precedes;
+            let ext = editor.listchars_extends;
+            let precedes =
+                (editor.left > 0 && !line.is_empty() && pre != ' ').then_some(pre);
+            let extends = (truncated_right && ext != ' ').then_some(ext);
             draw_edge_markers(
                 out,
                 theme,
@@ -373,7 +378,7 @@ fn draw_text_area(
                 origin_y + y,
                 layout.text_cols,
                 line_bg,
-                (precedes, truncated_right),
+                (precedes, extends),
             )?;
         }
         row += 1;
@@ -723,12 +728,6 @@ struct LineHl {
     cur_match: Option<(usize, usize)>,
 }
 
-/// The glyph shown at a window edge when a line runs off it horizontally:
-/// `<` means text is hidden to the left (the view is scrolled right), `>` means
-/// text continues past the right edge.
-pub const PRECEDES_MARK: char = '<';
-pub const EXTENDS_MARK: char = '>';
-
 /// Draw one text line, clipped to the horizontal scroll window. Returns whether
 /// the line extends past the right edge (so the caller can show an edge marker).
 fn draw_text_line(
@@ -901,6 +900,7 @@ fn draw_text_line(
 
 /// Overlay the horizontal-scroll edge markers on a row that was just drawn.
 /// `text_x` is the first text column (after the gutter); `y` the absolute row.
+/// Each side draws its glyph only when `Some`.
 fn draw_edge_markers(
     out: &mut impl Write,
     theme: &Theme,
@@ -908,29 +908,29 @@ fn draw_edge_markers(
     y: u16,
     text_cols: u16,
     line_bg: Color,
-    marks: (bool, bool),
+    marks: (Option<char>, Option<char>),
 ) -> io::Result<()> {
     let (precedes, extends) = marks;
     if text_cols == 0 {
         return Ok(());
     }
-    if precedes {
+    if let Some(ch) = precedes {
         queue!(
             out,
             MoveTo(text_x, y),
             SetBackgroundColor(line_bg),
             SetForegroundColor(theme.gutter_fg),
-            Print(PRECEDES_MARK),
+            Print(ch),
             ResetColor,
         )?;
     }
-    if extends {
+    if let Some(ch) = extends {
         queue!(
             out,
             MoveTo(text_x + text_cols - 1, y),
             SetBackgroundColor(line_bg),
             SetForegroundColor(theme.gutter_fg),
-            Print(EXTENDS_MARK),
+            Print(ch),
             ResetColor,
         )?;
     }
@@ -1639,15 +1639,15 @@ mod tests {
         let mut buf2 = Vec::new();
         assert!(!draw_text_line(&mut buf2, &ctx, "abc", &[], 0, theme.bg, NO_HL).unwrap());
 
-        // The overlay emits `<`/`>` only for the edges that apply.
+        // The overlay emits each configured glyph only for the edges that apply.
         let mut both = Vec::new();
-        draw_edge_markers(&mut both, &theme, 0, 0, layout.text_cols, theme.bg, (true, true)).unwrap();
+        draw_edge_markers(&mut both, &theme, 0, 0, layout.text_cols, theme.bg, (Some('<'), Some('>'))).unwrap();
         let s = String::from_utf8_lossy(&both);
-        assert!(s.contains(PRECEDES_MARK) && s.contains(EXTENDS_MARK));
+        assert!(s.contains('<') && s.contains('>'));
         let mut none = Vec::new();
-        draw_edge_markers(&mut none, &theme, 0, 0, layout.text_cols, theme.bg, (false, false)).unwrap();
+        draw_edge_markers(&mut none, &theme, 0, 0, layout.text_cols, theme.bg, (None, None)).unwrap();
         let s2 = String::from_utf8_lossy(&none);
-        assert!(!s2.contains(PRECEDES_MARK) && !s2.contains(EXTENDS_MARK));
+        assert!(!s2.contains('<') && !s2.contains('>'));
     }
 
     #[test]

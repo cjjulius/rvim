@@ -4502,8 +4502,20 @@
         assert_eq!(ed.listchars(), ('>', '-', '~', '#'));
         assert_eq!(
             ed.option_value("listchars"),
-            "listchars=tab:>-,trail:~,eol:#"
+            "listchars=tab:>-,trail:~,eol:#,precedes:<,extends:>"
         );
+    }
+
+    #[test]
+    fn set_listchars_configures_edge_markers() {
+        let mut ed = ed_with("x");
+        assert_eq!((ed.listchars_precedes, ed.listchars_extends), ('<', '>')); // defaults
+        ed.set_listchars("precedes:«,extends:»");
+        assert_eq!((ed.listchars_precedes, ed.listchars_extends), ('«', '»'));
+        // A space disables a marker; multi-char values are ignored.
+        ed.set_listchars("precedes: ,extends:xy");
+        assert_eq!(ed.listchars_precedes, ' ');
+        assert_eq!(ed.listchars_extends, '»'); // unchanged (needs exactly one char)
     }
 
     #[test]
