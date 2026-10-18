@@ -140,8 +140,9 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   `"-` (last small delete). The unnamed register is used when none is given. The
   black-hole register `"_` (e.g. `"_dd`) deletes without disturbing any register.
   The read-only `"%` register holds the current file name (`"%p`, or `Ctrl-r %`
-  in insert mode), and `".` holds the last inserted text (`".p`, `Ctrl-r .`, or
-  `Ctrl-a` in insert mode to re-insert it).
+  in insert mode), `".` holds the last inserted text (`".p`, `Ctrl-r .`, or
+  `Ctrl-a` in insert mode to re-insert it), `"/` holds the last search pattern,
+  and `":` the last command line (handy as `Ctrl-r /` when building a `:s`).
 - **System clipboard:** `"+` is the system clipboard and `"*` is the X11/Wayland
   PRIMARY selection (middle-click paste); on Windows and macOS both are the one
   clipboard. So `"+y` copies and `"+p` pastes across programs. rvim uses your
@@ -625,7 +626,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **749 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **752 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

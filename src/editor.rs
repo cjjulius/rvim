@@ -3491,6 +3491,18 @@ impl Editor {
                 linewise: false,
                 block: false,
             },
+            // `/` is the read-only last-search-pattern register.
+            '/' => Register {
+                text: self.last_search.clone(),
+                linewise: false,
+                block: false,
+            },
+            // `:` is the read-only last-command-line register.
+            ':' => Register {
+                text: self.cmd_history.last().cloned().unwrap_or_default(),
+                linewise: false,
+                block: false,
+            },
             // `+` reads the system clipboard; `*` the PRIMARY selection (the same
             // clipboard off X11/Wayland). A trailing newline marks line-wise text
             // (stripped to match the internal representation). When no clipboard
