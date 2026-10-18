@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Editing
+- `:set paste` / `:set nopaste`: paste mode suppresses autoindent, smartindent,
+  abbreviation expansion and auto-wrap while inserting, so pasted text keeps its
+  own layout instead of cascading indentation.
+
 ### UI
 - Horizontal-scroll edge markers: a `>` at the right edge marks a line that
   continues off-screen and a `<` at the left edge marks text hidden by rightward

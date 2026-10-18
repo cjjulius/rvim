@@ -1170,6 +1170,10 @@ impl App {
             ExCommand::ToggleSmartIndent(on) => {
                 self.editor.smartindent = on;
             }
+            ExCommand::TogglePaste(on) => {
+                self.editor.paste = on;
+                self.editor.message = if on { "paste" } else { "nopaste" }.into();
+            }
             ExCommand::ToggleTitle(on) => {
                 self.editor.title = on;
             }

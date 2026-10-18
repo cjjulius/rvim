@@ -225,6 +225,10 @@ pub struct Editor {
     /// `:set smartindent` — add an indent level after a line ending in `{`, and
     /// dedent when `}` is typed as the first non-blank character (default off).
     pub smartindent: bool,
+    /// `:set paste` — suppress auto-indent, smart-indent, abbreviation expansion
+    /// and auto-wrap while inserting, so pasted text keeps its own layout instead
+    /// of cascading indentation (default off).
+    pub paste: bool,
     /// `:set title` — set the terminal window title to the current file name.
     pub title: bool,
     /// `:set backup` — before overwriting a file, copy it to `{name}~`.
@@ -476,6 +480,7 @@ impl Editor {
             saved_hlsearch: true,
             autoindent: true,
             smartindent: false,
+            paste: false,
             title: false,
             backup: false,
             showmode: true,
@@ -1250,6 +1255,7 @@ impl Editor {
             "incsearch" | "is" => flag(self.incsearch, "incsearch"),
             "autoindent" | "ai" => flag(self.autoindent, "autoindent"),
             "smartindent" | "si" => flag(self.smartindent, "smartindent"),
+            "paste" => flag(self.paste, "paste"),
             "title" => flag(self.title, "title"),
             "backup" | "bk" => flag(self.backup, "backup"),
             "showmode" | "smd" => flag(self.showmode, "showmode"),
@@ -1409,7 +1415,7 @@ impl Editor {
     /// Canonical option names shown by `:set` / `:set all`, in display order.
     const OPTION_NAMES: &'static [&'static str] = &[
         "number", "relativenumber", "hlsearch", "ignorecase", "smartcase",
-        "incsearch", "autoindent", "smartindent", "title", "backup", "showmode",
+        "incsearch", "autoindent", "smartindent", "paste", "title", "backup", "showmode",
         "showcmd", "ruler", "expandtab", "list", "wrapscan", "cursorline",
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
@@ -2744,9 +2750,9 @@ impl Editor {
         "all", "autoindent", "colorcolumn", "cursorcolumn", "cursorline", "expandtab",
         "filetype", "hlsearch", "ignorecase", "incsearch", "list", "listchars", "noautoindent",
         "nocursorcolumn", "nocursorline", "noexpandtab", "nohlsearch",
-        "noignorecase", "noincsearch", "nolist", "nonumber", "norelativenumber",
+        "noignorecase", "noincsearch", "nolist", "nonumber", "nopaste", "norelativenumber",
         "joinspaces", "matchpairs", "nojoinspaces", "noshiftround", "nosmartcase", "nowrapscan",
-        "number", "relativenumber", "scrolloff", "shiftround", "shiftwidth",
+        "number", "paste", "relativenumber", "scrolloff", "shiftround", "shiftwidth",
         "sidescrolloff", "smartcase", "tabstop", "textwidth", "wrapscan",
     ];
 
@@ -3069,12 +3075,13 @@ impl Editor {
             }
             KeyCode::Char(c) => {
                 // A non-keyword char triggers an abbreviation on the word before it.
-                if !is_word_char(c) {
+                // Paste mode leaves abbreviations untouched so pasted text is literal.
+                if !is_word_char(c) && !self.paste {
                     self.maybe_expand_abbrev();
                 }
                 // `:set smartindent`: typing `}` as the first non-blank dedents one
                 // level to line up with its opener.
-                if self.smartindent && c == '}' {
+                if self.smartindent && !self.paste && c == '}' {
                     let before: String = self
                         .buffer
                         .line(self.cursor.row)
@@ -3090,13 +3097,18 @@ impl Editor {
                 self.cursor.col += 1;
                 self.cur_insert.push(c);
                 // `:set textwidth` breaks the line when typing past the limit.
-                self.maybe_auto_wrap();
+                // Paste mode leaves pasted lines unwrapped.
+                if !self.paste {
+                    self.maybe_auto_wrap();
+                }
             }
             KeyCode::Enter => {
-                self.maybe_expand_abbrev();
+                if !self.paste {
+                    self.maybe_expand_abbrev();
+                }
                 self.cur_insert.push('\n');
                 // `:set smartindent`: an extra level after a line ending in `{`.
-                let opens_block = self.smartindent && {
+                let opens_block = self.smartindent && !self.paste && {
                     let before: String = self
                         .buffer
                         .line(self.cursor.row)
@@ -3106,7 +3118,7 @@ impl Editor {
                         .collect();
                     before.trim_end().ends_with('{')
                 };
-                let mut indent = if self.autoindent || self.smartindent {
+                let mut indent = if (self.autoindent || self.smartindent) && !self.paste {
                     self.leading_indent(self.cursor.row)
                 } else {
                     String::new()

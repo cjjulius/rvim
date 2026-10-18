@@ -169,6 +169,9 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   smartindent (`:set smartindent` adds a level after `{` and dedents on `}`),
   `Ctrl-w` (delete word before cursor), `Ctrl-u` (delete to line start),
   `Ctrl-r<reg>` (paste a register), `Ctrl-t`/`Ctrl-d` (indent/dedent line), `Tab`.
+- **Paste mode (`:set paste`):** turns off autoindent, smartindent, abbreviations
+  and auto-wrap while inserting, so text pasted into a terminal keeps its own
+  indentation instead of stair-stepping. `:set nopaste` returns to normal.
 - **Literal and numeric entry (`Ctrl-v`):** `Ctrl-v` then a key inserts it
   literally (so `Ctrl-v Tab` inserts a real tab even with `expandtab`), or a
   character code: decimal digits (`Ctrl-v 065` → `A`), `u` plus four hex digits
@@ -646,7 +649,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **797 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **799 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

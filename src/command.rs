@@ -95,6 +95,8 @@ pub enum ExCommand {
     ToggleAutoIndent(bool),
     /// `:set smartindent` / `:set nosmartindent`
     ToggleSmartIndent(bool),
+    /// `:set paste` / `:set nopaste`
+    TogglePaste(bool),
     /// `:set title` / `:set notitle` — show the file name in the window title.
     ToggleTitle(bool),
     /// `:set backup` / `:set nobackup` — keep a `~` backup on overwrite.
@@ -974,6 +976,8 @@ fn parse_set(rest: &str) -> ExCommand {
         "nojoinspaces" | "nojs" => ExCommand::ToggleJoinSpaces(false),
         "smartindent" | "si" => ExCommand::ToggleSmartIndent(true),
         "nosmartindent" | "nosi" => ExCommand::ToggleSmartIndent(false),
+        "paste" => ExCommand::TogglePaste(true),
+        "nopaste" => ExCommand::TogglePaste(false),
         "title" => ExCommand::ToggleTitle(true),
         "notitle" => ExCommand::ToggleTitle(false),
         "backup" | "bk" => ExCommand::ToggleBackup(true),
