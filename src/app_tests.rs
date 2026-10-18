@@ -768,3 +768,58 @@
         let elsewhere = mouse(MouseEventKind::Down(MouseButton::Left), 9, 2);
         assert_eq!(app.click_count(&elsewhere), 1); // different cell resets
     }
+
+    // ---- window rearrangement (Ctrl-w x / r) -----------------------------
+
+    /// Three vertical windows whose buffers are "A","B","C"; returns the app.
+    /// Layout order is [id2="C" (focused), id1="B", id0="A"].
+    fn three_windows() -> App {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("A");
+        app.run_ex("vsplit");
+        app.editor.buffer = crate::buffer::Buffer::from_text("B");
+        app.run_ex("vsplit");
+        app.editor.buffer = crate::buffer::Buffer::from_text("C");
+        app
+    }
+
+    fn buf_at(app: &App, id: WinId) -> String {
+        let ed = if id == app.focused {
+            &app.editor
+        } else {
+            &app.panes.iter().find(|p| p.id == id).unwrap().editor
+        };
+        ed.buffer.line(0).unwrap().to_string()
+    }
+
+    #[test]
+    fn window_exchange_swaps_with_next() {
+        let mut app = three_windows();
+        assert_eq!(buf_at(&app, WinId(2)), "C");
+        assert_eq!(buf_at(&app, WinId(1)), "B");
+        app.window_exchange(); // focused id2 swaps with next (id1)
+        assert_eq!(app.focused, WinId(2));
+        assert_eq!(buf_at(&app, WinId(2)), "B");
+        assert_eq!(buf_at(&app, WinId(1)), "C");
+        assert_eq!(buf_at(&app, WinId(0)), "A"); // untouched
+    }
+
+    #[test]
+    fn window_rotate_shifts_all_contents() {
+        let mut app = three_windows();
+        app.window_rotate(); // [C,B,A] -> rotate_right -> [A,C,B] over ids [2,1,0]
+        assert_eq!(buf_at(&app, WinId(2)), "A");
+        assert_eq!(buf_at(&app, WinId(1)), "C");
+        assert_eq!(buf_at(&app, WinId(0)), "B");
+        assert_eq!(app.window_count(), 3);
+    }
+
+    #[test]
+    fn window_rearrange_noop_with_one_window() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("solo");
+        app.window_exchange();
+        app.window_rotate();
+        assert_eq!(app.window_count(), 1);
+        assert_eq!(app.editor.buffer.line(0), Some("solo"));
+    }
