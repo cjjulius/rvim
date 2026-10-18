@@ -504,7 +504,9 @@ even when scrolled.
 
 ### Code folding
 Collapse ranges of lines to a single summary row so you can read structure
-without the noise. Folds are manual (you choose the ranges):
+without the noise. By default you choose the ranges by hand; `:set
+foldmethod=indent` instead builds folds automatically from the indentation (press
+`zM` to collapse them, `zR` to open them all).
 
 - Create a fold with `zf` plus a motion (`zf5j`, `zfG`, `zf}`), or select lines
   in visual mode and press `zf`. `zF` folds a count of lines (`3zF`).
@@ -609,7 +611,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **700 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **707 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
@@ -621,7 +623,8 @@ Still planned, not yet built:
 
 - Shared-buffer splits: two windows on the same file that mirror edits live
   (today they are independent views).
-- Automatic fold methods (`:set foldmethod=indent/syntax`); folds are manual for now.
+- Syntax-aware folding (`:set foldmethod=syntax`); indent and manual folding are
+  already supported.
 - More menu-bar actions.
 - More accessibility options: screen-reader hints and configurable cues.
 - Dynamic plugin loading.
