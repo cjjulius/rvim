@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Mouse
+- Double-click selects the word under the pointer; triple-click selects the whole
+  line (in any window when the screen is split).
+
 ### Command line
 - `Tab` now completes filenames for commands that take a path (`:e`, `:w`, `:r`,
   `:split`, `:vsplit`, `:source`, …): it fills the first match, cycles with

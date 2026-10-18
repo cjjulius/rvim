@@ -7229,6 +7229,25 @@ impl Editor {
         }
     }
 
+    /// Double-click: select the word under the cursor (like `viw`).
+    pub fn mouse_select_word(&mut self) {
+        if let Some(OpTarget::Chars(start, end)) = self.text_object('i', 'w') {
+            if end > start {
+                self.mode = Mode::Visual;
+                self.visual_anchor = Position::new(self.cursor.row, start);
+                self.cursor.col = end - 1;
+                self.want_col = self.cursor.col;
+                self.clamp_cursor(false);
+            }
+        }
+    }
+
+    /// Triple-click: select the whole line under the cursor (like `V`).
+    pub fn mouse_select_line(&mut self) {
+        self.mode = Mode::VisualLine;
+        self.visual_anchor = Position::new(self.cursor.row, 0);
+    }
+
     /// Clear a visual selection (used when a fresh mouse click lands).
     pub fn clear_visual(&mut self) {
         if self.mode.is_visual() {

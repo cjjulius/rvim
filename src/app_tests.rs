@@ -756,3 +756,15 @@
         app.run_ex("set fdc=99"); // clamped to 12
         assert_eq!(app.editor.foldcolumn, 12);
     }
+
+    #[test]
+    fn click_count_detects_double_and_triple() {
+        let mut app = App::new();
+        let m = mouse(MouseEventKind::Down(MouseButton::Left), 5, 2);
+        assert_eq!(app.click_count(&m), 1);
+        assert_eq!(app.click_count(&m), 2);
+        assert_eq!(app.click_count(&m), 3);
+        assert_eq!(app.click_count(&m), 1); // resets after a triple
+        let elsewhere = mouse(MouseEventKind::Down(MouseButton::Left), 9, 2);
+        assert_eq!(app.click_count(&elsewhere), 1); // different cell resets
+    }
