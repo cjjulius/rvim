@@ -948,6 +948,7 @@ impl App {
                 }
                 None => self.editor.message = format!("Unknown filetype '{name}'"),
             },
+            ExCommand::SetFoldMethod(name) => self.editor.set_fold_method(&name),
             ExCommand::Help => self.open_help(),
             ExCommand::Version => {
                 self.editor.message = format!("rvim {}", crate::VERSION);
@@ -1354,6 +1355,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \tzR / zM            open all / close all folds\n\
          \tzd / zE            delete fold under cursor / all folds\n\
          \tzi                 toggle folding on / off\n\
+         \t:set foldmethod=indent   build folds from indentation (manual = default)\n\
          \n\
          WINDOWS\n\
          \t:split / :vsplit    split the window (horizontal / vertical)\n\

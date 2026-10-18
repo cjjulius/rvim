@@ -60,6 +60,91 @@ struct SubstConfirm {
     checkpointed: bool,
 }
 
+/// How folds are produced: hand-made with `zf` (the default) or computed
+/// automatically from indentation (`:set foldmethod=indent`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoldMethod {
+    Manual,
+    Indent,
+}
+
+/// The leading-whitespace width of a line, counting a tab as `tabstop` columns.
+fn indent_width(line: &str, tabstop: usize) -> usize {
+    let mut w = 0;
+    for c in line.chars() {
+        match c {
+            ' ' => w += 1,
+            '\t' => w += tabstop.max(1),
+            _ => break,
+        }
+    }
+    w
+}
+
+/// The indentation "level" of each line (its indent width divided by
+/// `shiftwidth`). Blank lines borrow the level of the next non-blank line (or the
+/// previous one at the end of the buffer), so a blank line inside an indented
+/// block does not break the fold.
+fn indent_levels(lines: &[String], shiftwidth: usize, tabstop: usize) -> Vec<usize> {
+    let sw = shiftwidth.max(1);
+    let blank: Vec<bool> = lines.iter().map(|l| l.trim().is_empty()).collect();
+    let mut levels: Vec<usize> = lines
+        .iter()
+        .map(|l| indent_width(l, tabstop) / sw)
+        .collect();
+    // Blank lines take the next non-blank line's level (fallback: previous).
+    let n = levels.len();
+    let mut i = 0;
+    while i < n {
+        if blank[i] {
+            let start = i;
+            while i < n && blank[i] {
+                i += 1;
+            }
+            let next = if i < n { levels[i] } else { 0 };
+            let prev = if start > 0 { levels[start - 1] } else { next };
+            let fill = next.max(prev);
+            for b in levels.iter_mut().take(i).skip(start) {
+                *b = fill;
+            }
+        } else {
+            i += 1;
+        }
+    }
+    levels
+}
+
+/// Fold ranges `[start, end]` computed from indentation: for each level `L >= 1`,
+/// every maximal run of at least two consecutive lines whose level is `>= L`
+/// becomes a fold. Deeper runs nest inside shallower ones. Pure and testable.
+pub fn indent_fold_ranges(
+    lines: &[String],
+    shiftwidth: usize,
+    tabstop: usize,
+) -> Vec<(usize, usize)> {
+    let levels = indent_levels(lines, shiftwidth, tabstop);
+    let max_level = levels.iter().copied().max().unwrap_or(0);
+    let mut out = Vec::new();
+    for level in 1..=max_level {
+        let mut i = 0;
+        while i < levels.len() {
+            if levels[i] >= level {
+                let start = i;
+                while i < levels.len() && levels[i] >= level {
+                    i += 1;
+                }
+                let end = i - 1;
+                if end > start {
+                    out.push((start, end));
+                }
+            } else {
+                i += 1;
+            }
+        }
+    }
+    out
+}
+
 /// Word character for keyword completion (identifier characters).
 fn is_word_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
@@ -297,6 +382,11 @@ pub struct Editor {
     /// `:set foldenable` / `zi` — when false every fold is shown open regardless
     /// of its own state (default on, matching vim).
     pub foldenable: bool,
+    /// How folds are created (`:set foldmethod`). Manual by default.
+    pub foldmethod: FoldMethod,
+    /// Buffer revision at the last automatic (indent) fold recompute, so the
+    /// folds are rebuilt only when the text actually changed.
+    fold_rev: u64,
 }
 
 /// Whether the key after `q` / `@` records into or replays a macro register.
@@ -439,6 +529,8 @@ impl Editor {
             menu: None,
             folds: Folds::default(),
             foldenable: true,
+            foldmethod: FoldMethod::Manual,
+            fold_rev: u64::MAX,
         }
     }
 
@@ -516,6 +608,54 @@ impl Editor {
     fn fold_eliminate(&mut self) {
         self.folds.clear();
         self.scroll_into_view();
+    }
+
+    /// `:set foldmethod=manual|indent`. Switching to `indent` computes folds from
+    /// the buffer's indentation; switching to `manual` leaves the current folds in
+    /// place (they become hand-managed).
+    pub fn set_fold_method(&mut self, name: &str) {
+        match name {
+            "manual" => {
+                self.foldmethod = FoldMethod::Manual;
+                self.message = "foldmethod=manual".into();
+            }
+            "indent" => {
+                self.foldmethod = FoldMethod::Indent;
+                self.recompute_indent_folds();
+                let n = self.folds.all().len();
+                self.message = format!("foldmethod=indent ({n} folds; zM to close)");
+            }
+            other => self.message = format!("E474: unsupported foldmethod: {other}"),
+        }
+    }
+
+    /// Rebuild the fold set from indentation, preserving which ranges were closed.
+    /// New folds start open (vim's default), matching `foldlevelstart`.
+    fn recompute_indent_folds(&mut self) {
+        let closed: Vec<(usize, usize)> = self
+            .folds
+            .all()
+            .iter()
+            .filter(|f| !f.open)
+            .map(|f| (f.start, f.end))
+            .collect();
+        self.folds.clear();
+        for (s, e) in indent_fold_ranges(self.buffer.lines(), self.shiftwidth, self.tabstop) {
+            self.folds.create(s, e);
+        }
+        self.folds.open_all();
+        for (s, e) in closed {
+            self.folds.set_closed(s, e);
+        }
+        self.fold_rev = self.buffer.revision();
+    }
+
+    /// Recompute indent folds if the buffer changed since the last computation.
+    /// Cheap no-op for manual folding or an unchanged buffer.
+    fn refresh_auto_folds(&mut self) {
+        if self.foldmethod == FoldMethod::Indent && self.buffer.revision() != self.fold_rev {
+            self.recompute_indent_folds();
+        }
     }
 
     /// `zi` — toggle whether folds are applied at all.
@@ -936,6 +1076,13 @@ impl Editor {
             "textwidth" | "tw" => format!("textwidth={}", self.textwidth),
             "colorcolumn" | "cc" => format!("colorcolumn={}", self.colorcolumn),
             "filetype" | "ft" | "syntax" => format!("filetype={}", self.language.name()),
+            "foldmethod" | "fdm" => format!(
+                "foldmethod={}",
+                match self.foldmethod {
+                    FoldMethod::Manual => "manual",
+                    FoldMethod::Indent => "indent",
+                }
+            ),
             other => format!("E518: Unknown option: {other}"),
         }
     }
@@ -1057,7 +1204,7 @@ impl Editor {
         "incsearch", "autoindent", "expandtab", "list", "wrapscan", "cursorline",
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
-        "matchpairs", "filetype",
+        "matchpairs", "filetype", "foldmethod",
     ];
 
     /// A `:set` / `:set all` listing: one option per line with its current value.
@@ -1824,6 +1971,7 @@ impl Editor {
     pub fn set_viewport(&mut self, rows: usize, cols: usize) {
         self.view_rows = rows.max(1);
         self.view_cols = cols.max(1);
+        self.refresh_auto_folds();
         self.scroll_into_view();
     }
 

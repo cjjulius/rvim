@@ -6,6 +6,9 @@ All notable changes to rvim are recorded here. Versions follow
 ## [Unreleased]
 
 ### Folding
+- `:set foldmethod=indent` builds folds automatically from indentation (nested
+  blocks fold into nested folds); they refresh as you edit. `:set
+  foldmethod=manual` (the default) is unchanged.
 - `H`, `M`, `L` and the page keys (`Ctrl-f`/`Ctrl-b`) now count a closed fold as a
   single screen row, so they land on the right line when folds are open.
 

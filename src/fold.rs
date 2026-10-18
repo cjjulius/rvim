@@ -175,6 +175,18 @@ impl Folds {
         }
     }
 
+    /// Close the fold whose range is exactly `(start, end)`, if one exists.
+    /// Used to carry closed state across an automatic (indent) recompute.
+    pub fn set_closed(&mut self, start: usize, end: usize) -> bool {
+        for f in &mut self.items {
+            if f.start == start && f.end == end {
+                f.open = false;
+                return true;
+            }
+        }
+        false
+    }
+
     /// Open every fold (`zR`).
     pub fn open_all(&mut self) {
         for f in &mut self.items {
@@ -316,6 +328,18 @@ mod tests {
         assert!(f.delete_at(3)); // removes inner [2,4]
         assert_eq!(f.all().len(), 1);
         assert_eq!(f.all()[0], Fold { start: 0, end: 10, open: false });
+    }
+
+    #[test]
+    fn set_closed_targets_an_exact_range() {
+        let mut f = Folds::default();
+        f.create(0, 3);
+        f.create(5, 8);
+        f.open_all();
+        assert!(f.set_closed(5, 8));
+        assert!(f.is_hidden(6)); // the (5,8) fold is now closed
+        assert!(!f.is_hidden(1)); // (0,3) stays open
+        assert!(!f.set_closed(2, 9)); // no fold with that exact range
     }
 
     #[test]

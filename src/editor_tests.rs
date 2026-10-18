@@ -5448,3 +5448,67 @@
         ed.handle_key(key('M')); // top + 8/2 = 4
         assert_eq!(ed.cursor.row, 4);
     }
+
+    // ---- automatic (indent) folding --------------------------------------
+
+    fn lines(v: &[&str]) -> Vec<String> {
+        v.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn indent_folds_a_simple_block() {
+        let ls = lines(&["def foo():", "    a = 1", "    b = 2", "def bar():"]);
+        assert_eq!(indent_fold_ranges(&ls, 4, 4), vec![(1, 2)]);
+    }
+
+    #[test]
+    fn indent_folds_nest() {
+        let ls = lines(&["class A:", "  def f():", "    x = 1", "    y = 2", "  def g():"]);
+        // shiftwidth 2: levels 0,1,2,2,1 -> outer (1,4), inner (2,3).
+        let got = indent_fold_ranges(&ls, 2, 4);
+        assert!(got.contains(&(1, 4)));
+        assert!(got.contains(&(2, 3)));
+    }
+
+    #[test]
+    fn indent_blank_line_does_not_break_a_fold() {
+        let ls = lines(&["foo:", "    a", "", "    b", "bar"]);
+        assert_eq!(indent_fold_ranges(&ls, 4, 4), vec![(1, 3)]);
+    }
+
+    #[test]
+    fn indent_single_line_is_not_folded() {
+        let ls = lines(&["foo:", "    a", "bar"]);
+        assert!(indent_fold_ranges(&ls, 4, 4).is_empty());
+    }
+
+    #[test]
+    fn set_foldmethod_indent_computes_open_folds() {
+        let mut ed = ed_with("foo:\n    a\n    b\nbar");
+        ed.set_fold_method("indent");
+        assert_eq!(ed.foldmethod, FoldMethod::Indent);
+        assert!(!ed.folds().is_empty());
+        // New indent folds start open (nothing hidden yet).
+        assert!(!ed.folds().is_hidden(2));
+        // zM closes them.
+        ed.handle_key(key('z'));
+        ed.handle_key(key('M'));
+        assert!(ed.folds().is_hidden(2));
+    }
+
+    #[test]
+    fn indent_folds_recompute_after_an_edit() {
+        let mut ed = ed_with("foo:\n    a\n    b\nbar");
+        ed.autoindent = false;
+        ed.set_fold_method("indent"); // fold (1,2)
+        assert!(ed.folds().all().iter().any(|f| f.start == 1 && f.end == 2));
+        // Append another indented line after "    b".
+        ed.cursor.row = 2;
+        ed.handle_key(key('o'));
+        for c in "    c".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Esc));
+        ed.set_viewport(10, 40); // triggers the revision-gated recompute
+        assert!(ed.folds().all().iter().any(|f| f.start == 1 && f.end == 3));
+    }

@@ -107,6 +107,8 @@ pub enum ExCommand {
     SetTextWidth(usize),
     /// `:set ft=<lang>`
     SetFiletype(String),
+    /// `:set foldmethod=manual|indent` (`fdm=`).
+    SetFoldMethod(String),
     /// `:help`
     Help,
     /// `:version`
@@ -941,6 +943,11 @@ fn parse_set(rest: &str) -> ExCommand {
                 .or_else(|| opt.strip_prefix("syntax="))
             {
                 ExCommand::SetFiletype(v.trim().to_string())
+            } else if let Some(v) = opt
+                .strip_prefix("foldmethod=")
+                .or_else(|| opt.strip_prefix("fdm="))
+            {
+                ExCommand::SetFoldMethod(v.trim().to_string())
             } else if let Some(v) = opt
                 .strip_prefix("shiftwidth=")
                 .or_else(|| opt.strip_prefix("sw="))
