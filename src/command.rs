@@ -150,6 +150,12 @@ pub enum ExCommand {
     MapKey { lhs: char, rhs: String },
     /// `:nnoremap` (no args) — list key mappings.
     MapList,
+    /// `:command {Name} {expansion}` — define a user command (Name starts upper).
+    DefineCommand { name: String, expansion: String },
+    /// `:command` (no args) — list user commands.
+    CommandList,
+    /// `:delcommand {Name}` — remove a user command.
+    DeleteCommand(String),
     /// `:nunmap lhs` — remove a normal-mode key mapping.
     Unmap(char),
     /// `:[range]left [indent]` / `:right [width]` / `:center [width]`.
@@ -403,6 +409,21 @@ pub fn parse(input: &str) -> ExCommand {
         "nunmap" => match arg.as_deref().map(str::trim) {
             Some(a) if a.chars().count() == 1 => ExCommand::Unmap(a.chars().next().unwrap()),
             _ => ExCommand::MapList,
+        },
+        "command" | "comm" | "command!" | "comm!" => match arg {
+            Some(a) if a.trim().contains(char::is_whitespace) => {
+                let a = a.trim();
+                let (name, expansion) = a.split_once(char::is_whitespace).unwrap();
+                ExCommand::DefineCommand {
+                    name: name.to_string(),
+                    expansion: expansion.trim().to_string(),
+                }
+            }
+            _ => ExCommand::CommandList, // no args (or name only) -> list
+        },
+        "delcommand" | "delcom" => match arg.as_deref().map(str::trim) {
+            Some(a) if !a.is_empty() => ExCommand::DeleteCommand(a.to_string()),
+            _ => ExCommand::CommandList,
         },
         "theme" | "colorscheme" | "colo" => ExCommand::SetTheme(arg),
         "source" | "so" => match arg {
