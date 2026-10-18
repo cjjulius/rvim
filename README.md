@@ -593,8 +593,9 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **664 tests** across buffer, editor, clipboard, menu, syntax,
-themes, commands, config, pattern, plugins, folds, modes, and UI layout.
+Current suite: **681 tests** across buffer, editor, clipboard, menu, syntax,
+themes, commands, config, pattern, plugins, folds, window layout, modes, and
+UI layout.
 
 ---
 
@@ -602,7 +603,8 @@ themes, commands, config, pattern, plugins, folds, modes, and UI layout.
 
 Still planned, not yet built:
 
-- Split windows (horizontal and vertical).
+- Split windows (horizontal and vertical) — the layout manager is in place;
+  wiring it to the editor and multi-pane drawing is next.
 - Automatic fold methods (`:set foldmethod=indent/syntax`); folds are manual for now.
 - More menu-bar actions.
 - More accessibility options: screen-reader hints and configurable cues.
