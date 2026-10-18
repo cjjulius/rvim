@@ -1050,6 +1050,30 @@ mod tests {
     }
 
     #[test]
+    fn syntax_folds_mask_braces_in_strings_with_utf8() {
+        let r = Registry::with_builtins();
+        // The braces inside the string sit at shifted byte offsets (é is 2 bytes)
+        // and must be masked; only the real fn-body braces form a fold.
+        let lines: Vec<String> = ["let s = \"café { x }\";", "fn f() {", "}"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert_eq!(r.syntax_fold_ranges(Language::Rust, &lines), vec![(1, 2)]);
+    }
+
+    #[test]
+    fn syntax_folds_mask_brace_in_continued_block_comment() {
+        let r = Registry::with_builtins();
+        // The `}` on line 1 is inside a carried-over block comment and must be
+        // ignored; the real block is lines 2..=3.
+        let lines: Vec<String> = ["/* open", "} still comment", "*/ fn f() {", "}"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert_eq!(r.syntax_fold_ranges(Language::Rust, &lines), vec![(2, 3)]);
+    }
+
+    #[test]
     fn syntax_folds_empty_without_braces() {
         let r = Registry::with_builtins();
         let lines: Vec<String> = ["x = 1", "y = 2"].iter().map(|s| s.to_string()).collect();
