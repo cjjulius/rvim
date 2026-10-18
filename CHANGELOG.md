@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Syntax
+- Kotlin highlighting (`.kt`, `.kts`): keywords, types, stdlib builtins, strings
+  (including triple-quoted raw strings across lines), and `//` / `/* */` comments.
+
 ### Editing
 - `:set paste` / `:set nopaste`: paste mode suppresses autoindent, smartindent,
   abbreviation expansion and auto-wrap while inserting, so pasted text keeps its

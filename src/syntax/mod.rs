@@ -67,6 +67,7 @@ pub enum Language {
     Java,
     Yaml,
     TypeScript,
+    Kotlin,
 }
 
 /// One language's metadata, driving `name`, `from_name`, `line_comment_token`,
@@ -104,6 +105,7 @@ const LANG_TABLE: &[LangInfo] = &[
     LangInfo { lang: Language::Java, name: "java", aliases: &[], extensions: &["java"], comment: Some("//") },
     LangInfo { lang: Language::Yaml, name: "yaml", aliases: &["yml"], extensions: &["yaml", "yml"], comment: Some("#") },
     LangInfo { lang: Language::TypeScript, name: "typescript", aliases: &["ts", "tsx"], extensions: &["ts", "tsx", "mts", "cts"], comment: Some("//") },
+    LangInfo { lang: Language::Kotlin, name: "kotlin", aliases: &["kt", "kts"], extensions: &["kt", "kts"], comment: Some("//") },
 ];
 
 impl Language {
@@ -798,7 +800,7 @@ mod tests {
             Language::PgSql, Language::TrinoSql, Language::SnowflakeSql, Language::Z80,
             Language::Json, Language::Python, Language::Toml, Language::JavaScript,
             Language::Go, Language::Shell, Language::C, Language::Java, Language::Yaml,
-            Language::TypeScript,
+            Language::TypeScript, Language::Kotlin,
         ];
         for lang in all {
             match lang {
@@ -806,7 +808,7 @@ mod tests {
                 | Language::PgSql | Language::TrinoSql | Language::SnowflakeSql | Language::Z80
                 | Language::Json | Language::Python | Language::Toml | Language::JavaScript
                 | Language::Go | Language::Shell | Language::C | Language::Java
-                | Language::Yaml | Language::TypeScript => {}
+                | Language::Yaml | Language::TypeScript | Language::Kotlin => {}
             }
             assert!(
                 LANG_TABLE.iter().any(|e| e.lang == lang),

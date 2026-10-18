@@ -48,6 +48,7 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(java_spec())),
         Box::new(SpecHighlighter::new(yaml_spec())),
         Box::new(SpecHighlighter::new(typescript_spec())),
+        Box::new(SpecHighlighter::new(kotlin_spec())),
     ]
 }
 
@@ -149,6 +150,46 @@ const JAVA_TYPES: &[&str] = &[
 const JAVA_BUILTINS: &[&str] = &[
     "System", "Math", "Arrays", "Objects", "Collections", "Thread", "Exception",
     "RuntimeException", "Override", "Deprecated", "SuppressWarnings",
+];
+
+// ---- Kotlin --------------------------------------------------------------
+
+fn kotlin_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Kotlin,
+        // Triple-quoted raw strings span lines, like Python's `"""`.
+        multiline_strings: &["\"\"\""],
+        preprocessor: None,
+        line_comments: &["//"],
+        block_comment: Some(("/*", "*/")),
+        keywords: KOTLIN_KEYWORDS,
+        types: KOTLIN_TYPES,
+        builtins: KOTLIN_BUILTINS,
+        string_delims: &['"', '\''],
+        case_insensitive: false,
+        var_sigils: &[],
+        detect_calls: true,
+    }
+}
+
+const KOTLIN_KEYWORDS: &[&str] = &[
+    "fun", "val", "var", "class", "object", "interface", "data", "sealed", "enum", "annotation",
+    "when", "if", "else", "for", "while", "do", "return", "break", "continue", "in", "is", "as",
+    "try", "catch", "finally", "throw", "import", "package", "this", "super", "null", "true",
+    "false", "override", "open", "abstract", "final", "private", "protected", "public", "internal",
+    "companion", "init", "constructor", "by", "suspend", "typealias", "where", "out", "reified",
+    "inline", "operator", "infix", "vararg", "lateinit", "const", "get", "set", "it", "crossinline",
+    "noinline", "tailrec", "external", "expect", "actual",
+];
+const KOTLIN_TYPES: &[&str] = &[
+    "Int", "Long", "Short", "Byte", "Float", "Double", "Boolean", "Char", "String", "Unit", "Any",
+    "Nothing", "Array", "List", "Map", "Set", "MutableList", "MutableMap", "MutableSet", "Pair",
+    "Triple", "Sequence", "Collection", "Iterable", "Number",
+];
+const KOTLIN_BUILTINS: &[&str] = &[
+    "println", "print", "listOf", "mapOf", "setOf", "mutableListOf", "mutableMapOf", "mutableSetOf",
+    "arrayOf", "require", "check", "error", "TODO", "let", "also", "apply", "run", "with", "lazy",
+    "takeIf", "takeUnless", "repeat",
 ];
 
 // ---- C / C++ -------------------------------------------------------------
@@ -741,6 +782,26 @@ mod tests {
         assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // String
         assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "hi"
         assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // // c
+    }
+
+    #[test]
+    fn kotlin_highlights_keyword_type_builtin_string() {
+        let h = SpecHighlighter::new(kotlin_spec());
+        let toks = h.highlight_line("fun main() { val s: String = \"hi\"; println(s) } // c");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // fun/val
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // String
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // println
+        assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "hi"
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // // c
+    }
+
+    #[test]
+    fn kotlin_raw_string_spans_lines() {
+        let h = SpecHighlighter::new(kotlin_spec());
+        let (_t, state) = h.highlight_line_stateful("val q = \"\"\"start", LineState::Normal);
+        assert_eq!(state, LineState::MultiStr(0)); // raw string stays open
+        let (_t2, state2) = h.highlight_line_stateful("end\"\"\"", state);
+        assert_eq!(state2, LineState::Normal); // and closes
     }
 
     #[test]
