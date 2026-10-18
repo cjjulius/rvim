@@ -37,6 +37,9 @@ pub struct App {
     next_win: usize,
     /// Set when `Ctrl-w` was pressed and the next key is a window command.
     pending_ctrl_w: bool,
+    /// Last left-click (time, column, row, consecutive-click count) for detecting
+    /// double-click (select word) and triple-click (select line).
+    last_click: Option<(std::time::Instant, u16, u16, u8)>,
     themes: ThemeRegistry,
     syntax: Registry,
     plugins: PluginManager,
@@ -63,6 +66,7 @@ impl App {
             focused: WinId(0),
             next_win: 1,
             pending_ctrl_w: false,
+            last_click: None,
             themes: ThemeRegistry::with_builtins(),
             syntax: Registry::with_builtins(),
             plugins: PluginManager::with_builtins(),
@@ -620,6 +624,35 @@ impl App {
         Ok(())
     }
 
+    /// Advance the consecutive-click counter for a left press at `(m.column,
+    /// m.row)`: returns 1 for a single click, 2 for a double, 3 for a triple
+    /// (same cell within 400ms), then resets.
+    fn click_count(&mut self, m: &event::MouseEvent) -> u8 {
+        let now = std::time::Instant::now();
+        let count = match self.last_click {
+            Some((t, c, r, n))
+                if c == m.column
+                    && r == m.row
+                    && n < 3
+                    && now.duration_since(t) < std::time::Duration::from_millis(400) =>
+            {
+                n + 1
+            }
+            _ => 1,
+        };
+        self.last_click = Some((now, m.column, m.row, count));
+        count
+    }
+
+    /// Apply word/line selection for a double/triple click on the focused editor.
+    fn apply_multi_click(&mut self, count: u8) {
+        match count {
+            2 => self.editor.mouse_select_word(),
+            3 => self.editor.mouse_select_line(),
+            _ => {}
+        }
+    }
+
     fn handle_mouse(&mut self, m: event::MouseEvent, layout: &Layout) {
         // While the menu is open, clicks drive the menu bar.
         if self.editor.is_menu_open() {
@@ -674,10 +707,13 @@ impl App {
         };
         match m.kind {
             MouseEventKind::Down(MouseButton::Left) => {
-                // A fresh click clears any selection and positions the cursor.
+                // A fresh click clears any selection and positions the cursor;
+                // a double/triple click selects the word/line.
+                let count = self.click_count(&m);
                 self.editor.clear_visual();
                 if let Some((row, col)) = text_pos(&m) {
                     self.editor.set_cursor_clamped(row, col);
+                    self.apply_multi_click(count);
                 }
             }
             MouseEventKind::Drag(MouseButton::Left) => {
@@ -733,11 +769,13 @@ impl App {
         };
         match m.kind {
             MouseEventKind::Down(MouseButton::Left) => {
+                let count = self.click_count(&m);
                 self.activate_window(id);
                 self.editor.clear_visual();
                 if in_text {
                     let (row, col) = pos(&self.editor);
                     self.editor.set_cursor_clamped(row, col);
+                    self.apply_multi_click(count);
                 }
             }
             MouseEventKind::Drag(MouseButton::Left) => {

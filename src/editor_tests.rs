@@ -5696,3 +5696,26 @@
         ed.cmdline_complete(false);
         assert_eq!(ed.cmdline, "noh src/ma"); // unchanged
     }
+
+    // ---- mouse word/line selection ---------------------------------------
+
+    #[test]
+    fn mouse_select_word_selects_inner_word() {
+        let mut ed = ed_with("foo bar baz");
+        ed.cursor.col = 5; // inside "bar" (cols 4..=6)
+        ed.mouse_select_word();
+        assert_eq!(ed.mode, Mode::Visual);
+        let (s, e) = ed.selection().unwrap();
+        assert_eq!((s.col, e.col), (4, 6));
+    }
+
+    #[test]
+    fn mouse_select_line_selects_whole_line() {
+        let mut ed = ed_with("foo\nbar\nbaz");
+        ed.cursor.row = 1;
+        ed.mouse_select_line();
+        assert_eq!(ed.mode, Mode::VisualLine);
+        let (s, e) = ed.selection().unwrap();
+        assert_eq!(s.row, 1);
+        assert_eq!(e.row, 1);
+    }
