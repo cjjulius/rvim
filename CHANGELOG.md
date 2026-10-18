@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Folding
+- `H`, `M`, `L` and the page keys (`Ctrl-f`/`Ctrl-b`) now count a closed fold as a
+  single screen row, so they land on the right line when folds are open.
+
 ### Windows
 - Split-window polish: the mouse now focuses the pane under the pointer, clicks
   position the cursor within that pane, and the wheel scrolls the hovered pane;
