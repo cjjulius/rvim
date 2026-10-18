@@ -519,6 +519,9 @@ even when scrolled.
 - **Scroll position (ruler)** — the status line shows `Top`, `Bot`, or `All` when
   the top, bottom, or whole file is on screen, and a percentage otherwise, so you
   can see where you are in a long file at a glance.
+- **Line-ending flag** — the status line shows `[dos]` next to the file name when
+  a file uses Windows CRLF endings, so you spot that common gotcha at a glance.
+  Unix LF files stay uncluttered (no tag).
 - **Error messages stand out** — when a command fails (no write since last
   change, pattern not found, unknown command), the message appears in a distinct
   error color instead of blending in with ordinary status text, so you notice
@@ -650,7 +653,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **800 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **801 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
