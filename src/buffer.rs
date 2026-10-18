@@ -105,7 +105,12 @@ impl Buffer {
         if lines.is_empty() {
             lines.push(String::new());
         }
-        // A trailing newline yields a final empty element; keep exactly one.
+        // A trailing newline leaves a final empty element; drop it (keeping any
+        // earlier blank line) so a load/save round-trips instead of growing the
+        // file by a blank line each time.
+        if lines.len() > 1 && lines.last().is_some_and(|l| l.is_empty()) {
+            lines.pop();
+        }
         Self {
             lines,
             path: None,
@@ -485,6 +490,31 @@ mod tests {
         assert_eq!(loaded.line(1), Some("line2"));
         assert!(!loaded.is_dirty());
         let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn trailing_newline_round_trips_without_growing() {
+        // A normal file ending in a newline is N lines, not N+1.
+        assert_eq!(Buffer::from_text("a\nb\n").line_count(), 2);
+        assert_eq!(Buffer::from_text("a\nb").line_count(), 2);
+        assert_eq!(Buffer::from_text("").line_count(), 1);
+        // A genuine blank last line (two trailing newlines) is preserved.
+        assert_eq!(Buffer::from_text("a\n\n").line_count(), 2);
+        // A lone newline is a single empty line.
+        assert_eq!(Buffer::from_text("\n").line_count(), 1);
+        // A CRLF file round-trips with its line endings intact.
+        let pc = std::env::temp_dir().join(format!("rvim_rtc_{}.txt", std::process::id()));
+        let mut c = Buffer::from_text("a\r\nb\r\n");
+        assert_eq!(c.line_count(), 2);
+        c.save_as(&pc).unwrap();
+        assert_eq!(std::fs::read(&pc).unwrap(), b"a\r\nb\r\n");
+        let _ = std::fs::remove_file(&pc);
+        // Save reproduces the input exactly (no extra blank line accrues).
+        let p = std::env::temp_dir().join(format!("rvim_rt_{}.txt", std::process::id()));
+        let mut b = Buffer::from_text("a\nb\n");
+        b.save_as(&p).unwrap();
+        assert_eq!(std::fs::read_to_string(&p).unwrap(), "a\nb\n");
+        let _ = std::fs::remove_file(&p);
     }
 
     #[test]

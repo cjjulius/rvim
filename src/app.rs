@@ -1172,6 +1172,9 @@ impl App {
             ExCommand::ToggleTitle(on) => {
                 self.editor.title = on;
             }
+            ExCommand::ToggleBackup(on) => {
+                self.editor.backup = on;
+            }
             ExCommand::ToggleExpandTab(on) => {
                 self.editor.expandtab = on;
             }
@@ -1432,6 +1435,16 @@ impl App {
     fn do_write(&mut self, arg: Option<String>) -> bool {
         if let Some(path) = arg {
             self.editor.buffer.set_path(&path);
+        }
+        // `:set backup` — keep the previous file contents as `{name}~`.
+        if self.editor.backup {
+            if let Some(p) = self.editor.buffer.path() {
+                if p.exists() {
+                    let mut bak = p.as_os_str().to_os_string();
+                    bak.push("~");
+                    let _ = std::fs::copy(p, std::path::PathBuf::from(bak));
+                }
+            }
         }
         match self.editor.buffer.save() {
             Ok(bytes) => {
