@@ -8,7 +8,7 @@ use crate::menu::{MenuAction, MenuItem, MenuState};
 use crate::mode::Mode;
 use crate::syntax::{LineState, Registry, Token, TokenKind};
 use crate::theme::Theme;
-use crossterm::cursor::{Hide, MoveTo, Show};
+use crossterm::cursor::{Hide, MoveTo, SetCursorStyle, Show};
 use crossterm::style::{
     Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor,
 };
@@ -158,6 +158,17 @@ pub fn in_selection(sel: (Position, Position), linewise: bool, row: usize, col: 
     }
 }
 
+/// The cursor shape for a mode: a bar while inserting, an underline while
+/// replacing, a block otherwise (vim's familiar shapes). Terminals that don't
+/// understand DECSCUSR ignore it.
+fn mode_cursor_style(mode: Mode) -> SetCursorStyle {
+    match mode {
+        Mode::Insert => SetCursorStyle::SteadyBar,
+        Mode::Replace => SetCursorStyle::SteadyUnderScore,
+        _ => SetCursorStyle::SteadyBlock,
+    }
+}
+
 /// Draw one full frame.
 pub fn render(
     out: &mut impl Write,
@@ -205,7 +216,12 @@ pub fn render(
         queue!(out, Hide)?;
     } else if editor.mode == Mode::Command {
         let x = 1 + editor.cmdline.chars().count() as u16; // after ':' or '/'
-        queue!(out, MoveTo(x.min(layout.cols.saturating_sub(1)), layout.rows - 1), Show)?;
+        queue!(
+            out,
+            mode_cursor_style(editor.mode),
+            MoveTo(x.min(layout.cols.saturating_sub(1)), layout.rows - 1),
+            Show
+        )?;
     } else {
         let cx = layout.gutter_width + (editor.cursor.col.saturating_sub(editor.left)) as u16;
         // With folds the cursor's screen row is where the walk above drew its line
@@ -218,6 +234,7 @@ pub fn render(
             });
         queue!(
             out,
+            mode_cursor_style(editor.mode),
             MoveTo(
                 cx.min(layout.cols.saturating_sub(1)),
                 cy.min(layout.top_offset + layout.text_rows - 1)
@@ -382,9 +399,19 @@ pub fn render_split(
         draw_command_line(out, editor, theme, &bar_layout)?;
         if editor.mode == Mode::Command {
             let x = 1 + editor.cmdline.chars().count() as u16;
-            queue!(out, MoveTo(x.min(cols.saturating_sub(1)), rows - 1), Show)?;
+            queue!(
+                out,
+                mode_cursor_style(editor.mode),
+                MoveTo(x.min(cols.saturating_sub(1)), rows - 1),
+                Show
+            )?;
         } else if let Some((cx, cy)) = focus_cursor {
-            queue!(out, MoveTo(cx.min(cols.saturating_sub(1)), cy), Show)?;
+            queue!(
+                out,
+                mode_cursor_style(editor.mode),
+                MoveTo(cx.min(cols.saturating_sub(1)), cy),
+                Show
+            )?;
         }
     }
 
@@ -1302,6 +1329,33 @@ mod tests {
         // Cursor at b (row 1, col 3), gutter 0 -> x = 20+3 = 23, y = 0+1 = 1;
         // escape is 1-based, so expect col 24, row 2.
         assert_eq!((row, col), (2, 24), "focused cursor landed outside window b");
+    }
+
+    #[test]
+    fn cursor_style_matches_mode() {
+        assert!(matches!(mode_cursor_style(Mode::Insert), SetCursorStyle::SteadyBar));
+        assert!(matches!(mode_cursor_style(Mode::Replace), SetCursorStyle::SteadyUnderScore));
+        assert!(matches!(mode_cursor_style(Mode::Normal), SetCursorStyle::SteadyBlock));
+        assert!(matches!(mode_cursor_style(Mode::Visual), SetCursorStyle::SteadyBlock));
+    }
+
+    #[test]
+    fn render_emits_mode_cursor_shape() {
+        use crate::buffer::Buffer;
+        let theme = crate::theme::matrix();
+        let syntax = Registry::default();
+        // Normal mode -> steady block (ESC [2 q).
+        let mut ed = Editor::new();
+        ed.buffer = Buffer::from_text("x");
+        ed.set_viewport(10, 20);
+        let mut buf: Vec<u8> = Vec::new();
+        render(&mut buf, &ed, &theme, &syntax, &[], LineState::Normal).unwrap();
+        assert!(String::from_utf8_lossy(&buf).contains("\u{1b}[2 q"));
+        // Insert mode -> steady bar (ESC [6 q).
+        ed.mode = Mode::Insert;
+        let mut buf2: Vec<u8> = Vec::new();
+        render(&mut buf2, &ed, &theme, &syntax, &[], LineState::Normal).unwrap();
+        assert!(String::from_utf8_lossy(&buf2).contains("\u{1b}[6 q"));
     }
 
     #[test]

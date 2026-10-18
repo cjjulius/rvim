@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### UI
+- The cursor shape now follows the mode: a block in Normal, a bar in Insert, an
+  underline in Replace (terminals that lack DECSCUSR keep their usual cursor; the
+  shape is restored on exit).
+
 ### Windows
 - Rearrange splits: `Ctrl-w x` swaps the focused window with the next, and
   `Ctrl-w r` rotates every window's content one slot.

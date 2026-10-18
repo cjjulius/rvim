@@ -5,7 +5,7 @@
 //! (bash or PowerShell) in a sane state. crossterm handles the Windows and
 //! Unix backends transparently.
 
-use crossterm::cursor::{Hide, Show};
+use crossterm::cursor::{Hide, SetCursorStyle, Show};
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
@@ -53,7 +53,8 @@ impl Drop for TerminalGuard {
         if self.mouse {
             let _ = execute!(out, DisableMouseCapture);
         }
-        let _ = execute!(out, Show, LeaveAlternateScreen);
+        // Restore the user's cursor shape (we may have set a bar/underline).
+        let _ = execute!(out, SetCursorStyle::DefaultUserShape, Show, LeaveAlternateScreen);
         let _ = disable_raw_mode();
     }
 }
