@@ -941,3 +941,12 @@
         let r = app.layout.rects(area);
         assert_eq!(r.iter().map(|(_, rc)| rc.h).collect::<Vec<_>>(), vec![12, 12]);
     }
+
+    #[test]
+    fn set_fileformat_option_switches_line_ending() {
+        let mut app = App::new();
+        app.run_ex("set fileformat=dos");
+        assert_eq!(app.editor.option_value("fileformat"), "fileformat=dos");
+        app.run_ex("set ff=unix");
+        assert_eq!(app.editor.option_value("fileformat"), "fileformat=unix");
+    }

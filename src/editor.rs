@@ -5,7 +5,7 @@
 //! subsystems (themes, plugins), so [`handle_key`](Editor::handle_key) returns
 //! an [`Action`] the [`crate::app::App`] executes.
 
-use crate::buffer::{Buffer, Position};
+use crate::buffer::{Buffer, LineEnding, Position};
 use crate::command::{AlignKind, HistoryKind, LineAddr, SubRange, SubstituteSpec};
 use crate::fold::Folds;
 use crate::menu::{MenuOutcome, MenuState};
@@ -970,6 +970,21 @@ impl Editor {
         Ok(ed)
     }
 
+    /// `:set fileformat=unix|dos` — choose the line endings written on save.
+    pub fn set_file_format(&mut self, name: &str) {
+        match name {
+            "unix" => {
+                self.buffer.set_fileformat(LineEnding::Unix);
+                self.message = "fileformat=unix".into();
+            }
+            "dos" => {
+                self.buffer.set_fileformat(LineEnding::Dos);
+                self.message = "fileformat=dos".into();
+            }
+            other => self.message = format!("E474: invalid fileformat: {other}"),
+        }
+    }
+
     /// Build a second view of this editor's content for a window split: an
     /// independent copy of the buffer (same text, path and dirty state) plus the
     /// cursor, scroll position and per-view preference flags. Edit history and the
@@ -1219,6 +1234,7 @@ impl Editor {
             "textwidth" | "tw" => format!("textwidth={}", self.textwidth),
             "colorcolumn" | "cc" => format!("colorcolumn={}", self.colorcolumn),
             "filetype" | "ft" | "syntax" => format!("filetype={}", self.language.name()),
+            "fileformat" | "ff" => format!("fileformat={}", self.buffer.fileformat().name()),
             "foldcolumn" | "fdc" => format!("foldcolumn={}", self.foldcolumn),
             "splitbelow" | "sb" => flag(self.splitbelow, "splitbelow"),
             "splitright" | "spr" => flag(self.splitright, "splitright"),
@@ -1352,8 +1368,8 @@ impl Editor {
         "incsearch", "autoindent", "expandtab", "list", "wrapscan", "cursorline",
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
-        "matchpairs", "filetype", "foldmethod", "foldcolumn", "splitbelow",
-        "splitright",
+        "matchpairs", "filetype", "fileformat", "foldmethod", "foldcolumn",
+        "splitbelow", "splitright",
     ];
 
     /// A `:set` / `:set all` listing: one option per line with its current value.

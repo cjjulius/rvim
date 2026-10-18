@@ -1115,6 +1115,7 @@ impl App {
                 }
                 None => self.editor.message = format!("Unknown filetype '{name}'"),
             },
+            ExCommand::SetFileFormat(name) => self.editor.set_file_format(&name),
             ExCommand::SetFoldMethod(name) => {
                 self.editor.set_fold_method(&name);
                 // Syntax folding needs the registry; compute it here and report.

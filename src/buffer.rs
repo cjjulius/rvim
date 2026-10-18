@@ -28,12 +28,40 @@ struct Snapshot {
     cursor: Position,
 }
 
+/// The line-ending style a buffer was loaded with and will be written back in
+/// (`:set fileformat`). Unix uses `\n`, DOS uses `\r\n`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LineEnding {
+    Unix,
+    Dos,
+}
+
+impl LineEnding {
+    /// The separator string for this line ending.
+    pub fn sep(self) -> &'static str {
+        match self {
+            LineEnding::Unix => "\n",
+            LineEnding::Dos => "\r\n",
+        }
+    }
+
+    /// The `:set fileformat` value name.
+    pub fn name(self) -> &'static str {
+        match self {
+            LineEnding::Unix => "unix",
+            LineEnding::Dos => "dos",
+        }
+    }
+}
+
 /// An in-memory text buffer with undo/redo history.
 #[derive(Debug, Clone)]
 pub struct Buffer {
     lines: Vec<String>,
     path: Option<PathBuf>,
     dirty: bool,
+    /// Line-ending style used when saving (detected on load).
+    fileformat: LineEnding,
     /// Monotonic counter bumped on every content mutation; used to detect that
     /// a change occurred (e.g. for the `.` repeat command).
     revision: u64,
@@ -54,6 +82,7 @@ impl Buffer {
             lines: vec![String::new()],
             path: None,
             dirty: false,
+            fileformat: LineEnding::Unix,
             revision: 0,
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
@@ -63,6 +92,12 @@ impl Buffer {
     /// Build a buffer from raw text, splitting on `\n` (a trailing `\r` per line
     /// is stripped so Windows CRLF files load cleanly).
     pub fn from_text(text: &str) -> Self {
+        // CRLF anywhere means a DOS file; remember it so we write it back the same.
+        let fileformat = if text.contains("\r\n") {
+            LineEnding::Dos
+        } else {
+            LineEnding::Unix
+        };
         let mut lines: Vec<String> = text
             .split('\n')
             .map(|l| l.strip_suffix('\r').unwrap_or(l).to_string())
@@ -75,6 +110,7 @@ impl Buffer {
             lines,
             path: None,
             dirty: false,
+            fileformat,
             revision: 0,
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
@@ -142,9 +178,24 @@ impl Buffer {
         self.lines.get(row).map(|l| l.chars().count()).unwrap_or(0)
     }
 
-    /// Serialize the buffer to a single string with `\n` separators.
+    /// Serialize the buffer to a single string with `\n` separators (the internal
+    /// representation; saving applies the buffer's [`LineEnding`]).
     pub fn to_text(&self) -> String {
         self.lines.join("\n")
+    }
+
+    /// The line-ending style used when saving.
+    pub fn fileformat(&self) -> LineEnding {
+        self.fileformat
+    }
+
+    /// Change the line-ending style (`:set fileformat`); marks the buffer dirty
+    /// when it actually changes, like vim.
+    pub fn set_fileformat(&mut self, ff: LineEnding) {
+        if self.fileformat != ff {
+            self.fileformat = ff;
+            self.dirty = true;
+        }
     }
 
     /// Save to the current path. Returns the number of bytes written.
@@ -158,8 +209,9 @@ impl Buffer {
 
     /// Save to a specific path and adopt it as the backing path.
     pub fn save_as(&mut self, path: impl AsRef<Path>) -> io::Result<usize> {
-        let mut text = self.to_text();
-        text.push('\n'); // POSIX-friendly trailing newline
+        let sep = self.fileformat.sep();
+        let mut text = self.lines.join(sep);
+        text.push_str(sep); // trailing newline in the file's own style
         fs::write(path.as_ref(), &text)?;
         self.path = Some(path.as_ref().to_path_buf());
         self.dirty = false;
@@ -433,5 +485,24 @@ mod tests {
         assert_eq!(loaded.line(1), Some("line2"));
         assert!(!loaded.is_dirty());
         let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn from_text_detects_line_ending() {
+        assert_eq!(Buffer::from_text("a\r\nb\r\n").fileformat(), LineEnding::Dos);
+        assert_eq!(Buffer::from_text("a\nb\n").fileformat(), LineEnding::Unix);
+    }
+
+    #[test]
+    fn save_writes_the_configured_line_ending() {
+        let p = std::env::temp_dir().join(format!("rvim_ff_{}.txt", std::process::id()));
+        let mut dos = Buffer::from_text("a\nb");
+        dos.set_fileformat(LineEnding::Dos);
+        dos.save_as(&p).unwrap();
+        assert_eq!(std::fs::read(&p).unwrap(), b"a\r\nb\r\n");
+        let mut unix = Buffer::from_text("a\nb");
+        unix.save_as(&p).unwrap();
+        assert_eq!(std::fs::read(&p).unwrap(), b"a\nb\n");
+        let _ = std::fs::remove_file(&p);
     }
 }

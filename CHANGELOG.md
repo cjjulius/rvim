@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Files
+- Line endings are preserved: a file loaded with Windows CRLF is written back with
+  CRLF, Unix LF stays LF, and `:set fileformat=dos` / `=unix` chooses explicitly.
+
 ### Registers
 - The read-only `"/` (last search pattern) and `":` (last command line) registers
   are now available for paste and `Ctrl-r` (e.g. `Ctrl-r /` while typing a `:s`).
