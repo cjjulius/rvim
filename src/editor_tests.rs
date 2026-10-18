@@ -5807,3 +5807,66 @@
         ed.handle_key(key('x')); // an edit marks the buffer modified
         assert_eq!(ed.title_string(), "main.rs [+] - rvim");
     }
+
+    // ---- UTF-8 / multibyte robustness ------------------------------------
+
+    #[test]
+    fn utf8_x_deletes_the_multibyte_char() {
+        let mut ed = ed_with("héllo");
+        ed.cursor.col = 1; // on 'é'
+        ed.handle_key(key('x'));
+        assert_eq!(ed.buffer.line(0), Some("hllo"));
+    }
+
+    #[test]
+    fn utf8_replace_char_handles_width_changes() {
+        // multibyte -> ascii
+        let mut ed = ed_with("héllo");
+        ed.cursor.col = 1;
+        ed.handle_key(key('r'));
+        ed.handle_key(key('x'));
+        assert_eq!(ed.buffer.line(0), Some("hxllo"));
+        // ascii -> multibyte
+        let mut ed2 = ed_with("hello");
+        ed2.cursor.col = 1;
+        ed2.handle_key(key('r'));
+        ed2.handle_key(key('é'));
+        assert_eq!(ed2.buffer.line(0), Some("héllo"));
+    }
+
+    #[test]
+    fn utf8_tilde_toggles_multibyte_case() {
+        let mut ed = ed_with("éa");
+        ed.handle_key(key('~'));
+        assert_eq!(ed.buffer.line(0), Some("Éa"));
+    }
+
+    #[test]
+    fn utf8_dw_deletes_a_multibyte_word() {
+        let mut ed = ed_with("héllo wörld");
+        for c in ['d', 'w'] {
+            ed.handle_key(key(c));
+        }
+        assert_eq!(ed.buffer.line(0), Some("wörld"));
+    }
+
+    #[test]
+    fn utf8_dollar_lands_on_last_char() {
+        let mut ed = ed_with("wörld"); // 5 chars
+        ed.handle_key(special(KeyCode::Char('$')));
+        assert_eq!(ed.cursor.col, 4);
+    }
+
+    #[test]
+    fn utf8_visual_block_delete_columns() {
+        let mut ed = ed_with("héllo\nwörld\nabcde");
+        ed.handle_key(ctrl('v')); // block visual at (0,0)
+        ed.handle_key(key('j'));
+        ed.handle_key(key('j')); // rows 0..2, col 0
+        ed.handle_key(key('l')); // cols 0..1
+        ed.handle_key(key('d'));
+        // First two columns removed from each row.
+        assert_eq!(ed.buffer.line(0), Some("llo"));
+        assert_eq!(ed.buffer.line(1), Some("rld"));
+        assert_eq!(ed.buffer.line(2), Some("cde"));
+    }
