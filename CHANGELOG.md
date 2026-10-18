@@ -20,6 +20,8 @@ All notable changes to rvim are recorded here. Versions follow
   shape is restored on exit).
 
 ### Windows
+- Resize splits: `Ctrl-w +` / `-` change the focused window's height, `Ctrl-w >`
+  / `<` its width, and `Ctrl-w =` makes all windows equal again.
 - `:set splitbelow` / `:set splitright` open new splits below / to the right of
   the current window instead of the default above / left.
 - Rearrange splits: `Ctrl-w x` swaps the focused window with the next, and

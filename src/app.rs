@@ -510,6 +510,17 @@ impl App {
         }
     }
 
+    /// `Ctrl-w +`/`-` (height) and `Ctrl-w >`/`<` (width) — resize the focused
+    /// window by one step along the given axis.
+    fn window_resize(&mut self, kind: SplitKind, delta: i16) {
+        self.layout.resize(self.focused, kind, delta);
+    }
+
+    /// `Ctrl-w =` — make all windows equal size.
+    fn window_equalize(&mut self) {
+        self.layout.equalize();
+    }
+
     /// `Ctrl-w h/j/k/l` — move focus to the adjacent window in `area`.
     fn focus_dir(&mut self, dir: Move, area: window::Rect) {
         if let Some(t) = self.layout.neighbor(self.focused, dir, area) {
@@ -535,6 +546,11 @@ impl App {
             KeyCode::Char('o') => self.only_window(false),
             KeyCode::Char('x') => self.window_exchange(),
             KeyCode::Char('r') => self.window_rotate(),
+            KeyCode::Char('+') => self.window_resize(SplitKind::Horizontal, 1),
+            KeyCode::Char('-') => self.window_resize(SplitKind::Horizontal, -1),
+            KeyCode::Char('>') => self.window_resize(SplitKind::Vertical, 1),
+            KeyCode::Char('<') => self.window_resize(SplitKind::Vertical, -1),
+            KeyCode::Char('=') => self.window_equalize(),
             _ => {}
         }
     }
@@ -1535,6 +1551,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \tCtrl-w c / :close   close the focused window\n\
          \tCtrl-w o / :only    keep only the focused window\n\
          \tCtrl-w x / Ctrl-w r swap with next window / rotate all windows\n\
+         \tCtrl-w +/- / >/<    resize focused window (height / width); = equalizes\n\
          \n\
          EDITING\n\
          \tx / X              delete char under / before   r<c>  replace\n\

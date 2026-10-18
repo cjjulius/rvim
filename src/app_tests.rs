@@ -917,3 +917,27 @@
         app.run_ex("vsplit");
         assert_eq!(app.layout.ids(), vec![WinId(0), WinId(1)]); // new to the right
     }
+
+    // ---- window resizing (Ctrl-w +/-/</>/=) ------------------------------
+
+    #[test]
+    fn ctrl_w_plus_grows_focused_window_height() {
+        let mut app = App::new();
+        app.run_ex("split"); // [1, 0] stacked; focus = new window (1)
+        let area = Rect::new(0, 0, 80, 24);
+        app.handle_window_key(kev('+'), area);
+        let r = app.layout.rects(area);
+        let focused_h = r.iter().find(|(id, _)| *id == app.focused).unwrap().1.h;
+        assert!(focused_h > 12, "focused window should have grown past even");
+    }
+
+    #[test]
+    fn ctrl_w_equals_restores_even_windows() {
+        let mut app = App::new();
+        app.run_ex("split");
+        let area = Rect::new(0, 0, 80, 24);
+        app.handle_window_key(kev('+'), area);
+        app.handle_window_key(kev('='), area);
+        let r = app.layout.rects(area);
+        assert_eq!(r.iter().map(|(_, rc)| rc.h).collect::<Vec<_>>(), vec![12, 12]);
+    }

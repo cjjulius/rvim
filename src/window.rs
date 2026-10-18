@@ -65,7 +65,14 @@ impl Rect {
 #[derive(Clone, Debug)]
 enum Node {
     Leaf(WinId),
-    Split { kind: SplitKind, children: Vec<Node> },
+    /// A group of children laid out along one axis. `weights` (one per child,
+    /// all >= 1) set the proportional sizes; equal weights divide evenly. Any
+    /// structural change resets weights to equal — only `resize` makes them differ.
+    Split {
+        kind: SplitKind,
+        children: Vec<Node>,
+        weights: Vec<u16>,
+    },
 }
 
 /// The window layout: a split tree over the text area.
@@ -142,13 +149,14 @@ impl Layout {
                 } else {
                     vec![Node::Leaf(old), Node::Leaf(new_id)]
                 };
-                *node = Node::Split { kind, children };
+                *node = Node::Split { kind, children, weights: vec![1, 1] };
                 true
             }
             Node::Leaf(_) => false,
             Node::Split {
                 kind: parent_kind,
                 children,
+                weights,
             } => {
                 // If a direct child is the focused leaf and this split runs along
                 // the same axis, insert the new window as a sibling next to it
@@ -160,6 +168,7 @@ impl Layout {
                     {
                         let at = if before { pos } else { pos + 1 };
                         children.insert(at, Node::Leaf(new_id));
+                        *weights = vec![1; children.len()];
                         return true;
                     }
                 }
@@ -194,7 +203,7 @@ impl Layout {
     /// whose kind matches its parent back into the parent (keeps the tree
     /// canonical so geometry and navigation stay predictable).
     fn collapse(node: &mut Node) {
-        if let Node::Split { kind, children } = node {
+        if let Node::Split { kind, children, weights } = node {
             for c in children.iter_mut() {
                 Self::collapse(c);
             }
@@ -206,11 +215,14 @@ impl Layout {
                     Node::Split {
                         kind: ck,
                         children: gc,
+                        ..
                     } if ck == parent_kind => merged.extend(gc),
                     other => merged.push(other),
                 }
             }
             *children = merged;
+            // Structural change: reset to even sizing.
+            *weights = vec![1; children.len()];
             // A split with one child is just that child.
             if children.len() == 1 {
                 let only = children.pop().unwrap();
@@ -238,7 +250,7 @@ impl Layout {
     fn rects_of(node: &Node, area: Rect, out: &mut Vec<(WinId, Rect)>) {
         match node {
             Node::Leaf(id) => out.push((*id, area)),
-            Node::Split { kind, children } => {
+            Node::Split { kind, children, weights } => {
                 let n = children.len() as u16;
                 if n == 0 {
                     return;
@@ -247,7 +259,7 @@ impl Layout {
                     SplitKind::Vertical => {
                         let seps = n - 1; // one separator column between windows
                         let usable = area.w.saturating_sub(seps);
-                        let sizes = divide(usable, n);
+                        let sizes = divide_weighted(usable, weights);
                         let mut x = area.x;
                         for (child, w) in children.iter().zip(sizes) {
                             Self::rects_of(child, Rect::new(x, area.y, w, area.h), out);
@@ -255,7 +267,7 @@ impl Layout {
                         }
                     }
                     SplitKind::Horizontal => {
-                        let sizes = divide(area.h, n);
+                        let sizes = divide_weighted(area.h, weights);
                         let mut y = area.y;
                         for (child, h) in children.iter().zip(sizes) {
                             Self::rects_of(child, Rect::new(area.x, y, area.w, h), out);
@@ -313,6 +325,68 @@ impl Layout {
         let pos = ids.iter().position(|id| *id == from)?;
         Some(ids[(pos + ids.len() - 1) % ids.len()])
     }
+
+    /// Resize window `from` by `delta` steps along `kind`'s axis: adjusts its
+    /// weight within the nearest enclosing split of that kind (height for
+    /// `Horizontal`, width for `Vertical`). A positive delta grows it. No-op when
+    /// there is no such enclosing split. Returns whether anything changed.
+    pub fn resize(&mut self, from: WinId, kind: SplitKind, delta: i16) -> bool {
+        matches!(
+            Self::resize_node(&mut self.root, from, kind, delta),
+            ResizeResult::Done
+        )
+    }
+
+    fn resize_node(node: &mut Node, from: WinId, kind: SplitKind, delta: i16) -> ResizeResult {
+        match node {
+            Node::Leaf(id) if *id == from => ResizeResult::InSubtree,
+            Node::Leaf(_) => ResizeResult::NotFound,
+            Node::Split { kind: k, children, weights } => {
+                for i in 0..children.len() {
+                    match Self::resize_node(&mut children[i], from, kind, delta) {
+                        ResizeResult::Done => return ResizeResult::Done,
+                        ResizeResult::InSubtree => {
+                            // The focused window is in child `i`. The nearest
+                            // enclosing split of the requested kind adjusts it.
+                            if *k == kind {
+                                let w = weights[i] as i16 + delta;
+                                weights[i] = w.max(1) as u16;
+                                return ResizeResult::Done;
+                            }
+                            return ResizeResult::InSubtree;
+                        }
+                        ResizeResult::NotFound => {}
+                    }
+                }
+                ResizeResult::NotFound
+            }
+        }
+    }
+
+    /// `Ctrl-w =` — reset every split to even sizing.
+    pub fn equalize(&mut self) {
+        Self::equalize_node(&mut self.root);
+    }
+
+    fn equalize_node(node: &mut Node) {
+        if let Node::Split { children, weights, .. } = node {
+            *weights = vec![1; children.len()];
+            for c in children.iter_mut() {
+                Self::equalize_node(c);
+            }
+        }
+    }
+}
+
+/// Result of walking the tree to resize a window.
+#[derive(PartialEq, Eq)]
+enum ResizeResult {
+    /// The weight was adjusted.
+    Done,
+    /// The target is in this subtree but no matching-kind split consumed it yet.
+    InSubtree,
+    /// The target is not in this subtree.
+    NotFound,
 }
 
 /// Whether two rects overlap on the vertical axis (share some rows).
@@ -325,17 +399,37 @@ fn overlaps_h(a: &Rect, b: &Rect) -> bool {
     a.x < b.x + b.w && b.x < a.x + a.w
 }
 
-/// Divide `total` cells among `n` slices as evenly as possible, handing the
-/// leftover one cell at a time to the first slices.
-fn divide(total: u16, n: u16) -> Vec<u16> {
+/// Divide `total` cells among slices in proportion to `weights` (each clamped to
+/// at least 1), using largest-remainder apportionment with ties going to the
+/// earlier slice. Equal weights reproduce an even split with the remainder handed
+/// to the first slices.
+fn divide_weighted(total: u16, weights: &[u16]) -> Vec<u16> {
+    let n = weights.len();
     if n == 0 {
         return Vec::new();
     }
-    let base = total / n;
-    let extra = total % n;
-    (0..n)
-        .map(|i| base + if i < extra { 1 } else { 0 })
-        .collect()
+    let w: Vec<u32> = weights.iter().map(|&x| x.max(1) as u32).collect();
+    let sum: u32 = w.iter().sum();
+    let mut sizes = vec![0u16; n];
+    let mut remainder = vec![0u32; n];
+    let mut used = 0u16;
+    for i in 0..n {
+        let exact = total as u32 * w[i];
+        sizes[i] = (exact / sum) as u16;
+        remainder[i] = exact % sum;
+        used += sizes[i];
+    }
+    // Hand out the leftover cells to the largest remainders (ties: lower index).
+    let mut order: Vec<usize> = (0..n).collect();
+    order.sort_by(|&a, &b| remainder[b].cmp(&remainder[a]).then(a.cmp(&b)));
+    let mut leftover = total.saturating_sub(used);
+    let mut k = 0;
+    while leftover > 0 {
+        sizes[order[k % n]] += 1;
+        leftover -= 1;
+        k += 1;
+    }
+    sizes
 }
 
 #[cfg(test)]
@@ -363,11 +457,57 @@ mod tests {
     }
 
     #[test]
-    fn divide_is_even_with_remainder_up_front() {
-        assert_eq!(divide(24, 2), vec![12, 12]);
-        assert_eq!(divide(25, 2), vec![13, 12]);
-        assert_eq!(divide(10, 3), vec![4, 3, 3]);
-        assert_eq!(divide(0, 3), vec![0, 0, 0]);
+    fn divide_weighted_even_puts_remainder_up_front() {
+        assert_eq!(divide_weighted(24, &[1, 1]), vec![12, 12]);
+        assert_eq!(divide_weighted(25, &[1, 1]), vec![13, 12]);
+        assert_eq!(divide_weighted(10, &[1, 1, 1]), vec![4, 3, 3]);
+        assert_eq!(divide_weighted(0, &[1, 1, 1]), vec![0, 0, 0]);
+    }
+
+    #[test]
+    fn resize_adjusts_focused_window_along_its_axis() {
+        let mut l = Layout::new(WinId(0));
+        l.split(WinId(0), SplitKind::Horizontal, WinId(1)); // [1, 0] stacked, 12/12
+        assert!(l.resize(WinId(1), SplitKind::Horizontal, 1)); // weights [2, 1]
+        let r = l.rects(AREA);
+        let h = |n: usize| r.iter().find(|(WinId(x), _)| *x == n).unwrap().1.h;
+        assert_eq!(h(1), 16);
+        assert_eq!(h(0), 8);
+    }
+
+    #[test]
+    fn resize_on_wrong_axis_is_noop() {
+        let mut l = Layout::new(WinId(0));
+        l.split(WinId(0), SplitKind::Horizontal, WinId(1)); // only a horizontal split
+        assert!(!l.resize(WinId(1), SplitKind::Vertical, 1));
+    }
+
+    #[test]
+    fn equalize_restores_even_sizing() {
+        let mut l = Layout::new(WinId(0));
+        l.split(WinId(0), SplitKind::Horizontal, WinId(1));
+        l.resize(WinId(1), SplitKind::Horizontal, 3);
+        l.equalize();
+        let r = l.rects(AREA);
+        assert_eq!(r.iter().map(|(_, rc)| rc.h).collect::<Vec<_>>(), vec![12, 12]);
+    }
+
+    #[test]
+    fn a_structural_change_resets_weights() {
+        let mut l = Layout::new(WinId(0));
+        l.split(WinId(0), SplitKind::Horizontal, WinId(1));
+        l.resize(WinId(1), SplitKind::Horizontal, 2); // skew sizes
+        l.split(WinId(1), SplitKind::Horizontal, WinId(2)); // sibling insert resets
+        let r = l.rects(AREA);
+        assert_eq!(r.iter().map(|(_, rc)| rc.h).collect::<Vec<_>>(), vec![8, 8, 8]);
+    }
+
+    #[test]
+    fn divide_weighted_respects_weights() {
+        assert_eq!(divide_weighted(24, &[2, 1]), vec![16, 8]);
+        assert_eq!(divide_weighted(30, &[1, 2, 3]), vec![5, 10, 15]);
+        // A zero weight is clamped to 1 so no window vanishes entirely.
+        assert_eq!(divide_weighted(10, &[0, 1]).iter().sum::<u16>(), 10);
     }
 
     #[test]
