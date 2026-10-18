@@ -927,6 +927,16 @@ fn draw_status_line(
     )
 }
 
+/// Whether a status message should be rendered as an error. Follows vim's
+/// convention where error messages are coded `E<number>:` (for example
+/// `E37: No write since last change`). Ordinary messages that merely start
+/// with `E` (like `Edit ...`) are not flagged, since the second character
+/// must be a digit.
+pub fn is_error_message(msg: &str) -> bool {
+    let mut chars = msg.chars();
+    chars.next() == Some('E') && chars.next().is_some_and(|c| c.is_ascii_digit())
+}
+
 fn draw_command_line(
     out: &mut impl Write,
     editor: &Editor,
@@ -942,16 +952,21 @@ fn draw_command_line(
         Clear(ClearType::CurrentLine)
     )?;
 
+    // Error messages (vim-style `E123:`) are shown in a distinct color so a
+    // failed command stands out from ordinary status text.
+    let mut is_error = false;
     let content = if editor.mode == Mode::Command {
         format!("{}{}", editor.cmdline_prefix(), editor.cmdline)
     } else if let Some(indicator) = editor.mode_indicator().filter(|_| editor.showmode) {
         // showmode: `-- INSERT --` / `-- VISUAL --` etc. while in those modes.
         indicator.to_string()
     } else {
+        is_error = is_error_message(&editor.message);
         editor.message.clone()
     };
     let content: String = content.chars().take(layout.cols as usize).collect();
-    queue!(out, Print(&content), ResetColor)?;
+    let fg = if is_error { theme.error_fg } else { theme.message_fg };
+    queue!(out, SetForegroundColor(fg), Print(&content), ResetColor)?;
 
     // showcmd: the pending command, or the selection size while in visual mode,
     // right-aligned (vim shows it bottom-right). Never overlaps the left content.
@@ -1299,6 +1314,17 @@ mod tests {
         cursor_col: None,
         cur_match: None,
     };
+
+    #[test]
+    fn error_messages_detected_by_e_code() {
+        assert!(is_error_message("E37: No write since last change"));
+        assert!(is_error_message("E486: Pattern not found: foo"));
+        // Ordinary messages are not errors, even when they start with E.
+        assert!(!is_error_message("Edit saved"));
+        assert!(!is_error_message("2 lines yanked"));
+        assert!(!is_error_message(""));
+        assert!(!is_error_message("E: generic"));
+    }
 
     #[test]
     fn fold_text_shows_line_count_and_fills() {

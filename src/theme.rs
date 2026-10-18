@@ -34,6 +34,9 @@ pub struct Theme {
     pub mode_bg: Color,
     pub mode_fg: Color,
     pub message_fg: Color,
+    /// Foreground for error messages (vim-style "E123:" errors), rendered
+    /// distinctly from ordinary messages so failures stand out.
+    pub error_fg: Color,
     // Syntax token colors.
     tokens: HashMap<TokenKind, Color>,
 }
@@ -140,6 +143,7 @@ pub fn matrix() -> Theme {
         mode_bg: rgb(170, 255, 170),
         mode_fg: rgb(0, 20, 0),
         message_fg: rgb(150, 255, 150),
+        error_fg: rgb(255, 80, 80),
         tokens: token_map(&[
             (TokenKind::Keyword, rgb(120, 255, 120)),
             (TokenKind::Type, rgb(0, 230, 120)),
@@ -178,6 +182,7 @@ pub fn retrowave() -> Theme {
         mode_bg: rgb(0, 230, 230),
         mode_fg: rgb(20, 0, 40),
         message_fg: rgb(255, 180, 230),
+        error_fg: rgb(255, 90, 120),
         tokens: token_map(&[
             (TokenKind::Keyword, rgb(255, 80, 180)),
             (TokenKind::Type, rgb(0, 230, 230)),
@@ -216,6 +221,7 @@ pub fn cobalt() -> Theme {
         mode_bg: rgb(255, 200, 0),
         mode_fg: rgb(0, 30, 60),
         message_fg: rgb(180, 220, 255),
+        error_fg: rgb(255, 120, 120),
         tokens: token_map(&[
             (TokenKind::Keyword, rgb(255, 200, 0)),
             (TokenKind::Type, rgb(60, 220, 220)),
@@ -255,6 +261,7 @@ pub fn high_contrast() -> Theme {
         mode_bg: rgb(240, 228, 66),
         mode_fg: rgb(0, 0, 0),
         message_fg: rgb(255, 255, 255),
+        error_fg: rgb(255, 85, 85),
         tokens: token_map(&[
             (TokenKind::Keyword, rgb(240, 228, 66)),   // yellow
             (TokenKind::Type, rgb(86, 180, 233)),      // sky blue
@@ -293,6 +300,7 @@ pub fn gruvbox() -> Theme {
         mode_bg: rgb(254, 128, 25),
         mode_fg: rgb(40, 40, 40),
         message_fg: rgb(213, 196, 161),
+        error_fg: rgb(251, 73, 52),
         tokens: token_map(&[
             (TokenKind::Keyword, rgb(251, 73, 52)),       // red
             (TokenKind::Type, rgb(250, 189, 47)),         // yellow
@@ -331,6 +339,7 @@ pub fn nord() -> Theme {
         mode_bg: rgb(136, 192, 208),
         mode_fg: rgb(46, 52, 64),
         message_fg: rgb(216, 222, 233),
+        error_fg: rgb(191, 97, 106),
         tokens: token_map(&[
             (TokenKind::Keyword, rgb(129, 161, 193)),     // frost blue
             (TokenKind::Type, rgb(143, 188, 187)),        // frost teal
@@ -370,6 +379,7 @@ pub fn paper() -> Theme {
         mode_bg: rgb(38, 139, 210),
         mode_fg: rgb(253, 246, 227),
         message_fg: rgb(88, 110, 117),
+        error_fg: rgb(180, 30, 30),
         tokens: token_map(&[
             (TokenKind::Keyword, rgb(133, 153, 0)),       // green
             (TokenKind::Type, rgb(181, 137, 0)),          // yellow

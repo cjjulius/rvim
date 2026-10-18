@@ -6,6 +6,8 @@ All notable changes to rvim are recorded here. Versions follow
 ## [Unreleased]
 
 ### UI
+- Error messages (vim-style `E123:`) now render in a distinct per-theme error
+  color on the command line, so failed commands stand out from status text.
 - Expanded the Alt menu bar: a Window menu (splits), a Folding submenu (fold
   methods and fold column), more View options (smart-indent, whitespace, cursor
   line), and a Set Filetype list generated from every supported language.
