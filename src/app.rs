@@ -263,6 +263,26 @@ impl App {
     }
 
     /// `:bn` — rotate to the next buffer.
+    /// `:bufdo {cmd}` — run `cmd` on every open buffer, returning to the starting
+    /// one. Each buffer is briefly made current; the rotation ends where it began.
+    fn buf_do(&mut self, cmd: &str) {
+        if cmd.trim().is_empty() {
+            return;
+        }
+        let count = self.others.len() + 1;
+        for _ in 0..count {
+            if self.quit {
+                break;
+            }
+            self.run_ex(cmd);
+            if self.others.is_empty() {
+                break; // single buffer: ran once, nothing to rotate
+            }
+            self.buffer_next();
+        }
+        self.editor.message = format!("{count} buffer(s) done");
+    }
+
     fn buffer_next(&mut self) {
         if self.others.is_empty() {
             self.editor.message = "only one buffer".into();
@@ -1058,6 +1078,7 @@ impl App {
             }
             ExCommand::OnlyWindow { force } => self.only_window(force),
             ExCommand::BufferList => self.buffer_list(),
+            ExCommand::BufDo(cmd) => self.buf_do(&cmd),
             ExCommand::BufferNext => self.buffer_next(),
             ExCommand::BufferPrev => self.buffer_prev(),
             ExCommand::Buffer(n) => self.buffer_goto(n),

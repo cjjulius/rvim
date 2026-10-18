@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Buffers
+- `:bufdo {cmd}` runs an ex command on every open buffer and returns to the one
+  you started in (e.g. `:bufdo %s/old/new/g`).
+
 ### UI
 - `:set title` shows the current file name (with a modified marker) in the
   terminal window title, and the previous title is restored on exit.
