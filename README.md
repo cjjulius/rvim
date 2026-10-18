@@ -526,7 +526,8 @@ even when scrolled.
 - **Off-screen line markers** — when a line runs wider than the window, a `>` at
   the right edge shows it continues, and a `<` at the left edge shows text is
   hidden because the view scrolled right. You always know when content sits just
-  out of sight.
+  out of sight. Customize or hide them with `:set listchars=extends:»,precedes:«`
+  (set either to a space to turn it off).
 
 ### Code folding
 Collapse ranges of lines to a single summary row so you can read structure
@@ -649,7 +650,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **799 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **800 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

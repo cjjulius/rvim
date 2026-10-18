@@ -309,6 +309,12 @@ pub struct Editor {
     pub listchars_tab: (char, char),
     pub listchars_trail: char,
     pub listchars_eol: char,
+    /// The glyphs drawn at a window edge when a line runs off it horizontally:
+    /// `precedes` (left, text hidden by rightward scroll) and `extends` (right,
+    /// line continues off-screen). Unlike the markers above these show regardless
+    /// of `:set list`; set either to a space to hide it.
+    pub listchars_precedes: char,
+    pub listchars_extends: char,
     /// `:set cursorline` — highlight the line the cursor is on (default on).
     pub cursorline: bool,
     /// `:set cursorcolumn` — highlight the column the cursor is on (default off).
@@ -529,6 +535,8 @@ impl Editor {
             listchars_tab: ('▸', '·'),
             listchars_trail: '·',
             listchars_eol: '$',
+            listchars_precedes: '<',
+            listchars_extends: '>',
             cursorline: true,
             cursorcolumn: false,
             colorcolumns: Vec::new(),
@@ -1314,8 +1322,13 @@ impl Editor {
     /// A textual `listchars=...` summary for `:set listchars?` and messages.
     fn listchars_summary(&self) -> String {
         format!(
-            "listchars=tab:{}{},trail:{},eol:{}",
-            self.listchars_tab.0, self.listchars_tab.1, self.listchars_trail, self.listchars_eol
+            "listchars=tab:{}{},trail:{},eol:{},precedes:{},extends:{}",
+            self.listchars_tab.0,
+            self.listchars_tab.1,
+            self.listchars_trail,
+            self.listchars_eol,
+            self.listchars_precedes,
+            self.listchars_extends
         )
     }
 
@@ -1346,9 +1359,10 @@ impl Editor {
         self.message = self.matchpairs_summary();
     }
 
-    /// `:set listchars=tab:xy,trail:z,eol:e` — configure the `list` markers. `tab:`
-    /// takes two characters (head + fill); `trail:` and `eol:` take one. Unknown
-    /// keys are ignored.
+    /// `:set listchars=tab:xy,trail:z,eol:e,precedes:<,extends:>` — configure the
+    /// display markers. `tab:` takes two characters (head + fill); the rest take
+    /// one. `precedes`/`extends` are the horizontal-scroll edge markers (set either
+    /// to a space to hide it). Unknown keys are ignored.
     pub fn set_listchars(&mut self, spec: &str) {
         for item in spec.split(',') {
             let Some((key, val)) = item.split_once(':') else {
@@ -1364,6 +1378,12 @@ impl Editor {
                 }
                 "eol" if vchars.len() == 1 => {
                     self.listchars_eol = vchars[0];
+                }
+                "precedes" if vchars.len() == 1 => {
+                    self.listchars_precedes = vchars[0];
+                }
+                "extends" if vchars.len() == 1 => {
+                    self.listchars_extends = vchars[0];
                 }
                 _ => {}
             }
