@@ -442,6 +442,7 @@ bare `:theme`):
 | `cobalt`         | warm gold/cyan accents on deep blue               |
 | `gruvbox`        | warm, earthy retro palette                         |
 | `nord`           | cool, muted arctic palette                          |
+| `paper`          | light theme: dark text on a warm paper background, for bright rooms |
 | `high-contrast`  | **accessibility:** pure black/white, colorblind-safe (Okabe–Ito) token palette |
 
 ### Syntax highlighting + language autodetection
@@ -588,7 +589,7 @@ src/
 ├── pattern.rs     regex compilation (literal fallback) for search & :s
 ├── terminal.rs    raw-mode / alt-screen RAII guard (cross-platform)
 ├── ui.rs          gutter + highlighted text + status/command lines
-├── theme.rs       Theme + ThemeRegistry (matrix, retrowave, cobalt, gruvbox, nord)
+├── theme.rs       Theme + ThemeRegistry (matrix, retrowave, cobalt, gruvbox, nord, paper)
 ├── plugin.rs      Plugin trait + PluginManager (+ example plugin)
 └── syntax/
     ├── mod.rs        Highlighter trait, spec-driven tokenizer, detection
@@ -632,7 +633,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **781 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **782 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

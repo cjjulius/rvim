@@ -68,6 +68,7 @@ impl ThemeRegistry {
                 high_contrast(),
                 gruvbox(),
                 nord(),
+                paper(),
             ],
             current: 0,
         }
@@ -349,6 +350,45 @@ pub fn nord() -> Theme {
     }
 }
 
+/// A light theme for bright environments (Solarized-light inspired): dark text on
+/// a warm paper background, the only non-dark built-in.
+pub fn paper() -> Theme {
+    Theme {
+        name: "paper".into(),
+        bg: rgb(253, 246, 227),
+        fg: rgb(88, 110, 117),
+        cursor_line_bg: rgb(238, 232, 213),
+        selection_bg: rgb(211, 203, 174),
+        search_bg: rgb(238, 232, 170),
+        cur_search_bg: rgb(245, 210, 140),
+        color_column_bg: rgb(238, 232, 213),
+        gutter_bg: rgb(238, 232, 213),
+        gutter_fg: rgb(147, 161, 161),
+        current_line_nr_fg: rgb(181, 137, 0),
+        status_bg: rgb(147, 161, 161),
+        status_fg: rgb(253, 246, 227),
+        mode_bg: rgb(38, 139, 210),
+        mode_fg: rgb(253, 246, 227),
+        message_fg: rgb(88, 110, 117),
+        tokens: token_map(&[
+            (TokenKind::Keyword, rgb(133, 153, 0)),       // green
+            (TokenKind::Type, rgb(181, 137, 0)),          // yellow
+            (TokenKind::Function, rgb(38, 139, 210)),     // blue
+            (TokenKind::Builtin, rgb(38, 139, 210)),
+            (TokenKind::String, rgb(42, 161, 152)),       // cyan
+            (TokenKind::Char, rgb(42, 161, 152)),
+            (TokenKind::Number, rgb(211, 54, 130)),       // magenta
+            (TokenKind::Comment, rgb(147, 161, 161)),     // muted
+            (TokenKind::Operator, rgb(133, 153, 0)),
+            (TokenKind::Punctuation, rgb(88, 110, 117)),
+            (TokenKind::Preprocessor, rgb(203, 75, 22)),  // orange
+            (TokenKind::Label, rgb(108, 113, 196)),       // violet
+            (TokenKind::Register, rgb(42, 161, 152)),
+            (TokenKind::Variable, rgb(88, 110, 117)),
+        ]),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -359,8 +399,20 @@ mod tests {
         assert_eq!(r.current().name, "matrix");
         assert_eq!(
             r.names(),
-            vec!["matrix", "retrowave", "cobalt", "high-contrast", "gruvbox", "nord"]
+            vec!["matrix", "retrowave", "cobalt", "high-contrast", "gruvbox", "nord", "paper"]
         );
+    }
+
+    #[test]
+    fn paper_is_a_selectable_light_theme() {
+        let mut r = ThemeRegistry::with_builtins();
+        assert!(r.set_current("paper"));
+        // A light theme: the background is brighter than the foreground.
+        let sum = |c: Color| match c {
+            Color::Rgb { r, g, b } => r as u32 + g as u32 + b as u32,
+            _ => 0,
+        };
+        assert!(sum(r.current().bg) > sum(r.current().fg));
     }
 
     #[test]
@@ -388,6 +440,7 @@ mod tests {
         assert_eq!(r.cycle(), "high-contrast");
         assert_eq!(r.cycle(), "gruvbox");
         assert_eq!(r.cycle(), "nord");
+        assert_eq!(r.cycle(), "paper");
         assert_eq!(r.cycle(), "matrix");
     }
 
