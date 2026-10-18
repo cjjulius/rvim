@@ -890,3 +890,30 @@
         app.editor.recompute_syntax_folds(&app.syntax); // app does this each frame
         assert!(app.editor.folds().all().iter().any(|f| f.start == 0 && f.end == 4));
     }
+
+    // ---- splitbelow / splitright -----------------------------------------
+
+    #[test]
+    fn default_split_opens_above_and_left() {
+        let mut app = App::new();
+        app.run_ex("split");
+        assert_eq!(app.layout.ids(), vec![WinId(1), WinId(0)]); // new above
+    }
+
+    #[test]
+    fn splitbelow_opens_new_window_below() {
+        let mut app = App::new();
+        app.run_ex("set splitbelow");
+        assert!(app.editor.splitbelow);
+        app.run_ex("split");
+        assert_eq!(app.layout.ids(), vec![WinId(0), WinId(1)]); // new below
+        assert_eq!(app.focused, WinId(1));
+    }
+
+    #[test]
+    fn splitright_opens_new_window_right() {
+        let mut app = App::new();
+        app.run_ex("set splitright");
+        app.run_ex("vsplit");
+        assert_eq!(app.layout.ids(), vec![WinId(0), WinId(1)]); // new to the right
+    }

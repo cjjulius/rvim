@@ -110,24 +110,39 @@ impl Layout {
     /// above (`Horizontal`) or to the left (`Vertical`) of the old one and gives
     /// focus. If `focused` is missing, nothing happens. Returns whether it split.
     pub fn split(&mut self, focused: WinId, kind: SplitKind, new_id: WinId) -> bool {
+        self.split_dir(focused, kind, new_id, true)
+    }
+
+    /// Like [`split`](Layout::split) but `before` chooses the new window's side:
+    /// `true` places it above/left (vim default), `false` below/right
+    /// (`splitbelow` / `splitright`).
+    pub fn split_dir(&mut self, focused: WinId, kind: SplitKind, new_id: WinId, before: bool) -> bool {
         if !self.contains(focused) || self.contains(new_id) {
             return false;
         }
-        Self::split_node(&mut self.root, focused, kind, new_id);
+        Self::split_node(&mut self.root, focused, kind, new_id, before);
         true
     }
 
     /// Returns whether the split happened within `node`.
-    fn split_node(node: &mut Node, focused: WinId, kind: SplitKind, new_id: WinId) -> bool {
+    fn split_node(
+        node: &mut Node,
+        focused: WinId,
+        kind: SplitKind,
+        new_id: WinId,
+        before: bool,
+    ) -> bool {
         match node {
             Node::Leaf(id) if *id == focused => {
-                // Replace this leaf with a split holding the new window first
-                // (above / left) and the old one second.
+                // Replace this leaf with a split; order puts the new window
+                // above/left (`before`) or below/right.
                 let old = *id;
-                *node = Node::Split {
-                    kind,
-                    children: vec![Node::Leaf(new_id), Node::Leaf(old)],
+                let children = if before {
+                    vec![Node::Leaf(new_id), Node::Leaf(old)]
+                } else {
+                    vec![Node::Leaf(old), Node::Leaf(new_id)]
                 };
+                *node = Node::Split { kind, children };
                 true
             }
             Node::Leaf(_) => false,
@@ -136,20 +151,21 @@ impl Layout {
                 children,
             } => {
                 // If a direct child is the focused leaf and this split runs along
-                // the same axis, insert the new window as a sibling before it
+                // the same axis, insert the new window as a sibling next to it
                 // rather than nesting a fresh split.
                 if *parent_kind == kind {
                     if let Some(pos) = children
                         .iter()
                         .position(|c| matches!(c, Node::Leaf(id) if *id == focused))
                     {
-                        children.insert(pos, Node::Leaf(new_id));
+                        let at = if before { pos } else { pos + 1 };
+                        children.insert(at, Node::Leaf(new_id));
                         return true;
                     }
                 }
                 children
                     .iter_mut()
-                    .any(|c| Self::split_node(c, focused, kind, new_id))
+                    .any(|c| Self::split_node(c, focused, kind, new_id, before))
             }
         }
     }
@@ -385,6 +401,19 @@ mod tests {
         assert_eq!(right, Rect::new(41, 0, 39, 24));
         // One column gap between them for the separator.
         assert_eq!(right.x, left.x + left.w + 1);
+    }
+
+    #[test]
+    fn split_dir_places_new_window_after_when_not_before() {
+        let mut l = Layout::new(WinId(0));
+        // before=false -> new window below/right of the old one.
+        l.split_dir(WinId(0), SplitKind::Horizontal, WinId(1), false);
+        assert_eq!(l.ids(), vec![WinId(0), WinId(1)]); // old first, new second
+        let r = l.rects(AREA);
+        assert_eq!(ids(&r), vec![0, 1]);
+        // A same-axis sibling also inserts after the focused window.
+        l.split_dir(WinId(1), SplitKind::Horizontal, WinId(2), false);
+        assert_eq!(l.ids(), vec![WinId(0), WinId(1), WinId(2)]);
     }
 
     #[test]
