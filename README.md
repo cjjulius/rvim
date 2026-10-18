@@ -520,6 +520,10 @@ even when scrolled.
   change, pattern not found, unknown command), the message appears in a distinct
   error color instead of blending in with ordinary status text, so you notice
   the failure. Each theme carries its own error color tuned to its palette.
+- **Off-screen line markers** — when a line runs wider than the window, a `>` at
+  the right edge shows it continues, and a `<` at the left edge shows text is
+  hidden because the view scrolled right. You always know when content sits just
+  out of sight.
 
 ### Code folding
 Collapse ranges of lines to a single summary row so you can read structure
@@ -642,7 +646,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **796 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **797 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

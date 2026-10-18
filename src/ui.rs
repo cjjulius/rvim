@@ -354,7 +354,7 @@ fn draw_text_area(
             } else {
                 None
             };
-            draw_text_line(
+            let truncated_right = draw_text_line(
                 out,
                 &ctx,
                 line,
@@ -362,6 +362,18 @@ fn draw_text_area(
                 row,
                 line_bg,
                 LineHl { match_col, cursor_col, cur_match },
+            )?;
+            // Edge markers: `<` when text is hidden to the left (scrolled right),
+            // `>` when the line continues past the right edge.
+            let precedes = editor.left > 0 && !line.is_empty();
+            draw_edge_markers(
+                out,
+                theme,
+                origin_x + layout.gutter_width,
+                origin_y + y,
+                layout.text_cols,
+                line_bg,
+                (precedes, truncated_right),
             )?;
         }
         row += 1;
@@ -711,6 +723,14 @@ struct LineHl {
     cur_match: Option<(usize, usize)>,
 }
 
+/// The glyph shown at a window edge when a line runs off it horizontally:
+/// `<` means text is hidden to the left (the view is scrolled right), `>` means
+/// text continues past the right edge.
+pub const PRECEDES_MARK: char = '<';
+pub const EXTENDS_MARK: char = '>';
+
+/// Draw one text line, clipped to the horizontal scroll window. Returns whether
+/// the line extends past the right edge (so the caller can show an edge marker).
 fn draw_text_line(
     out: &mut impl Write,
     ctx: &RenderCtx,
@@ -719,7 +739,7 @@ fn draw_text_line(
     row: usize,
     line_bg: Color,
     hl: LineHl,
-) -> io::Result<()> {
+) -> io::Result<bool> {
     let &RenderCtx {
         theme,
         layout,
@@ -762,9 +782,12 @@ fn draw_text_line(
     let mut run_bg = line_bg;
     let mut started = false;
     let mut printed = 0usize;
+    let mut truncated_right = false;
 
     for ci in left..chars.len() {
         if printed >= width {
+            // More characters remain than fit: the line extends past the edge.
+            truncated_right = true;
             break;
         }
         let ch = chars[ci].1;
@@ -872,6 +895,44 @@ fn draw_text_line(
                 s = e;
             }
         }
+    }
+    Ok(truncated_right)
+}
+
+/// Overlay the horizontal-scroll edge markers on a row that was just drawn.
+/// `text_x` is the first text column (after the gutter); `y` the absolute row.
+fn draw_edge_markers(
+    out: &mut impl Write,
+    theme: &Theme,
+    text_x: u16,
+    y: u16,
+    text_cols: u16,
+    line_bg: Color,
+    marks: (bool, bool),
+) -> io::Result<()> {
+    let (precedes, extends) = marks;
+    if text_cols == 0 {
+        return Ok(());
+    }
+    if precedes {
+        queue!(
+            out,
+            MoveTo(text_x, y),
+            SetBackgroundColor(line_bg),
+            SetForegroundColor(theme.gutter_fg),
+            Print(PRECEDES_MARK),
+            ResetColor,
+        )?;
+    }
+    if extends {
+        queue!(
+            out,
+            MoveTo(text_x + text_cols - 1, y),
+            SetBackgroundColor(line_bg),
+            SetForegroundColor(theme.gutter_fg),
+            Print(EXTENDS_MARK),
+            ResetColor,
+        )?;
     }
     Ok(())
 }
@@ -1561,6 +1622,32 @@ mod tests {
         let off = render_to(&ed);
         assert!(!off.contains("-- INSERT --"));
         assert!(!off.contains("1:1"));
+    }
+
+    #[test]
+    fn long_lines_report_truncation_and_edge_markers_draw() {
+        let theme = crate::theme::matrix();
+        let layout = Layout::compute(10, 24, 1, false, false); // 10-wide text area
+        let ctx = RenderCtx {
+            theme: &theme, layout: &layout, left: 0, sel: None, linewise: false, search: None,
+            tab_width: 4, block: None, list: false, listchars: ('▸', '·', '·', '$'), color_cols: &[],
+        };
+        // A line wider than the text area reports right-truncation; a short one does not.
+        let mut buf = Vec::new();
+        let long = "abcdefghijklmnopqrstuvwxyz";
+        assert!(draw_text_line(&mut buf, &ctx, long, &[], 0, theme.bg, NO_HL).unwrap());
+        let mut buf2 = Vec::new();
+        assert!(!draw_text_line(&mut buf2, &ctx, "abc", &[], 0, theme.bg, NO_HL).unwrap());
+
+        // The overlay emits `<`/`>` only for the edges that apply.
+        let mut both = Vec::new();
+        draw_edge_markers(&mut both, &theme, 0, 0, layout.text_cols, theme.bg, (true, true)).unwrap();
+        let s = String::from_utf8_lossy(&both);
+        assert!(s.contains(PRECEDES_MARK) && s.contains(EXTENDS_MARK));
+        let mut none = Vec::new();
+        draw_edge_markers(&mut none, &theme, 0, 0, layout.text_cols, theme.bg, (false, false)).unwrap();
+        let s2 = String::from_utf8_lossy(&none);
+        assert!(!s2.contains(PRECEDES_MARK) && !s2.contains(EXTENDS_MARK));
     }
 
     #[test]
