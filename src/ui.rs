@@ -521,8 +521,12 @@ fn draw_window_status(
         .map(|p| p.display().to_string())
         .unwrap_or_else(|| "[No Name]".to_string());
     let dirty = if editor.buffer.is_dirty() { " [+]" } else { "" };
+    let ff = match editor.buffer.fileformat() {
+        crate::buffer::LineEnding::Unix => "",
+        crate::buffer::LineEnding::Dos => " [dos]",
+    };
     let pos = format!("{}:{}", editor.cursor.row + 1, editor.cursor.col + 1);
-    let text = format!(" {file}{dirty} ");
+    let text = format!(" {file}{dirty}{ff} ");
     let w = rect.w as usize;
     let left: String = text.chars().take(w).collect();
     let right = format!(" {pos} ");
@@ -953,6 +957,11 @@ fn draw_status_line(
         .map(|p| p.display().to_string())
         .unwrap_or_else(|| "[No Name]".to_string());
     let dirty = if editor.buffer.is_dirty() { " [+]" } else { "" };
+    // Flag non-Unix line endings (a common gotcha); Unix is the quiet default.
+    let ff = match editor.buffer.fileformat() {
+        crate::buffer::LineEnding::Unix => "",
+        crate::buffer::LineEnding::Dos => " [dos]",
+    };
     let lang = editor.language.name();
     let pos = format!("{}:{}", editor.cursor.row + 1, editor.cursor.col + 1);
     let scroll = editor.scroll_indicator();
@@ -962,7 +971,7 @@ fn draw_status_line(
         Some(r) => format!("recording @{r}  "),
         None => String::new(),
     };
-    let mid = format!(" {file}{dirty} ");
+    let mid = format!(" {file}{dirty}{ff} ");
     // `:set ruler` controls the cursor position + scroll indicator.
     let right = if editor.ruler {
         format!(" {rec}{lang} | {pos} | {scroll} ")
@@ -1622,6 +1631,26 @@ mod tests {
         let off = render_to(&ed);
         assert!(!off.contains("-- INSERT --"));
         assert!(!off.contains("1:1"));
+    }
+
+    #[test]
+    fn status_line_flags_dos_line_endings_only() {
+        use crate::buffer::{Buffer, LineEnding};
+        let theme = crate::theme::matrix();
+        let syntax = Registry::default();
+        let render_to = |ed: &Editor| {
+            let mut buf: Vec<u8> = Vec::new();
+            render(&mut buf, ed, &theme, &syntax, &[], LineState::Normal).unwrap();
+            String::from_utf8_lossy(&buf).into_owned()
+        };
+        let mut ed = Editor::new();
+        ed.buffer = Buffer::from_text("hello");
+        ed.set_viewport(10, 40);
+        // Unix (the default) shows no format tag.
+        assert!(!render_to(&ed).contains("[dos]"));
+        // DOS line endings are flagged.
+        ed.buffer.set_fileformat(LineEnding::Dos);
+        assert!(render_to(&ed).contains("[dos]"));
     }
 
     #[test]

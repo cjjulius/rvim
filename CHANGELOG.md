@@ -11,6 +11,8 @@ All notable changes to rvim are recorded here. Versions follow
   own layout instead of cascading indentation.
 
 ### UI
+- The status line now shows a `[dos]` tag next to the file name when a buffer
+  uses Windows CRLF line endings (Unix files stay untagged).
 - Horizontal-scroll edge markers: a `>` at the right edge marks a line that
   continues off-screen and a `<` at the left edge marks text hidden by rightward
   scrolling, so truncated content is always signalled. Configurable through
