@@ -345,7 +345,8 @@ impl App {
             } else {
                 continue;
             };
-            let gw = ui::gutter_width(ed.buffer.line_count(), ed.show_line_numbers);
+            let gw = ui::gutter_width(ed.buffer.line_count(), ed.show_line_numbers)
+                + ed.foldcolumn as u16;
             let text_rows = rect.h.saturating_sub(1).max(1) as usize;
             let text_cols = rect.w.saturating_sub(gw).max(1) as usize;
             ed.set_viewport(text_rows, text_cols);
@@ -527,7 +528,8 @@ impl App {
                 self.editor.buffer.line_count(),
                 self.editor.show_line_numbers,
                 tabs.len() > 1,
-            );
+            )
+            .with_foldcolumn(self.editor.foldcolumn as u16);
             let split = !self.panes.is_empty();
             let area = self.window_area(cols, rows, tabs.len() > 1);
 
@@ -721,7 +723,8 @@ impl App {
         let in_text = m.row < rect.y + rect.h.saturating_sub(1);
         // Buffer position of the click within `ed`'s rect.
         let pos = |ed: &Editor| -> (usize, usize) {
-            let gw = ui::gutter_width(ed.buffer.line_count(), ed.show_line_numbers);
+            let gw = ui::gutter_width(ed.buffer.line_count(), ed.show_line_numbers)
+                + ed.foldcolumn as u16;
             let row = ed.top + (m.row - rect.y) as usize;
             let col = ed
                 .left
@@ -949,6 +952,10 @@ impl App {
                 None => self.editor.message = format!("Unknown filetype '{name}'"),
             },
             ExCommand::SetFoldMethod(name) => self.editor.set_fold_method(&name),
+            ExCommand::SetFoldColumn(n) => {
+                self.editor.foldcolumn = n.min(12);
+                self.editor.message = format!("foldcolumn={}", self.editor.foldcolumn);
+            }
             ExCommand::Help => self.open_help(),
             ExCommand::Version => {
                 self.editor.message = format!("rvim {}", crate::VERSION);
@@ -1357,6 +1364,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \tzi                 toggle folding on / off\n\
          \tzj / zk            jump to next / previous fold\n\
          \t[z / ]z            jump to start / end of the current fold\n\
+         \t:set foldcolumn=N   show a fold-indicator column N wide\n\
          \t:set foldmethod=indent   build folds from indentation\n\
          \t:set foldmethod=marker   build folds from fold markers (manual = default)\n\
          \n\

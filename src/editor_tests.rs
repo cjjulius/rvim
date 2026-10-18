@@ -5627,3 +5627,29 @@
         ed.handle_key(key('z'));
         assert_eq!(ed.cursor.row, 5); // no current fold -> unchanged
     }
+
+    // ---- fold-indicator column (:set foldcolumn) -------------------------
+
+    #[test]
+    fn fold_column_cells_mark_header_body_and_empty() {
+        let text: String = (0..6).map(|i| format!("line{i}")).collect::<Vec<_>>().join("\n");
+        let mut ed = ed_with(&text);
+        ed.cursor.row = 1;
+        for c in ['z', 'f', '2', 'j'] {
+            ed.handle_key(key(c)); // fold (1,3), closed
+        }
+        assert_eq!(ed.fold_column_cells(1, 1), "+"); // closed header
+        assert_eq!(ed.fold_column_cells(2, 1), "|"); // inside the fold
+        assert_eq!(ed.fold_column_cells(0, 1), " "); // no fold
+        // Open it: the header reads as a dash now, body still a bar.
+        ed.handle_key(key('z'));
+        ed.handle_key(key('R'));
+        assert_eq!(ed.fold_column_cells(1, 1), "-");
+        assert_eq!(ed.fold_column_cells(2, 1), "|");
+    }
+
+    #[test]
+    fn foldcolumn_cells_width_zero_is_empty() {
+        let ed = ed_with("a\nb");
+        assert_eq!(ed.fold_column_cells(0, 0), "");
+    }

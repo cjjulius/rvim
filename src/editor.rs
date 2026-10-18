@@ -409,6 +409,8 @@ pub struct Editor {
     pub foldenable: bool,
     /// How folds are created (`:set foldmethod`). Manual by default.
     pub foldmethod: FoldMethod,
+    /// `:set foldcolumn` — width of the fold-indicator column (0 = off).
+    pub foldcolumn: usize,
     /// Buffer revision at the last automatic (indent) fold recompute, so the
     /// folds are rebuilt only when the text actually changed.
     fold_rev: u64,
@@ -555,8 +557,35 @@ impl Editor {
             folds: Folds::default(),
             foldenable: true,
             foldmethod: FoldMethod::Manual,
+            foldcolumn: 0,
             fold_rev: u64::MAX,
         }
+    }
+
+    /// The fold-indicator glyphs for `row`, `width` cells wide (for `:set
+    /// foldcolumn`): `+` on a closed fold's header, `|` inside an open fold, else
+    /// a space. Nesting fills successive cells.
+    pub fn fold_column_cells(&self, row: usize, width: usize) -> String {
+        if width == 0 {
+            return String::new();
+        }
+        let mut cells = vec![' '; width];
+        if let Some((start, end)) = self.folds.current_fold(row) {
+            // A closed fold collapsed at this header reads as `+`; otherwise the
+            // open fold's extent reads as `|`.
+            let closed_header = self.folds.header(row).is_some();
+            let depth = self.folds.level(row).min(width);
+            for cell in cells.iter_mut().take(depth) {
+                *cell = '|';
+            }
+            if closed_header {
+                cells[depth.saturating_sub(1)] = '+';
+            } else if row == start || row == end {
+                // Mark the first/last line of an open fold with a dash.
+                cells[depth.saturating_sub(1)] = '-';
+            }
+        }
+        cells.into_iter().collect()
     }
 
     // ---- folding ---------------------------------------------------------
@@ -1145,6 +1174,7 @@ impl Editor {
             "textwidth" | "tw" => format!("textwidth={}", self.textwidth),
             "colorcolumn" | "cc" => format!("colorcolumn={}", self.colorcolumn),
             "filetype" | "ft" | "syntax" => format!("filetype={}", self.language.name()),
+            "foldcolumn" | "fdc" => format!("foldcolumn={}", self.foldcolumn),
             "foldmethod" | "fdm" => format!(
                 "foldmethod={}",
                 match self.foldmethod {
@@ -1274,7 +1304,7 @@ impl Editor {
         "incsearch", "autoindent", "expandtab", "list", "wrapscan", "cursorline",
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
-        "matchpairs", "filetype", "foldmethod",
+        "matchpairs", "filetype", "foldmethod", "foldcolumn",
     ];
 
     /// A `:set` / `:set all` listing: one option per line with its current value.

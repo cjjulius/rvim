@@ -27,6 +27,9 @@ pub struct Layout {
     pub text_cols: u16,
     /// Screen rows reserved at the very top (1 for the tab bar, else 0).
     pub top_offset: u16,
+    /// Columns of the gutter used by the fold-indicator column (`:set
+    /// foldcolumn`); these are the leftmost `fold_width` cells of `gutter_width`.
+    pub fold_width: u16,
 }
 
 impl Layout {
@@ -49,7 +52,17 @@ impl Layout {
             text_rows,
             text_cols,
             top_offset,
+            fold_width: 0,
         }
+    }
+
+    /// Reserve `fc` fold-indicator columns at the left of the gutter, shrinking
+    /// the text area to match. Returns the adjusted layout.
+    pub fn with_foldcolumn(mut self, fc: u16) -> Self {
+        self.fold_width = fc;
+        self.gutter_width += fc;
+        self.text_cols = self.cols.saturating_sub(self.gutter_width).max(1);
+        self
     }
 }
 
@@ -155,7 +168,8 @@ pub fn render(
         editor.buffer.line_count(),
         editor.show_line_numbers,
         show_tabline,
-    );
+    )
+    .with_foldcolumn(editor.foldcolumn as u16);
 
     // Bracket the whole frame in a synchronized update (DEC mode 2026). On
     // supporting terminals (Windows Terminal, modern xterms) every cell we draw
@@ -381,7 +395,8 @@ fn draw_window(
 ) -> io::Result<Option<(u16, u16)>> {
     let editor = view.editor;
     let rect = view.rect;
-    let gutter_width = gutter_width(editor.buffer.line_count(), editor.show_line_numbers);
+    let fold_width = editor.foldcolumn as u16;
+    let gutter_width = gutter_width(editor.buffer.line_count(), editor.show_line_numbers) + fold_width;
     let text_rows = rect.h.saturating_sub(1).max(1); // reserve the last row for the status line
     let text_cols = rect.w.saturating_sub(gutter_width).max(1);
     // A layout describing just this window; top_offset is 0 because the absolute
@@ -393,6 +408,7 @@ fn draw_window(
         text_rows,
         text_cols,
         top_offset: 0,
+        fold_width,
     };
     let cursor_y = draw_text_area(out, editor, theme, syntax, &per, rect.x, rect.y, view.top_state)?;
     draw_window_status(out, editor, theme, rect, view.focused)?;
@@ -533,28 +549,47 @@ fn draw_gutter(
         return Ok(());
     }
     let within = row < editor.buffer.line_count();
-    let (fg, text) = if within {
-        let fg = if row == editor.cursor.row {
-            theme.current_line_nr_fg
+    let fold_w = layout.fold_width as usize;
+    let num_w = layout.gutter_width.saturating_sub(layout.fold_width) as usize;
+
+    // Fold-indicator column (`:set foldcolumn`), leftmost.
+    if fold_w > 0 {
+        let cells = if within {
+            editor.fold_column_cells(row, fold_w)
         } else {
-            theme.gutter_fg
+            " ".repeat(fold_w)
         };
-        let text = gutter_label(
-            row,
-            editor.cursor.row,
-            editor.relative_numbers,
-            layout.gutter_width as usize,
-        );
-        (fg, text)
-    } else {
-        (theme.gutter_fg, " ".repeat(layout.gutter_width as usize))
-    };
-    queue!(
-        out,
-        SetBackgroundColor(theme.gutter_bg),
-        SetForegroundColor(fg),
-        Print(text)
-    )
+        queue!(
+            out,
+            SetBackgroundColor(theme.gutter_bg),
+            SetForegroundColor(theme.gutter_fg),
+            Print(cells)
+        )?;
+    }
+
+    // Line-number column.
+    if num_w > 0 {
+        let (fg, text) = if within {
+            let fg = if row == editor.cursor.row {
+                theme.current_line_nr_fg
+            } else {
+                theme.gutter_fg
+            };
+            (
+                fg,
+                gutter_label(row, editor.cursor.row, editor.relative_numbers, num_w),
+            )
+        } else {
+            (theme.gutter_fg, " ".repeat(num_w))
+        };
+        queue!(
+            out,
+            SetBackgroundColor(theme.gutter_bg),
+            SetForegroundColor(fg),
+            Print(text)
+        )?;
+    }
+    Ok(())
 }
 
 /// The foldtext for a closed fold: `+--  N lines: <first line>` padded to the
@@ -1253,6 +1288,28 @@ mod tests {
         // Cursor at b (row 1, col 3), gutter 0 -> x = 20+3 = 23, y = 0+1 = 1;
         // escape is 1-based, so expect col 24, row 2.
         assert_eq!((row, col), (2, 24), "focused cursor landed outside window b");
+    }
+
+    #[test]
+    fn foldcolumn_renders_markers_in_the_gutter() {
+        use crate::buffer::Buffer;
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        let mut ed = Editor::new();
+        ed.buffer = Buffer::from_text("a\nb\nc\nd\ne");
+        ed.show_line_numbers = false;
+        ed.foldcolumn = 1;
+        // Fold lines 1..=3, then open so the extent shows as bars/dashes.
+        ed.cursor.row = 1;
+        for c in ['z', 'f', '2', 'j', 'z', 'R'] {
+            ed.handle_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+        }
+        ed.set_viewport(10, 20);
+        let theme = crate::theme::matrix();
+        let syntax = Registry::default();
+        let mut buf: Vec<u8> = Vec::new();
+        render(&mut buf, &ed, &theme, &syntax, &[], LineState::Normal).unwrap();
+        let out = String::from_utf8_lossy(&buf);
+        assert!(out.contains('|'), "fold-extent bar missing from foldcolumn");
     }
 
     #[test]
