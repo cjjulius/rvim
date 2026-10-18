@@ -225,6 +225,8 @@ pub struct Editor {
     /// `:set smartindent` — add an indent level after a line ending in `{`, and
     /// dedent when `}` is typed as the first non-blank character (default off).
     pub smartindent: bool,
+    /// `:set title` — set the terminal window title to the current file name.
+    pub title: bool,
     /// Insert spaces instead of a tab character (`:set expandtab`).
     pub expandtab: bool,
     /// Columns inserted/removed by `>>`/`<<` and `=` (`:set shiftwidth`).
@@ -466,6 +468,7 @@ impl Editor {
             saved_hlsearch: true,
             autoindent: true,
             smartindent: false,
+            title: false,
             expandtab: true,
             shiftwidth: 4,
             shiftround: false,
@@ -974,6 +977,18 @@ impl Editor {
         Ok(ed)
     }
 
+    /// The terminal window title for `:set title`: the file's base name (or
+    /// `[No Name]`), with a `[+]` marker when modified, suffixed with ` - rvim`.
+    pub fn title_string(&self) -> String {
+        let name = self
+            .buffer
+            .path()
+            .and_then(|p| p.file_name().map(|s| s.to_string_lossy().into_owned()))
+            .unwrap_or_else(|| "[No Name]".to_string());
+        let dirty = if self.buffer.is_dirty() { " [+]" } else { "" };
+        format!("{name}{dirty} - rvim")
+    }
+
     /// `:set fileformat=unix|dos` — choose the line endings written on save.
     pub fn set_file_format(&mut self, name: &str) {
         match name {
@@ -1223,6 +1238,7 @@ impl Editor {
             "incsearch" | "is" => flag(self.incsearch, "incsearch"),
             "autoindent" | "ai" => flag(self.autoindent, "autoindent"),
             "smartindent" | "si" => flag(self.smartindent, "smartindent"),
+            "title" => flag(self.title, "title"),
             "expandtab" | "et" => flag(self.expandtab, "expandtab"),
             "list" => flag(self.list, "list"),
             "listchars" | "lcs" => self.listchars_summary(),
@@ -1377,8 +1393,8 @@ impl Editor {
     /// Canonical option names shown by `:set` / `:set all`, in display order.
     const OPTION_NAMES: &'static [&'static str] = &[
         "number", "relativenumber", "hlsearch", "ignorecase", "smartcase",
-        "incsearch", "autoindent", "smartindent", "expandtab", "list", "wrapscan",
-        "cursorline",
+        "incsearch", "autoindent", "smartindent", "title", "expandtab", "list",
+        "wrapscan", "cursorline",
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
         "matchpairs", "filetype", "fileformat", "foldmethod", "foldcolumn",

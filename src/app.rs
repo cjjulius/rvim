@@ -59,6 +59,9 @@ pub struct App {
     alternate: Option<String>,
     /// User-defined ex commands (`:command Name expansion`), keyed by name.
     user_commands: HashMap<String, String>,
+    /// Last window title pushed to the terminal (for `:set title`), so it is only
+    /// re-sent when it changes.
+    last_title: String,
 }
 
 impl App {
@@ -82,6 +85,7 @@ impl App {
             win_block_memo: HashMap::new(),
             alternate: None,
             user_commands: HashMap::new(),
+            last_title: String::new(),
         }
     }
 
@@ -688,6 +692,15 @@ impl App {
             // buffer changed); other fold methods refresh inside set_viewport.
             self.editor.recompute_syntax_folds(&self.syntax);
 
+            // `:set title` — update the terminal window title when it changes.
+            if self.editor.title {
+                let title = self.editor.title_string();
+                if title != self.last_title {
+                    let _ = crossterm::execute!(out, crossterm::terminal::SetTitle(&title));
+                    self.last_title = title;
+                }
+            }
+
             if split {
                 // Multiple windows: size each to its rectangle and draw them all.
                 self.size_windows(area);
@@ -1116,6 +1129,9 @@ impl App {
             }
             ExCommand::ToggleSmartIndent(on) => {
                 self.editor.smartindent = on;
+            }
+            ExCommand::ToggleTitle(on) => {
+                self.editor.title = on;
             }
             ExCommand::ToggleExpandTab(on) => {
                 self.editor.expandtab = on;

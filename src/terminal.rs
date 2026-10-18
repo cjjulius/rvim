@@ -11,7 +11,7 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use crossterm::execute;
-use std::io::{self, stdout};
+use std::io::{self, stdout, Write};
 
 /// RAII guard that owns the terminal's raw/alternate-screen state.
 pub struct TerminalGuard {
@@ -24,6 +24,10 @@ impl TerminalGuard {
         enable_raw_mode()?;
         let mut out = stdout();
         execute!(out, EnterAlternateScreen, Hide)?;
+        // Save the window title so `:set title` changes are restored on exit
+        // (xterm/Windows Terminal title stack; ignored elsewhere).
+        let _ = write!(out, "\x1b[22;2t");
+        let _ = out.flush();
         Ok(Self { mouse: false })
     }
 
@@ -53,6 +57,8 @@ impl Drop for TerminalGuard {
         if self.mouse {
             let _ = execute!(out, DisableMouseCapture);
         }
+        // Restore the saved window title (`:set title` may have changed it).
+        let _ = write!(out, "\x1b[23;2t");
         // Restore the user's cursor shape (we may have set a bar/underline).
         let _ = execute!(out, SetCursorStyle::DefaultUserShape, Show, LeaveAlternateScreen);
         let _ = disable_raw_mode();

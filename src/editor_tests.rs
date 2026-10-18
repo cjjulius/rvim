@@ -5795,3 +5795,15 @@
         ed.handle_key(special(KeyCode::Enter));
         assert_eq!(ed.buffer.line(1), Some(""));
     }
+
+    // ---- window title (:set title) ---------------------------------------
+
+    #[test]
+    fn title_string_reflects_file_and_modified_state() {
+        let mut ed = ed_with("hello");
+        assert_eq!(ed.title_string(), "[No Name] - rvim");
+        ed.buffer.set_path("src/main.rs");
+        assert_eq!(ed.title_string(), "main.rs - rvim");
+        ed.handle_key(key('x')); // an edit marks the buffer modified
+        assert_eq!(ed.title_string(), "main.rs [+] - rvim");
+    }
