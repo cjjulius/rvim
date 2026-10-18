@@ -60,7 +60,14 @@ impl Layout {
     /// the text area to match. Returns the adjusted layout.
     pub fn with_foldcolumn(mut self, fc: u16) -> Self {
         self.fold_width = fc;
-        self.gutter_width += fc;
+        self.gutter_width = self.gutter_width.saturating_add(fc);
+        // Never let the gutter consume the whole width (leaves room for text and
+        // keeps draw/cursor/mouse from spilling past the window).
+        let max_gutter = self.cols.saturating_sub(1);
+        if self.gutter_width > max_gutter {
+            self.gutter_width = max_gutter;
+            self.fold_width = self.fold_width.min(self.gutter_width);
+        }
         self.text_cols = self.cols.saturating_sub(self.gutter_width).max(1);
         self
     }
@@ -395,8 +402,15 @@ fn draw_window(
 ) -> io::Result<Option<(u16, u16)>> {
     let editor = view.editor;
     let rect = view.rect;
-    let fold_width = editor.foldcolumn as u16;
-    let gutter_width = gutter_width(editor.buffer.line_count(), editor.show_line_numbers) + fold_width;
+    let mut fold_width = editor.foldcolumn as u16;
+    let mut gutter_width =
+        gutter_width(editor.buffer.line_count(), editor.show_line_numbers) + fold_width;
+    // Keep the gutter within the pane so it can't spill into the neighbour.
+    let max_gutter = rect.w.saturating_sub(1);
+    if gutter_width > max_gutter {
+        gutter_width = max_gutter;
+        fold_width = fold_width.min(gutter_width);
+    }
     let text_rows = rect.h.saturating_sub(1).max(1); // reserve the last row for the status line
     let text_cols = rect.w.saturating_sub(gutter_width).max(1);
     // A layout describing just this window; top_offset is 0 because the absolute
@@ -1288,6 +1302,26 @@ mod tests {
         // Cursor at b (row 1, col 3), gutter 0 -> x = 20+3 = 23, y = 0+1 = 1;
         // escape is 1-based, so expect col 24, row 2.
         assert_eq!((row, col), (2, 24), "focused cursor landed outside window b");
+    }
+
+    #[test]
+    fn foldcolumn_shifts_cursor_x_by_its_width() {
+        use crate::buffer::Buffer;
+        let mut ed = Editor::new();
+        ed.buffer = Buffer::from_text("hello world");
+        ed.show_line_numbers = false; // gutter is purely the foldcolumn
+        ed.foldcolumn = 3;
+        ed.cursor.col = 4;
+        ed.set_viewport(10, 40);
+        let theme = crate::theme::matrix();
+        let syntax = Registry::default();
+        let mut buf: Vec<u8> = Vec::new();
+        render(&mut buf, &ed, &theme, &syntax, &[], LineState::Normal).unwrap();
+        let out = String::from_utf8_lossy(&buf);
+        // Final cursor MoveTo before Show: x = foldcolumn(3) + col(4) = 7 -> col 8 (1-based).
+        let re = regex::Regex::new("\u{1b}\\[(\\d+);(\\d+)H\u{1b}\\[\\?25h").unwrap();
+        let caps = re.captures(&out).expect("cursor MoveTo before Show");
+        assert_eq!(&caps[2], "8", "cursor x not shifted by foldcolumn width");
     }
 
     #[test]
