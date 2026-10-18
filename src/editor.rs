@@ -689,6 +689,41 @@ impl Editor {
         Ok(ed)
     }
 
+    /// Build a second view of this editor's content for a window split: an
+    /// independent copy of the buffer (same text, path and dirty state) plus the
+    /// cursor, scroll position and per-view preference flags. Edit history and the
+    /// two views then diverge — this is the independent-view split model.
+    pub fn duplicate_view(&self) -> Editor {
+        let mut ed = Editor::new();
+        ed.buffer = self.buffer.clone();
+        ed.language = self.language;
+        ed.cursor = self.cursor;
+        ed.top = self.top;
+        ed.left = self.left;
+        ed.show_line_numbers = self.show_line_numbers;
+        ed.relative_numbers = self.relative_numbers;
+        ed.hlsearch = self.hlsearch;
+        ed.ignorecase = self.ignorecase;
+        ed.smartcase = self.smartcase;
+        ed.incsearch = self.incsearch;
+        ed.wrapscan = self.wrapscan;
+        ed.autoindent = self.autoindent;
+        ed.expandtab = self.expandtab;
+        ed.shiftwidth = self.shiftwidth;
+        ed.shiftround = self.shiftround;
+        ed.joinspaces = self.joinspaces;
+        ed.tabstop = self.tabstop;
+        ed.scrolloff = self.scrolloff;
+        ed.sidescrolloff = self.sidescrolloff;
+        ed.textwidth = self.textwidth;
+        ed.list = self.list;
+        ed.cursorline = self.cursorline;
+        ed.cursorcolumn = self.cursorcolumn;
+        ed.colorcolumn = self.colorcolumn;
+        ed.matchpairs = self.matchpairs.clone();
+        ed
+    }
+
     /// The active search query (empty if none).
     pub fn search_query(&self) -> &str {
         &self.last_search

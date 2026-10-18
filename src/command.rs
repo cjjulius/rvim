@@ -211,6 +211,13 @@ pub enum ExCommand {
     /// `:[range]norm[al] {keys}` — run `keys` as Normal-mode input, once at the
     /// cursor (`range` is `None`) or on every line of the range.
     Normal { range: Option<SubRange>, keys: String },
+    /// `:sp[lit]` / `:vs[plit]` — split the focused window (horizontally, or
+    /// `vertical` for side-by-side), optionally opening `file` in the new window.
+    SplitWindow { vertical: bool, file: Option<String> },
+    /// `:clo[se][!]` — close the focused window (`force` discards unsaved changes).
+    CloseWindow { force: bool },
+    /// `:on[ly][!]` — close every window except the focused one.
+    OnlyWindow { force: bool },
     /// `:ls` / `:buffers` — list open buffers.
     BufferList,
     /// `:bn` / `:bnext` / `:n` / `:next`
@@ -394,6 +401,12 @@ pub fn parse(input: &str) -> ExCommand {
             },
         },
         "noh" | "nohl" | "nohlsearch" => ExCommand::ToggleHlSearch(false),
+        "sp" | "split" | "new" => ExCommand::SplitWindow { vertical: false, file: arg },
+        "vs" | "vsp" | "vsplit" | "vnew" => ExCommand::SplitWindow { vertical: true, file: arg },
+        "clo" | "close" => ExCommand::CloseWindow { force: false },
+        "clo!" | "close!" => ExCommand::CloseWindow { force: true },
+        "on" | "only" => ExCommand::OnlyWindow { force: false },
+        "on!" | "only!" => ExCommand::OnlyWindow { force: true },
         "ls" | "buffers" | "files" => ExCommand::BufferList,
         "bn" | "bnext" | "n" | "next" => ExCommand::BufferNext,
         "bp" | "bprev" | "bprevious" | "N" | "prev" | "previous" => ExCommand::BufferPrev,

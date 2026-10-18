@@ -5,6 +5,13 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Windows
+- Split windows: `:split`/`:vsplit` (and `Ctrl-w s`/`v`) divide the screen into
+  panes, `Ctrl-w h/j/k/l` and `Ctrl-w w`/`W` move focus, and `:close`/`:only`
+  (`Ctrl-w c`/`o`) tidy up. Each window keeps its own cursor and scroll position;
+  `:q` closes the focused window until only one remains. Same-file splits are
+  independent views for now (edits are not mirrored live).
+
 ## [1.0.0] — 2026-10-18
 
 First stable release. rvim is now a comprehensive vim-emulating terminal editor:

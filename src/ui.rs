@@ -168,30 +168,82 @@ pub fn render(
         draw_tabline(out, theme, &layout, tabs)?;
     }
 
+    // Draw the gutter + text area (fold-aware); returns the cursor's screen row
+    // offset within the area for positioning below.
+    let cursor_y = draw_text_area(out, editor, theme, syntax, &layout, 0, layout.top_offset, top_state)?;
+
+    draw_status_line(out, editor, theme, &layout)?;
+    // While completing on the command line, the candidate wildmenu takes over
+    // the status-line row (vim shows it just above the command line).
+    draw_wildmenu(out, editor, theme, &layout)?;
+    draw_command_line(out, editor, theme, &layout)?;
+
+    // The menu bar overlays everything and keeps the text cursor hidden.
+    if let Some(menu) = editor.menu() {
+        draw_menu(out, theme, &layout, menu)?;
+        queue!(out, Hide)?;
+    } else if editor.mode == Mode::Command {
+        let x = 1 + editor.cmdline.chars().count() as u16; // after ':' or '/'
+        queue!(out, MoveTo(x.min(layout.cols.saturating_sub(1)), layout.rows - 1), Show)?;
+    } else {
+        let cx = layout.gutter_width + (editor.cursor.col.saturating_sub(editor.left)) as u16;
+        // With folds the cursor's screen row is where the walk above drew its line
+        // (the fold header, if the cursor sits in a closed fold); without folds it
+        // is simply the distance below the top line.
+        let cy = cursor_y
+            .map(|y| layout.top_offset + y)
+            .unwrap_or_else(|| {
+                layout.top_offset + (editor.cursor.row.saturating_sub(editor.top)) as u16
+            });
+        queue!(
+            out,
+            MoveTo(
+                cx.min(layout.cols.saturating_sub(1)),
+                cy.min(layout.top_offset + layout.text_rows - 1)
+            ),
+            Show
+        )?;
+    }
+
+    queue!(out, EndSynchronizedUpdate)?;
+    out.flush()
+}
+
+/// Draw one editor's gutter + text area into `layout.text_rows` rows starting at
+/// screen cell `(origin_x, origin_y)`, bounded to `layout`'s widths. Fold-aware.
+/// Returns the cursor's row offset within the area (relative to `origin_y`), or
+/// `None` when the cursor line isn't on screen. Shared by the single-window
+/// `render` and the multi-pane `render_split`.
+#[allow(clippy::too_many_arguments)]
+fn draw_text_area(
+    out: &mut impl Write,
+    editor: &Editor,
+    theme: &Theme,
+    syntax: &Registry,
+    layout: &Layout,
+    origin_x: u16,
+    origin_y: u16,
+    top_state: LineState,
+) -> io::Result<Option<u16>> {
     let block = editor.block_rect();
     let sel = if block.is_some() { None } else { editor.selection() };
     let linewise = editor.mode == Mode::VisualLine;
     let search = editor.search_regex();
     let paren = editor.match_highlight();
 
-    // Multi-line syntax state feeding the first visible line (computed by the
-    // caller, memoized), then threaded through the visible rows.
     let mut line_state = top_state;
-    // With folds, consecutive screen rows no longer map to consecutive buffer
-    // lines, so we walk display rows and track where the cursor lands on screen.
     let folding = editor.folding();
     let mut row = editor.top;
     let mut cursor_y: Option<u16> = None;
 
     for y in 0..layout.text_rows {
-        queue!(out, MoveTo(0, layout.top_offset + y))?;
+        queue!(out, MoveTo(origin_x, origin_y + y))?;
         // The gutter is painted for every row, including those past the end of the
         // buffer (where it draws blank cells), so the tilde always sits in the text
         // column and the gutter never shows stale content.
-        draw_gutter(out, editor, theme, &layout, row)?;
+        draw_gutter(out, editor, theme, layout, row)?;
 
         if row >= editor.buffer.line_count() {
-            // Past end of buffer: tilde like vim.
             queue!(
                 out,
                 SetBackgroundColor(theme.bg),
@@ -208,12 +260,9 @@ pub fn render(
             cursor_y = Some(y);
         }
 
-        // A closed fold collapses `[row, end]` into a single header row. The
-        // hidden lines still advance the multi-line syntax state so highlighting
-        // past the fold stays correct.
         let header = if folding { editor.folds().header(row) } else { None };
         if let Some((_, end)) = header {
-            draw_fold_line(out, editor, theme, &layout, row, end)?;
+            draw_fold_line(out, editor, theme, layout, row, end)?;
             let mut l = row;
             while l <= end && l < editor.buffer.line_count() {
                 if let Some(line) = editor.buffer.line(l) {
@@ -251,7 +300,7 @@ pub fn render(
                 None
             };
             draw_text_line(
-                out, line, &tokens, theme, &layout, editor.left, row, line_bg, sel, linewise,
+                out, line, &tokens, theme, layout, editor.left, row, line_bg, sel, linewise,
                 search, editor.tabstop.max(1), block, match_col, editor.list,
                 editor.listchars(), color_col, cursor_col, cur_match,
             )?;
@@ -259,42 +308,180 @@ pub fn render(
         row += 1;
         queue!(out, ResetColor)?;
     }
+    Ok(cursor_y)
+}
 
-    draw_status_line(out, editor, theme, &layout)?;
-    // While completing on the command line, the candidate wildmenu takes over
-    // the status-line row (vim shows it just above the command line).
-    draw_wildmenu(out, editor, theme, &layout)?;
-    draw_command_line(out, editor, theme, &layout)?;
+/// One window to draw in a split layout.
+pub struct WindowView<'a> {
+    pub editor: &'a Editor,
+    pub rect: crate::window::Rect,
+    pub top_state: LineState,
+    pub focused: bool,
+}
 
-    // The menu bar overlays everything and keeps the text cursor hidden.
-    if let Some(menu) = editor.menu() {
-        draw_menu(out, theme, &layout, menu)?;
-        queue!(out, Hide)?;
-    } else if editor.mode == Mode::Command {
-        let x = 1 + editor.cmdline.chars().count() as u16; // after ':' or '/'
-        queue!(out, MoveTo(x.min(layout.cols.saturating_sub(1)), layout.rows - 1), Show)?;
-    } else {
-        let cx = layout.gutter_width + (editor.cursor.col.saturating_sub(editor.left)) as u16;
-        // With folds the cursor's screen row is where the walk above drew its line
-        // (the fold header, if the cursor sits in a closed fold); without folds it
-        // is simply the distance below the top line.
-        let cy = cursor_y
-            .map(|y| layout.top_offset + y)
-            .unwrap_or_else(|| {
-                layout.top_offset + (editor.cursor.row.saturating_sub(editor.top)) as u16
-            });
-        queue!(
-            out,
-            MoveTo(
-                cx.min(layout.cols.saturating_sub(1)),
-                cy.min(layout.top_offset + layout.text_rows - 1)
-            ),
-            Show
-        )?;
+/// Draw a full frame with multiple windows (after at least one `:split`). Each
+/// window gets its own gutter, text area and status line; side-by-side windows
+/// are divided by a vertical separator. The command line spans the bottom row and
+/// reflects the focused window.
+pub fn render_split(
+    out: &mut impl Write,
+    views: &[WindowView],
+    theme: &Theme,
+    syntax: &Registry,
+    tabs: &[TabEntry],
+) -> io::Result<()> {
+    let (cols, rows) = crossterm::terminal::size()?;
+    let show_tabline = tabs.len() > 1;
+    let bar_layout = Layout::compute(cols, rows, 1, false, show_tabline);
+
+    queue!(out, BeginSynchronizedUpdate, Hide, MoveTo(0, 0))?;
+    if show_tabline {
+        draw_tabline(out, theme, &bar_layout, tabs)?;
+    }
+
+    let mut focus_cursor: Option<(u16, u16)> = None;
+    let mut focus_editor: Option<&Editor> = None;
+    for v in views {
+        let pos = draw_window(out, v, theme, syntax)?;
+        if v.focused {
+            focus_cursor = pos;
+            focus_editor = Some(v.editor);
+        }
+    }
+
+    // Vertical separators: any window with another window directly to its right
+    // owns the one-column gap at `rect.x + rect.w`.
+    draw_separators(out, views, theme)?;
+
+    // The command line / message row belongs to the focused window.
+    if let Some(editor) = focus_editor {
+        draw_command_line(out, editor, theme, &bar_layout)?;
+        if editor.mode == Mode::Command {
+            let x = 1 + editor.cmdline.chars().count() as u16;
+            queue!(out, MoveTo(x.min(cols.saturating_sub(1)), rows - 1), Show)?;
+        } else if let Some((cx, cy)) = focus_cursor {
+            queue!(out, MoveTo(cx.min(cols.saturating_sub(1)), cy), Show)?;
+        }
     }
 
     queue!(out, EndSynchronizedUpdate)?;
     out.flush()
+}
+
+/// Draw a single window (gutter + text + its own status line) within its rect.
+/// Returns the absolute cursor position when this is the focused window.
+fn draw_window(
+    out: &mut impl Write,
+    view: &WindowView,
+    theme: &Theme,
+    syntax: &Registry,
+) -> io::Result<Option<(u16, u16)>> {
+    let editor = view.editor;
+    let rect = view.rect;
+    let gutter_width = gutter_width(editor.buffer.line_count(), editor.show_line_numbers);
+    let text_rows = rect.h.saturating_sub(1).max(1); // reserve the last row for the status line
+    let text_cols = rect.w.saturating_sub(gutter_width).max(1);
+    // A layout describing just this window; top_offset is 0 because the absolute
+    // vertical position is handled through `origin_y`.
+    let per = Layout {
+        cols: rect.w,
+        rows: rect.h,
+        gutter_width,
+        text_rows,
+        text_cols,
+        top_offset: 0,
+    };
+    let cursor_y = draw_text_area(out, editor, theme, syntax, &per, rect.x, rect.y, view.top_state)?;
+    draw_window_status(out, editor, theme, rect, view.focused)?;
+
+    let pos = if view.focused {
+        let cx = rect.x + gutter_width + (editor.cursor.col.saturating_sub(editor.left)) as u16;
+        let cy = rect.y + cursor_y.unwrap_or(0);
+        Some((
+            cx.min(rect.x + rect.w.saturating_sub(1)),
+            cy.min(rect.y + text_rows.saturating_sub(1)),
+        ))
+    } else {
+        None
+    };
+    Ok(pos)
+}
+
+/// A per-window status line on the last row of `rect`: file name, position, and a
+/// bright highlight when the window is focused.
+fn draw_window_status(
+    out: &mut impl Write,
+    editor: &Editor,
+    theme: &Theme,
+    rect: crate::window::Rect,
+    focused: bool,
+) -> io::Result<()> {
+    let y = rect.y + rect.h.saturating_sub(1);
+    let file = editor
+        .buffer
+        .path()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|| "[No Name]".to_string());
+    let dirty = if editor.buffer.is_dirty() { " [+]" } else { "" };
+    let pos = format!("{}:{}", editor.cursor.row + 1, editor.cursor.col + 1);
+    let text = format!(" {file}{dirty} ");
+    let w = rect.w as usize;
+    let left: String = text.chars().take(w).collect();
+    let right = format!(" {pos} ");
+    let used = left.chars().count() + right.chars().count();
+    let fill = w.saturating_sub(used);
+    let (fg, bg) = if focused {
+        (theme.mode_fg, theme.mode_bg)
+    } else {
+        (theme.status_fg, theme.status_bg)
+    };
+    let line: String = if used <= w {
+        format!("{left}{}{right}", " ".repeat(fill))
+    } else {
+        left.chars().take(w).collect()
+    };
+    queue!(
+        out,
+        MoveTo(rect.x, y),
+        SetBackgroundColor(bg),
+        SetForegroundColor(fg),
+        Print(line),
+        ResetColor
+    )
+}
+
+/// Draw the one-column vertical separators between side-by-side windows.
+fn draw_separators(
+    out: &mut impl Write,
+    views: &[WindowView],
+    theme: &Theme,
+) -> io::Result<()> {
+    for v in views {
+        let sep_x = v.rect.x + v.rect.w;
+        // A separator is owned by this window only if another window begins
+        // exactly one column to its right (i.e. the gap column is real).
+        let has_right = views
+            .iter()
+            .any(|o| o.rect.x == sep_x + 1 && overlaps_rows(&o.rect, &v.rect));
+        if !has_right {
+            continue;
+        }
+        for dy in 0..v.rect.h {
+            queue!(
+                out,
+                MoveTo(sep_x, v.rect.y + dy),
+                SetBackgroundColor(theme.bg),
+                SetForegroundColor(theme.gutter_fg),
+                Print("│"),
+                ResetColor
+            )?;
+        }
+    }
+    Ok(())
+}
+
+fn overlaps_rows(a: &crate::window::Rect, b: &crate::window::Rect) -> bool {
+    a.y < b.y + b.h && b.y < a.y + a.h
 }
 
 fn draw_tabline(
@@ -993,6 +1180,40 @@ mod tests {
     fn fold_text_truncates_when_narrow() {
         let s = fold_text(2, "something long here", 3, 8);
         assert_eq!(s.chars().count(), 8);
+    }
+
+    #[test]
+    fn render_split_draws_both_windows_and_a_separator() {
+        use crate::buffer::Buffer;
+        use crate::window::Rect;
+        let mut a = Editor::new();
+        a.buffer = Buffer::from_text("AAAA\nAAAA");
+        a.show_line_numbers = false;
+        let mut b = Editor::new();
+        b.buffer = Buffer::from_text("BBBB\nBBBB");
+        b.show_line_numbers = false;
+        let views = vec![
+            WindowView {
+                editor: &a,
+                rect: Rect::new(0, 0, 20, 10),
+                top_state: LineState::Normal,
+                focused: true,
+            },
+            WindowView {
+                editor: &b,
+                rect: Rect::new(21, 0, 20, 10),
+                top_state: LineState::Normal,
+                focused: false,
+            },
+        ];
+        let theme = crate::theme::matrix();
+        let syntax = Registry::default();
+        let mut buf: Vec<u8> = Vec::new();
+        render_split(&mut buf, &views, &theme, &syntax, &[]).unwrap();
+        let out = String::from_utf8_lossy(&buf);
+        assert!(out.contains("AAAA"), "left window text missing");
+        assert!(out.contains("BBBB"), "right window text missing");
+        assert!(out.contains('│'), "vertical separator missing");
     }
 
     #[test]

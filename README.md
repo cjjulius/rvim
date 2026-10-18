@@ -521,6 +521,18 @@ inside it. Folds can be nested. (Manual folds track line ranges and are not
 auto-adjusted across large structural edits — recreate them, or `zR` to reveal
 everything, after reshaping the file.)
 
+### Split windows
+View more than one file (or more than one place in a file) at once. Use `:split`
+to stack windows top and bottom, or `:vsplit` to place them side by side; add a
+file name to open it in the new window. Move between windows with `Ctrl-w` then a
+direction key (`h` `j` `k` `l`), or cycle with `Ctrl-w w`. Close the focused
+window with `:close` (or `Ctrl-w c`), and drop everything but the focused one
+with `:only`. Each window keeps its own cursor and scroll position.
+
+Note: two windows opened on the same file are independent views, so edits in one
+are not mirrored live in the other yet. Different files side by side work exactly
+as expected.
+
 ### Mouse support
 `:set mouse` enables click-to-position, drag-to-select (dragging starts a visual
 selection), and scroll-wheel paging; `:set nomouse` disables it.
@@ -593,9 +605,9 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **681 tests** across buffer, editor, clipboard, menu, syntax,
-themes, commands, config, pattern, plugins, folds, window layout, modes, and
-UI layout.
+Current suite: **692 tests** across buffer, editor, clipboard, menu, syntax,
+themes, commands, config, pattern, plugins, folds, windows, modes, and UI
+layout.
 
 ---
 
@@ -603,8 +615,8 @@ UI layout.
 
 Still planned, not yet built:
 
-- Split windows (horizontal and vertical) — the layout manager is in place;
-  wiring it to the editor and multi-pane drawing is next.
+- Shared-buffer splits: two windows on the same file that mirror edits live
+  (today they are independent views).
 - Automatic fold methods (`:set foldmethod=indent/syntax`); folds are manual for now.
 - More menu-bar actions.
 - More accessibility options: screen-reader hints and configurable cues.
