@@ -859,3 +859,34 @@
             assert_eq!(v.top_state, direct);
         }
     }
+
+    // ---- syntax folding (foldmethod=syntax) ------------------------------
+
+    #[test]
+    fn set_foldmethod_syntax_folds_braces() {
+        let mut app = App::new();
+        app.editor.language = Language::Rust;
+        app.editor.buffer = crate::buffer::Buffer::from_text("fn f() {\n  x;\n  y;\n}");
+        app.run_ex("set foldmethod=syntax");
+        assert_eq!(app.editor.foldmethod, crate::editor::FoldMethod::Syntax);
+        assert!(app.editor.folds().all().iter().any(|f| f.start == 0 && f.end == 3));
+    }
+
+    #[test]
+    fn syntax_folds_recompute_after_edit() {
+        let mut app = App::new();
+        app.editor.language = Language::Rust;
+        app.editor.buffer = crate::buffer::Buffer::from_text("fn f() {\n  x;\n  y;\n}");
+        app.run_ex("set foldmethod=syntax");
+        assert!(app.editor.folds().all().iter().any(|f| f.start == 0 && f.end == 3));
+        // Open a new line inside the block, growing it by one line.
+        app.editor.cursor.row = 2;
+        app.editor.handle_key(kev('o'));
+        app.editor.handle_key(kev('z'));
+        app.editor.handle_key(crossterm::event::KeyEvent::new(
+            crossterm::event::KeyCode::Esc,
+            crossterm::event::KeyModifiers::NONE,
+        ));
+        app.editor.recompute_syntax_folds(&app.syntax); // app does this each frame
+        assert!(app.editor.folds().all().iter().any(|f| f.start == 0 && f.end == 4));
+    }

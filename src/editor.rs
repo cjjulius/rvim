@@ -67,6 +67,7 @@ pub enum FoldMethod {
     Manual,
     Indent,
     Marker,
+    Syntax,
 }
 
 /// The leading-whitespace width of a line, counting a tab as `tabstop` columns.
@@ -683,8 +684,42 @@ impl Editor {
                 let n = self.folds.all().len();
                 self.message = format!("foldmethod={name} ({n} folds; zM to close)");
             }
+            // Syntax folding needs the syntax registry, so the app computes it
+            // (via recompute_syntax_folds) right after setting the method.
+            "syntax" => {
+                self.foldmethod = FoldMethod::Syntax;
+                self.fold_rev = u64::MAX; // force the app's next recompute
+            }
             other => self.message = format!("E474: unsupported foldmethod: {other}"),
         }
+    }
+
+    /// Rebuild folds for `foldmethod=syntax` from the tokenizer, preserving which
+    /// ranges were closed. Recomputes only when the buffer changed. Called by the
+    /// app, which owns the syntax registry.
+    pub fn recompute_syntax_folds(&mut self, syntax: &crate::syntax::Registry) {
+        if self.foldmethod != FoldMethod::Syntax {
+            return;
+        }
+        if self.buffer.revision() == self.fold_rev {
+            return;
+        }
+        let closed: Vec<(usize, usize)> = self
+            .folds
+            .all()
+            .iter()
+            .filter(|f| !f.open)
+            .map(|f| (f.start, f.end))
+            .collect();
+        self.folds.clear();
+        for (s, e) in syntax.syntax_fold_ranges(self.language, self.buffer.lines()) {
+            self.folds.create(s, e);
+        }
+        self.folds.open_all();
+        for (s, e) in closed {
+            self.folds.set_closed(s, e);
+        }
+        self.fold_rev = self.buffer.revision();
     }
 
     /// Fold ranges for the active automatic fold method.
@@ -694,7 +729,9 @@ impl Editor {
                 indent_fold_ranges(self.buffer.lines(), self.shiftwidth, self.tabstop)
             }
             FoldMethod::Marker => marker_fold_ranges(self.buffer.lines()),
-            FoldMethod::Manual => Vec::new(),
+            // Syntax folding is computed by the app (it needs the registry);
+            // manual folding has no automatic ranges.
+            FoldMethod::Manual | FoldMethod::Syntax => Vec::new(),
         }
     }
 
@@ -1181,6 +1218,7 @@ impl Editor {
                     FoldMethod::Manual => "manual",
                     FoldMethod::Indent => "indent",
                     FoldMethod::Marker => "marker",
+                    FoldMethod::Syntax => "syntax",
                 }
             ),
             other => format!("E518: Unknown option: {other}"),
