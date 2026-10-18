@@ -564,3 +564,140 @@
         app.run_ex("source /no/such/rvimrc-xyz");
         assert!(app.editor.message.contains("Can't open"));
     }
+
+    // ---- split windows ---------------------------------------------------
+
+    use crate::window::{Move, Rect};
+
+    fn kev(c: char) -> crossterm::event::KeyEvent {
+        crossterm::event::KeyEvent::new(
+            crossterm::event::KeyCode::Char(c),
+            crossterm::event::KeyModifiers::NONE,
+        )
+    }
+
+    #[test]
+    fn vsplit_and_split_add_windows() {
+        let mut app = App::new();
+        assert_eq!(app.window_count(), 1);
+        app.run_ex("vsplit");
+        assert_eq!(app.window_count(), 2);
+        assert_eq!(app.panes.len(), 1);
+        app.run_ex("split");
+        assert_eq!(app.window_count(), 3);
+    }
+
+    #[test]
+    fn split_duplicates_the_current_view() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("alpha\nbeta\ngamma");
+        app.editor.cursor.row = 2;
+        app.run_ex("split");
+        // New focused window shows the same text and cursor row.
+        assert_eq!(app.editor.buffer.line(0), Some("alpha"));
+        assert_eq!(app.editor.cursor.row, 2);
+        // The old window is preserved as a pane with the same content.
+        assert_eq!(app.panes[0].editor.buffer.line(2), Some("gamma"));
+    }
+
+    #[test]
+    fn split_with_file_opens_it_in_the_new_window() {
+        let mut app = App::new();
+        let dir = std::env::temp_dir();
+        let path = dir.join("rvim_split_test.txt");
+        std::fs::write(&path, "one\ntwo\n").unwrap();
+        app.run_ex(&format!("vsplit {}", path.display()));
+        assert_eq!(app.window_count(), 2);
+        assert_eq!(app.editor.buffer.line(0), Some("one"));
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn close_window_returns_to_single_and_refuses_last() {
+        let mut app = App::new();
+        app.run_ex("split");
+        assert_eq!(app.window_count(), 2);
+        app.run_ex("close");
+        assert_eq!(app.window_count(), 1);
+        assert!(app.panes.is_empty());
+        // Closing the last window is refused.
+        app.run_ex("close");
+        assert_eq!(app.window_count(), 1);
+        assert!(app.editor.message.contains("Cannot close last window"));
+    }
+
+    #[test]
+    fn only_window_drops_the_rest() {
+        let mut app = App::new();
+        app.run_ex("split");
+        app.run_ex("vsplit");
+        assert_eq!(app.window_count(), 3);
+        app.run_ex("only");
+        assert_eq!(app.window_count(), 1);
+        assert!(app.panes.is_empty());
+    }
+
+    #[test]
+    fn focus_cycles_through_windows() {
+        let mut app = App::new();
+        app.run_ex("split"); // focus = new window (id 1), pane = id 0
+        let first = app.focused;
+        app.focus_cycle(true);
+        assert_ne!(app.focused, first);
+        app.focus_cycle(true);
+        assert_eq!(app.focused, first); // wrapped back
+    }
+
+    #[test]
+    fn directional_focus_moves_between_panes() {
+        let mut app = App::new();
+        app.run_ex("vsplit"); // [new | old], focus on the left (new)
+        let left = app.focused;
+        let area = Rect::new(0, 0, 80, 24);
+        app.focus_dir(Move::Right, area);
+        let right = app.focused;
+        assert_ne!(right, left);
+        app.focus_dir(Move::Left, area);
+        assert_eq!(app.focused, left);
+    }
+
+    #[test]
+    fn edits_in_one_window_do_not_touch_the_other_view() {
+        // Independent-view model: splitting the same buffer gives separate copies.
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("x");
+        app.run_ex("split");
+        // Type into the focused window.
+        app.editor.handle_key(kev('i'));
+        app.editor.handle_key(kev('Z'));
+        app.editor
+            .handle_key(crossterm::event::KeyEvent::new(
+                crossterm::event::KeyCode::Esc,
+                crossterm::event::KeyModifiers::NONE,
+            ));
+        assert!(app.editor.buffer.line(0).unwrap().contains('Z'));
+        // The other window's view is unchanged.
+        assert_eq!(app.panes[0].editor.buffer.line(0), Some("x"));
+    }
+
+    #[test]
+    fn q_closes_window_when_split_then_quits_on_last() {
+        let mut app = App::new();
+        app.run_ex("split");
+        assert_eq!(app.window_count(), 2);
+        app.run_ex("q");
+        assert_eq!(app.window_count(), 1);
+        assert!(!app.quit);
+        app.run_ex("q");
+        assert!(app.quit);
+    }
+
+    #[test]
+    fn ctrl_w_key_dispatches_window_commands() {
+        let mut app = App::new();
+        let area = Rect::new(0, 0, 80, 24);
+        app.handle_window_key(kev('v'), area); // Ctrl-w v
+        assert_eq!(app.window_count(), 2);
+        app.handle_window_key(kev('o'), area); // Ctrl-w o
+        assert_eq!(app.window_count(), 1);
+    }

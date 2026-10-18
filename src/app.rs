@@ -9,17 +9,34 @@ use crate::syntax::{Language, LineState, Registry};
 use crate::terminal::TerminalGuard;
 use crate::theme::ThemeRegistry;
 use crate::ui::{self, Layout};
+use crate::window::{self, Move, SplitKind, WinId};
 use crossterm::event::{
     self, Event, KeyCode, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind,
 };
 use std::io::{self, BufWriter};
 
+/// One non-focused on-screen window: its layout id and the editor it shows.
+struct WinPane {
+    id: WinId,
+    editor: Editor,
+}
+
 /// Top-level editor application.
 pub struct App {
-    /// The active buffer.
+    /// The focused window's editor (also the active buffer).
     pub editor: Editor,
     /// Other open buffers (inactive), in list order.
     others: Vec<Editor>,
+    /// The split-window geometry. A single `Leaf` until the first `:split`.
+    layout: window::Layout,
+    /// The other visible windows (everything in `layout` except the focused one).
+    panes: Vec<WinPane>,
+    /// The focused window's layout id; its editor is `self.editor`.
+    focused: WinId,
+    /// Monotonic source of fresh window ids.
+    next_win: usize,
+    /// Set when `Ctrl-w` was pressed and the next key is a window command.
+    pending_ctrl_w: bool,
     themes: ThemeRegistry,
     syntax: Registry,
     plugins: PluginManager,
@@ -41,6 +58,11 @@ impl App {
         Self {
             editor: Editor::new(),
             others: Vec::new(),
+            layout: window::Layout::new(WinId(0)),
+            panes: Vec::new(),
+            focused: WinId(0),
+            next_win: 1,
+            pending_ctrl_w: false,
             themes: ThemeRegistry::with_builtins(),
             syntax: Registry::with_builtins(),
             plugins: PluginManager::with_builtins(),
@@ -297,6 +319,188 @@ impl App {
         }
     }
 
+    // ---- window management ----------------------------------------------
+
+    /// Number of on-screen windows.
+    fn window_count(&self) -> usize {
+        self.layout.count()
+    }
+
+    /// The text-area rectangle the window layout tiles: everything below the
+    /// optional tab bar, above the command line.
+    fn window_area(&self, cols: u16, rows: u16, show_tabline: bool) -> window::Rect {
+        let top = if show_tabline { 1 } else { 0 };
+        window::Rect::new(0, top, cols, rows.saturating_sub(top).saturating_sub(1))
+    }
+
+    /// Give each visible window the viewport size of its rectangle (reserving its
+    /// status-line row and gutter), so scrolling tracks the cursor per window.
+    fn size_windows(&mut self, area: window::Rect) {
+        let rects = self.layout.rects(area);
+        for (id, rect) in rects {
+            let ed = if id == self.focused {
+                &mut self.editor
+            } else if let Some(p) = self.panes.iter_mut().find(|p| p.id == id) {
+                &mut p.editor
+            } else {
+                continue;
+            };
+            let gw = ui::gutter_width(ed.buffer.line_count(), ed.show_line_numbers);
+            let text_rows = rect.h.saturating_sub(1).max(1) as usize;
+            let text_cols = rect.w.saturating_sub(gw).max(1) as usize;
+            ed.set_viewport(text_rows, text_cols);
+        }
+    }
+
+    /// Move focus to `target` (a pane id) by swapping its editor with the focused
+    /// one. No-op if `target` is already focused or unknown.
+    fn activate_window(&mut self, target: WinId) {
+        if target == self.focused {
+            return;
+        }
+        if let Some(pos) = self.panes.iter().position(|p| p.id == target) {
+            let pane = self.panes.remove(pos);
+            let old = std::mem::replace(&mut self.editor, pane.editor);
+            self.panes.push(WinPane { id: self.focused, editor: old });
+            self.focused = target;
+        }
+    }
+
+    /// `:split` / `:vsplit` (and `Ctrl-w s` / `Ctrl-w v`). The new window takes
+    /// focus and shows `file`, or a duplicate view of the current buffer.
+    fn split_window(&mut self, vertical: bool, file: Option<&str>) {
+        let new_id = WinId(self.next_win);
+        let kind = if vertical {
+            SplitKind::Vertical
+        } else {
+            SplitKind::Horizontal
+        };
+        if !self.layout.split(self.focused, kind, new_id) {
+            return;
+        }
+        let new_editor = match file {
+            Some(path) => match Editor::from_file(path) {
+                Ok(mut ed) => {
+                    self.inherit_prefs(&mut ed);
+                    ed
+                }
+                Err(e) => {
+                    self.layout.close(new_id); // undo the split
+                    self.editor.message = format!("E212: Can't open \"{path}\": {e}");
+                    return;
+                }
+            },
+            None => self.editor.duplicate_view(),
+        };
+        self.next_win += 1;
+        let old = std::mem::replace(&mut self.editor, new_editor);
+        self.panes.push(WinPane {
+            id: self.focused,
+            editor: old,
+        });
+        self.focused = new_id;
+    }
+
+    /// `:close` / `Ctrl-w c` / `Ctrl-w q` — close the focused window. Refuses the
+    /// last window, or an unsaved one without `force`. Returns whether it closed.
+    fn close_window(&mut self, force: bool) -> bool {
+        if self.window_count() == 1 {
+            self.editor.message = "E444: Cannot close last window".into();
+            return false;
+        }
+        if self.editor.buffer.is_dirty() && !force {
+            self.editor.message =
+                "E37: No write since last change (add ! to override)".into();
+            return false;
+        }
+        let next = self.layout.prev(self.focused).unwrap_or(self.focused);
+        self.layout.close(self.focused);
+        if let Some(pos) = self.panes.iter().position(|p| p.id == next) {
+            let pane = self.panes.remove(pos);
+            self.editor = pane.editor;
+            self.focused = next;
+        }
+        true
+    }
+
+    /// `:only` / `Ctrl-w o` — close every window but the focused one.
+    fn only_window(&mut self, force: bool) {
+        if self.window_count() == 1 {
+            return;
+        }
+        if !force && self.panes.iter().any(|p| p.editor.buffer.is_dirty()) {
+            self.editor.message =
+                "E37: another window has unsaved changes (add ! to override)".into();
+            return;
+        }
+        self.layout.only(self.focused);
+        self.panes.clear();
+    }
+
+    /// `Ctrl-w w` / `Ctrl-w W` — cycle focus through the windows.
+    fn focus_cycle(&mut self, forward: bool) {
+        let target = if forward {
+            self.layout.next(self.focused)
+        } else {
+            self.layout.prev(self.focused)
+        };
+        if let Some(t) = target {
+            self.activate_window(t);
+        }
+    }
+
+    /// `Ctrl-w h/j/k/l` — move focus to the adjacent window in `area`.
+    fn focus_dir(&mut self, dir: Move, area: window::Rect) {
+        if let Some(t) = self.layout.neighbor(self.focused, dir, area) {
+            self.activate_window(t);
+        }
+    }
+
+    /// Dispatch the second key of a `Ctrl-w` window command.
+    fn handle_window_key(&mut self, key: crossterm::event::KeyEvent, area: window::Rect) {
+        self.editor.message.clear();
+        match key.code {
+            KeyCode::Char('s') => self.split_window(false, None),
+            KeyCode::Char('v') => self.split_window(true, None),
+            KeyCode::Char('w') => self.focus_cycle(true),
+            KeyCode::Char('W') => self.focus_cycle(false),
+            KeyCode::Char('h') | KeyCode::Left => self.focus_dir(Move::Left, area),
+            KeyCode::Char('j') | KeyCode::Down => self.focus_dir(Move::Down, area),
+            KeyCode::Char('k') | KeyCode::Up => self.focus_dir(Move::Up, area),
+            KeyCode::Char('l') | KeyCode::Right => self.focus_dir(Move::Right, area),
+            KeyCode::Char('c') | KeyCode::Char('q') => {
+                self.close_window(false);
+            }
+            KeyCode::Char('o') => self.only_window(false),
+            _ => {}
+        }
+    }
+
+    /// The per-window views for the renderer (focused window first is not
+    /// required; order follows the layout). Computes each window's syntax state.
+    fn window_views(&self, area: window::Rect) -> Vec<ui::WindowView<'_>> {
+        self.layout
+            .rects(area)
+            .into_iter()
+            .filter_map(|(id, rect)| {
+                let editor = if id == self.focused {
+                    &self.editor
+                } else {
+                    &self.panes.iter().find(|p| p.id == id)?.editor
+                };
+                let top_state =
+                    self.syntax
+                        .block_state_at(editor.language, editor.buffer.lines(), editor.top);
+                Some(ui::WindowView {
+                    editor,
+                    rect,
+                    top_state,
+                    focused: id == self.focused,
+                })
+            })
+            .collect()
+    }
+
     /// Run the interactive event loop until the user quits.
     pub fn run(&mut self) -> io::Result<()> {
         let mut guard = TerminalGuard::enter()?;
@@ -324,25 +528,47 @@ impl App {
                 self.editor.show_line_numbers,
                 tabs.len() > 1,
             );
-            self.editor
-                .set_viewport(layout.text_rows as usize, layout.text_cols as usize);
+            let split = !self.panes.is_empty();
+            let area = self.window_area(cols, rows, tabs.len() > 1);
 
-            // Block-comment state feeding the first visible line, memoized so an
-            // unchanged view doesn't re-fold from the top of the buffer each frame.
-            let in_block_top = self.block_state_top();
-
-            ui::render(
-                &mut out,
-                &self.editor,
-                self.themes.current(),
-                &self.syntax,
-                &tabs,
-                in_block_top,
-            )?;
+            if split {
+                // Multiple windows: size each to its rectangle and draw them all.
+                self.size_windows(area);
+                let views = self.window_views(area);
+                ui::render_split(&mut out, &views, self.themes.current(), &self.syntax, &tabs)?;
+            } else {
+                self.editor
+                    .set_viewport(layout.text_rows as usize, layout.text_cols as usize);
+                // Block-comment state feeding the first visible line, memoized so an
+                // unchanged view doesn't re-fold from the top of the buffer each frame.
+                let in_block_top = self.block_state_top();
+                ui::render(
+                    &mut out,
+                    &self.editor,
+                    self.themes.current(),
+                    &self.syntax,
+                    &tabs,
+                    in_block_top,
+                )?;
+            }
 
             match event::read()? {
                 Event::Key(key) => {
                     if key.kind == KeyEventKind::Release {
+                        continue;
+                    }
+                    // The second key of a `Ctrl-w` window command.
+                    if self.pending_ctrl_w {
+                        self.pending_ctrl_w = false;
+                        self.handle_window_key(key, area);
+                        continue;
+                    }
+                    // `Ctrl-w` starts a window command (an app-level concern).
+                    if self.editor.mode == Mode::Normal
+                        && key.modifiers.contains(KeyModifiers::CONTROL)
+                        && key.code == KeyCode::Char('w')
+                    {
+                        self.pending_ctrl_w = true;
                         continue;
                     }
                     // Alt+<key> (or F10) opens the menu bar from Normal mode.
@@ -485,13 +711,19 @@ impl App {
                 self.do_write(arg);
             }
             ExCommand::Quit { force } => {
-                let dirty = self.editor.buffer.is_dirty()
-                    || self.others.iter().any(|e| e.buffer.is_dirty());
-                if dirty && !force {
-                    self.editor.message =
-                        "E37: No write since last change (add ! to override)".into();
+                // With splits, `:q` closes the focused window (vim). Only the last
+                // window quits the app.
+                if self.window_count() > 1 {
+                    self.close_window(force);
                 } else {
-                    self.quit = true;
+                    let dirty = self.editor.buffer.is_dirty()
+                        || self.others.iter().any(|e| e.buffer.is_dirty());
+                    if dirty && !force {
+                        self.editor.message =
+                            "E37: No write since last change (add ! to override)".into();
+                    } else {
+                        self.quit = true;
+                    }
                 }
             }
             ExCommand::WriteQuit(arg) => {
@@ -541,6 +773,13 @@ impl App {
                     }
                 }
             }
+            ExCommand::SplitWindow { vertical, file } => {
+                self.split_window(vertical, file.as_deref());
+            }
+            ExCommand::CloseWindow { force } => {
+                self.close_window(force);
+            }
+            ExCommand::OnlyWindow { force } => self.only_window(force),
             ExCommand::BufferList => self.buffer_list(),
             ExCommand::BufferNext => self.buffer_next(),
             ExCommand::BufferPrev => self.buffer_prev(),
@@ -1047,6 +1286,14 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \tzR / zM            open all / close all folds\n\
          \tzd / zE            delete fold under cursor / all folds\n\
          \tzi                 toggle folding on / off\n\
+         \n\
+         WINDOWS\n\
+         \t:split / :vsplit    split the window (horizontal / vertical)\n\
+         \tCtrl-w s / Ctrl-w v same, from Normal mode\n\
+         \tCtrl-w h/j/k/l      move focus left / down / up / right\n\
+         \tCtrl-w w / Ctrl-w W cycle focus forward / back\n\
+         \tCtrl-w c / :close   close the focused window\n\
+         \tCtrl-w o / :only    keep only the focused window\n\
          \n\
          EDITING\n\
          \tx / X              delete char under / before   r<c>  replace\n\
