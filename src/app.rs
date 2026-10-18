@@ -283,6 +283,23 @@ impl App {
         self.editor.message = format!("{count} buffer(s) done");
     }
 
+    /// `:windo {cmd}` — run `cmd` in every window, returning focus to the window
+    /// it started in.
+    fn win_do(&mut self, cmd: &str) {
+        if cmd.trim().is_empty() {
+            return;
+        }
+        let original = self.focused;
+        for id in self.layout.ids() {
+            if self.quit {
+                break;
+            }
+            self.activate_window(id);
+            self.run_ex(cmd);
+        }
+        self.activate_window(original);
+    }
+
     fn buffer_next(&mut self) {
         if self.others.is_empty() {
             self.editor.message = "only one buffer".into();
@@ -1079,6 +1096,7 @@ impl App {
             ExCommand::OnlyWindow { force } => self.only_window(force),
             ExCommand::BufferList => self.buffer_list(),
             ExCommand::BufDo(cmd) => self.buf_do(&cmd),
+            ExCommand::WinDo(cmd) => self.win_do(&cmd),
             ExCommand::BufferNext => self.buffer_next(),
             ExCommand::BufferPrev => self.buffer_prev(),
             ExCommand::Buffer(n) => self.buffer_goto(n),
