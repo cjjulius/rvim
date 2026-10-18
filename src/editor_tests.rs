@@ -5373,3 +5373,78 @@
         let rows = ed.display_rows_between(ed.top, ed.cursor.row);
         assert!(rows <= ed.view_rows, "cursor {} rows below top (view {})", rows, ed.view_rows);
     }
+
+    // ---- fold-aware screen motions (H / M / L / page scroll) --------------
+
+    /// A 30-line buffer with lines 5..=20 collapsed into one closed fold, an
+    /// 8-row viewport, and the cursor back at the top.
+    fn ed_with_fold() -> Editor {
+        let text: String = (0..30).map(|i| format!("line{i}")).collect::<Vec<_>>().join("\n");
+        let mut ed = ed_with(&text);
+        ed.cursor.row = 5;
+        // zf15j -> fold rows 5..=20 (closed).
+        ed.handle_key(key('z'));
+        ed.handle_key(key('f'));
+        for c in "15".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(key('j'));
+        // Back to the top, then size the window.
+        ed.handle_key(key('g'));
+        ed.handle_key(key('g'));
+        ed.set_viewport(8, 20);
+        ed
+    }
+
+    #[test]
+    fn capital_l_lands_on_the_bottom_visible_row_with_folds() {
+        let mut ed = ed_with_fold();
+        // Visible rows from top 0: 0,1,2,3,4,5(header->21),21,22 -> bottom = line 22.
+        ed.handle_key(key('L'));
+        assert_eq!(ed.cursor.row, 22);
+    }
+
+    #[test]
+    fn capital_h_with_count_counts_visible_rows() {
+        let mut ed = ed_with_fold();
+        // 3H -> third visible row from the top = line 2.
+        ed.handle_key(key('3'));
+        ed.handle_key(key('H'));
+        assert_eq!(ed.cursor.row, 2);
+        // 7H -> seventh visible row = line 21 (first line after the fold).
+        let mut ed2 = ed_with_fold();
+        ed2.handle_key(key('7'));
+        ed2.handle_key(key('H'));
+        assert_eq!(ed2.cursor.row, 21);
+    }
+
+    #[test]
+    fn capital_m_is_the_middle_visible_row_with_folds() {
+        let mut ed = ed_with_fold();
+        // view_rows/2 = 4 steps down from top: 0,1,2,3,4 -> line 4.
+        ed.handle_key(key('M'));
+        assert_eq!(ed.cursor.row, 4);
+    }
+
+    #[test]
+    fn page_forward_advances_top_by_display_rows_with_folds() {
+        let mut ed = ed_with_fold();
+        // Ctrl-f step = view_rows-2 = 6 display rows down from top 0 -> line 21.
+        ed.handle_key(ctrl('f'));
+        assert_eq!(ed.top, 21);
+        assert_eq!(ed.cursor.row, 21);
+    }
+
+    #[test]
+    fn screen_motions_unchanged_without_folds() {
+        let text: String = (0..30).map(|i| format!("line{i}")).collect::<Vec<_>>().join("\n");
+        let mut ed = ed_with(&text);
+        ed.set_viewport(8, 20);
+        ed.handle_key(key('L')); // bottom = top(0) + 8 - 1 = 7
+        assert_eq!(ed.cursor.row, 7);
+        ed.handle_key(key('g'));
+        ed.handle_key(key('g'));
+        ed.set_viewport(8, 20);
+        ed.handle_key(key('M')); // top + 8/2 = 4
+        assert_eq!(ed.cursor.row, 4);
+    }

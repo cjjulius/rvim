@@ -516,8 +516,10 @@ without the noise. Folds are manual (you choose the ranges):
 - `zi` turns folding off and on without discarding your folds.
 
 Movement respects folds: `j` and `k` step over a closed fold as if it were one
-line, and the cursor always rests on the fold's header rather than vanishing
-inside it. Folds can be nested. (Manual folds track line ranges and are not
+line, the screen motions `H`, `M`, `L` and the page keys count collapsed folds as
+a single row, and the cursor always rests on the fold's header rather than
+vanishing inside it. Folds can be nested. (Manual folds track line ranges and are
+not
 auto-adjusted across large structural edits — recreate them, or `zR` to reveal
 everything, after reshaping the file.)
 
@@ -607,7 +609,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **695 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **700 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

@@ -1867,7 +1867,16 @@ impl Editor {
     fn page_scroll(&mut self, forward: bool, count: usize) {
         let last = self.buffer.line_count().saturating_sub(1);
         let step = self.view_rows.saturating_sub(2).max(1) * count.max(1);
-        if forward {
+        if self.folding() {
+            // Step `top` by whole display rows so collapsed folds count as one.
+            if forward {
+                self.top = self.nth_visible_down(self.top, step);
+                self.cursor.row = self.top;
+            } else {
+                self.top = self.nth_visible_up(self.top, step);
+                self.cursor.row = self.nth_visible_down(self.top, self.view_rows.saturating_sub(1));
+            }
+        } else if forward {
             self.top = (self.top + step).min(last);
             self.cursor.row = self.top;
         } else {
@@ -1877,6 +1886,52 @@ impl Editor {
         self.move_first_nonblank();
         self.clamp_cursor(false);
         self.scroll_into_view();
+    }
+
+    /// Count of display rows actually shown from `top` (at most `view_rows`, fewer
+    /// near the end of the buffer). Folds collapse to one row each.
+    fn window_shown_rows(&self) -> usize {
+        let bottom = self.nth_visible_down(self.top, self.view_rows.saturating_sub(1));
+        self.display_rows_between(self.top, bottom)
+    }
+
+    /// Target row for `H` — `count-1` visible rows below the top of the window.
+    fn screen_high_row(&self, count: usize) -> usize {
+        if self.folding() {
+            let shown = self.window_shown_rows();
+            let steps = count.saturating_sub(1).min(shown.saturating_sub(1));
+            self.nth_visible_down(self.top, steps)
+        } else {
+            let last = self.buffer.line_count().saturating_sub(1);
+            let bottom = (self.top + self.view_rows.saturating_sub(1)).min(last);
+            (self.top + count.saturating_sub(1)).min(bottom)
+        }
+    }
+
+    /// Target row for `M` — the middle visible row of the window.
+    fn screen_mid_row(&self) -> usize {
+        if self.folding() {
+            let shown = self.window_shown_rows();
+            let steps = (self.view_rows / 2).min(shown.saturating_sub(1));
+            self.nth_visible_down(self.top, steps)
+        } else {
+            let last = self.buffer.line_count().saturating_sub(1);
+            (self.top + self.view_rows / 2).min(last)
+        }
+    }
+
+    /// Target row for `L` — `count-1` visible rows above the bottom of the window.
+    fn screen_low_row(&self, count: usize) -> usize {
+        if self.folding() {
+            let shown = self.window_shown_rows();
+            let from_bottom = count.saturating_sub(1).min(shown.saturating_sub(1));
+            let steps = shown.saturating_sub(1).saturating_sub(from_bottom);
+            self.nth_visible_down(self.top, steps)
+        } else {
+            let last = self.buffer.line_count().saturating_sub(1);
+            let bottom = (self.top + self.view_rows.saturating_sub(1)).min(last);
+            bottom.saturating_sub(count.saturating_sub(1)).max(self.top)
+        }
     }
 
     fn scroll_into_view(&mut self) {
@@ -3825,24 +3880,19 @@ impl Editor {
             }
             KeyCode::Char('H') => {
                 self.record_jump();
-                let last = self.buffer.line_count().saturating_sub(1);
-                let bottom = (self.top + self.view_rows.saturating_sub(1)).min(last);
-                // `[count]H` -> count-1 lines below the top, bounded to the window.
-                self.cursor.row = (self.top + count.saturating_sub(1)).min(bottom);
+                // `[count]H` -> count-1 visible rows below the top of the window.
+                self.cursor.row = self.screen_high_row(count);
                 self.move_first_nonblank();
             }
             KeyCode::Char('M') => {
                 self.record_jump();
-                let last = self.buffer.line_count().saturating_sub(1);
-                self.cursor.row = (self.top + self.view_rows / 2).min(last);
+                self.cursor.row = self.screen_mid_row();
                 self.move_first_nonblank();
             }
             KeyCode::Char('L') => {
                 self.record_jump();
-                let last = self.buffer.line_count().saturating_sub(1);
-                let bottom = (self.top + self.view_rows.saturating_sub(1)).min(last);
-                // `[count]L` -> count-1 lines above the bottom, not above the top.
-                self.cursor.row = bottom.saturating_sub(count.saturating_sub(1)).max(self.top);
+                // `[count]L` -> count-1 visible rows above the bottom of the window.
+                self.cursor.row = self.screen_low_row(count);
                 self.move_first_nonblank();
             }
             KeyCode::Char('d') => {
@@ -4339,15 +4389,9 @@ impl Editor {
             KeyCode::Char('_') => OpTarget::Lines(row, (row + count - 1).min(last)),
             KeyCode::Char('G') => OpTarget::Lines(row, last),
             // Screen motions are line-wise operator targets (`dH`, `dL`, `dM`).
-            KeyCode::Char('H') => {
-                let bottom = (self.top + self.view_rows.saturating_sub(1)).min(last);
-                OpTarget::Lines((self.top + count.saturating_sub(1)).min(bottom), row)
-            }
-            KeyCode::Char('M') => OpTarget::Lines(row, (self.top + self.view_rows / 2).min(last)),
-            KeyCode::Char('L') => {
-                let bottom = (self.top + self.view_rows.saturating_sub(1)).min(last);
-                OpTarget::Lines(row, bottom.saturating_sub(count.saturating_sub(1)).max(self.top))
-            }
+            KeyCode::Char('H') => OpTarget::Lines(self.screen_high_row(count), row),
+            KeyCode::Char('M') => OpTarget::Lines(row, self.screen_mid_row()),
+            KeyCode::Char('L') => OpTarget::Lines(row, self.screen_low_row(count)),
             // `%` — operate from the cursor to the matching bracket, inclusive
             // (charwise, may cross lines). `d%`, `y%`, `c%`.
             KeyCode::Char('%') => {
