@@ -5,6 +5,15 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-10-18
+
+First stable release. rvim is now a comprehensive vim-emulating terminal editor:
+modal editing with wide keystroke parity, multi-buffer workflows, incremental
+search and substitution, registers and macros, visual and block modes, manual
+code folding, syntax highlighting for seventeen languages, themes, mouse
+support, and an Alt-activated menu bar. Backed by 681 tests. The sections below
+collect everything landed since 0.2.0.
+
 ### Internal
 - Window layout manager (foundation for split windows): a split tree that turns
   `:split`/`:vsplit` structure into per-window rectangles (siblings divide space
