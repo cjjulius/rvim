@@ -2646,6 +2646,27 @@
     }
 
     #[test]
+    fn paste_mode_suppresses_autoindent_on_enter() {
+        let mut ed = ed_with("    code");
+        ed.paste = true; // autoindent stays on by default, but paste overrides it
+        ed.handle_key(key('A'));
+        ed.handle_key(special(KeyCode::Enter));
+        ed.handle_key(key('x'));
+        assert_eq!(ed.buffer.line(1), Some("x")); // no indent copied
+    }
+
+    #[test]
+    fn paste_mode_suppresses_smartindent_after_open_brace() {
+        let mut ed = ed_with("if x {");
+        ed.smartindent = true;
+        ed.paste = true;
+        ed.handle_key(key('A'));
+        ed.handle_key(special(KeyCode::Enter));
+        ed.handle_key(key('y'));
+        assert_eq!(ed.buffer.line(1), Some("y")); // no extra indent level
+    }
+
+    #[test]
     fn insert_ctrl_w_deletes_word_before() {
         let mut ed = ed_with("foo bar");
         ed.handle_key(key('A')); // insert at end
