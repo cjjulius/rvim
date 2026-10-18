@@ -272,6 +272,21 @@ fn draw_text_area(
     // saturating_sub guards the hot path against a stray 0 in the (public) field.
     let color_cols: Vec<usize> = editor.colorcolumns.iter().map(|c| c.saturating_sub(1)).collect();
 
+    // Frame-constant drawing parameters, built once and shared by every line.
+    let ctx = RenderCtx {
+        theme,
+        layout,
+        left: editor.left,
+        sel,
+        linewise,
+        search,
+        tab_width: editor.tabstop.max(1),
+        block,
+        list: editor.list,
+        listchars: editor.listchars(),
+        color_cols: &color_cols,
+    };
+
     let mut line_state = top_state;
     let folding = editor.folding();
     let mut row = editor.top;
@@ -340,9 +355,13 @@ fn draw_text_area(
                 None
             };
             draw_text_line(
-                out, line, &tokens, theme, layout, editor.left, row, line_bg, sel, linewise,
-                search, editor.tabstop.max(1), block, match_col, editor.list,
-                editor.listchars(), &color_cols, cursor_col, cur_match,
+                out,
+                &ctx,
+                line,
+                &tokens,
+                row,
+                line_bg,
+                LineHl { match_col, cursor_col, cur_match },
             )?;
         }
         row += 1;
@@ -667,28 +686,54 @@ fn draw_fold_line(
     )
 }
 
-#[allow(clippy::too_many_arguments)]
-fn draw_text_line(
-    out: &mut impl Write,
-    line: &str,
-    tokens: &[Token],
-    theme: &Theme,
-    layout: &Layout,
+/// Per-frame constants shared by every line drawn in one frame (bundled so the
+/// per-line draw call stays readable).
+#[derive(Clone, Copy)]
+struct RenderCtx<'a> {
+    theme: &'a Theme,
+    layout: &'a Layout,
     left: usize,
-    row: usize,
-    line_bg: Color,
     sel: Option<(Position, Position)>,
     linewise: bool,
-    search: Option<&regex::Regex>,
+    search: Option<&'a regex::Regex>,
     tab_width: usize,
     block: Option<(usize, usize, usize, usize)>,
-    match_col: Option<usize>,
     list: bool,
     listchars: (char, char, char, char),
-    color_cols: &[usize],
+    color_cols: &'a [usize],
+}
+
+/// Highlight positions specific to a single line.
+#[derive(Clone, Copy)]
+struct LineHl {
+    match_col: Option<usize>,
     cursor_col: Option<usize>,
     cur_match: Option<(usize, usize)>,
+}
+
+fn draw_text_line(
+    out: &mut impl Write,
+    ctx: &RenderCtx,
+    line: &str,
+    tokens: &[Token],
+    row: usize,
+    line_bg: Color,
+    hl: LineHl,
 ) -> io::Result<()> {
+    let &RenderCtx {
+        theme,
+        layout,
+        left,
+        sel,
+        linewise,
+        search,
+        tab_width,
+        block,
+        list,
+        listchars,
+        color_cols,
+    } = ctx;
+    let LineHl { match_col, cursor_col, cur_match } = hl;
     let chars: Vec<(usize, char)> = line.char_indices().collect();
     let matches = search.map(|re| crate::pattern::match_ranges(re, line)).unwrap_or_default();
     // With `:set list`, trailing whitespace (after the last non-blank char) is
@@ -1243,6 +1288,13 @@ fn draw_dropdown(
 mod tests {
     use super::*;
 
+    /// No per-line highlights, for draw_text_line tests.
+    const NO_HL: LineHl = LineHl {
+        match_col: None,
+        cursor_col: None,
+        cur_match: None,
+    };
+
     #[test]
     fn fold_text_shows_line_count_and_fills() {
         let s = fold_text(1, "    fn main() {", 12, 30);
@@ -1443,11 +1495,11 @@ mod tests {
         let theme = crate::theme::matrix();
         let layout = Layout::compute(80, 24, 1, false, false);
         let mut buf: Vec<u8> = Vec::new();
-        draw_text_line(
-            &mut buf, "a\tb  ", &[], &theme, &layout, 0, 0, theme.bg, None, false, None, 4,
-            None, None, true, ('▸', '·', '·', '$'), &[], None, None,
-        )
-        .unwrap();
+        let ctx = RenderCtx {
+            theme: &theme, layout: &layout, left: 0, sel: None, linewise: false, search: None,
+            tab_width: 4, block: None, list: true, listchars: ('▸', '·', '·', '$'), color_cols: &[],
+        };
+        draw_text_line(&mut buf, &ctx, "a\tb  ", &[], 0, theme.bg, NO_HL).unwrap();
         let out = String::from_utf8_lossy(&buf);
         assert!(out.contains('▸')); // tab marker
         assert!(out.contains('·')); // trailing-space / tab-fill marker
@@ -1460,11 +1512,12 @@ mod tests {
         let layout = Layout::compute(20, 24, 1, false, false);
         let mut buf: Vec<u8> = Vec::new();
         // Line "ab"; guides at 0-based columns 1 (inside, the 'b') and 4 (past EOL).
-        draw_text_line(
-            &mut buf, "ab", &[], &theme, &layout, 0, 0, theme.bg, None, false, None, 4,
-            None, None, false, ('▸', '·', '·', '$'), &[1, 4], None, None,
-        )
-        .unwrap();
+        let ctx = RenderCtx {
+            theme: &theme, layout: &layout, left: 0, sel: None, linewise: false, search: None,
+            tab_width: 4, block: None, list: false, listchars: ('▸', '·', '·', '$'),
+            color_cols: &[1, 4],
+        };
+        draw_text_line(&mut buf, &ctx, "ab", &[], 0, theme.bg, NO_HL).unwrap();
         let out = String::from_utf8_lossy(&buf);
         // The color-column background should appear for both guide cells.
         let mut probe: Vec<u8> = Vec::new();
@@ -1478,11 +1531,11 @@ mod tests {
         let theme = crate::theme::matrix();
         let layout = Layout::compute(80, 24, 1, false, false);
         let mut buf: Vec<u8> = Vec::new();
-        draw_text_line(
-            &mut buf, "a\tb  ", &[], &theme, &layout, 0, 0, theme.bg, None, false, None, 4,
-            None, None, false, ('▸', '·', '·', '$'), &[], None, None,
-        )
-        .unwrap();
+        let ctx = RenderCtx {
+            theme: &theme, layout: &layout, left: 0, sel: None, linewise: false, search: None,
+            tab_width: 4, block: None, list: false, listchars: ('▸', '·', '·', '$'), color_cols: &[],
+        };
+        draw_text_line(&mut buf, &ctx, "a\tb  ", &[], 0, theme.bg, NO_HL).unwrap();
         let out = String::from_utf8_lossy(&buf);
         assert!(!out.contains('▸'));
         assert!(!out.contains('$'));

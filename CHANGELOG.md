@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Internal
+- Rendering cleanup: the per-line draw helper takes a small `RenderCtx` of
+  frame-constant parameters instead of nineteen positional arguments (no behavior
+  change).
+
 ### Buffers
 - `:bufdo {cmd}` runs an ex command on every open buffer and returns to the one
   you started in (e.g. `:bufdo %s/old/new/g`).
