@@ -355,6 +355,9 @@ pub fn render_split(
 
     // The command line / message row belongs to the focused window.
     if let Some(editor) = focus_editor {
+        // While completing on the command line, the wildmenu takes the row just
+        // above the command line (same as single-window mode).
+        draw_wildmenu(out, editor, theme, &bar_layout)?;
         draw_command_line(out, editor, theme, &bar_layout)?;
         if editor.mode == Mode::Command {
             let x = 1 + editor.cmdline.chars().count() as u16;
