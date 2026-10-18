@@ -5562,3 +5562,68 @@
         ed.set_viewport(10, 40);
         assert!(ed.folds().all().iter().any(|f| f.start == 0 && f.end == 4));
     }
+
+    // ---- fold navigation motions (zj / zk / [z / ]z) ---------------------
+
+    /// 12 lines with two open folds: lines 1..=3 and 6..=8.
+    fn ed_with_two_folds() -> Editor {
+        let text: String = (0..12).map(|i| format!("line{i}")).collect::<Vec<_>>().join("\n");
+        let mut ed = ed_with(&text);
+        ed.cursor.row = 1;
+        for c in ['z', 'f', '2', 'j'] {
+            ed.handle_key(key(c));
+        }
+        ed.cursor.row = 6;
+        for c in ['z', 'f', '2', 'j'] {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(key('z'));
+        ed.handle_key(key('R')); // open all so the cursor can roam
+        ed
+    }
+
+    #[test]
+    fn zj_moves_to_next_fold_start() {
+        let mut ed = ed_with_two_folds();
+        ed.cursor.row = 0;
+        ed.handle_key(key('z'));
+        ed.handle_key(key('j'));
+        assert_eq!(ed.cursor.row, 1);
+        ed.handle_key(key('z'));
+        ed.handle_key(key('j'));
+        assert_eq!(ed.cursor.row, 6);
+    }
+
+    #[test]
+    fn zk_moves_to_previous_fold_end() {
+        let mut ed = ed_with_two_folds();
+        ed.cursor.row = 11;
+        ed.handle_key(key('z'));
+        ed.handle_key(key('k'));
+        assert_eq!(ed.cursor.row, 8);
+        ed.handle_key(key('z'));
+        ed.handle_key(key('k'));
+        assert_eq!(ed.cursor.row, 3);
+    }
+
+    #[test]
+    fn bracket_z_moves_to_fold_edges() {
+        let mut ed = ed_with_two_folds();
+        ed.cursor.row = 2; // inside fold 1..=3
+        ed.handle_key(key('['));
+        ed.handle_key(key('z'));
+        assert_eq!(ed.cursor.row, 1); // start
+        ed.cursor.row = 2;
+        ed.handle_key(key(']'));
+        ed.handle_key(key('z'));
+        assert_eq!(ed.cursor.row, 3); // end
+    }
+
+    #[test]
+    fn fold_motions_no_op_without_a_fold() {
+        let mut ed = ed_with_two_folds();
+        ed.cursor.row = 5; // between the two folds, inside none
+        ed.handle_key(key('['));
+        ed.handle_key(key('z'));
+        assert_eq!(ed.cursor.row, 5); // no current fold -> unchanged
+    }

@@ -1355,6 +1355,8 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \tzR / zM            open all / close all folds\n\
          \tzd / zE            delete fold under cursor / all folds\n\
          \tzi                 toggle folding on / off\n\
+         \tzj / zk            jump to next / previous fold\n\
+         \t[z / ]z            jump to start / end of the current fold\n\
          \t:set foldmethod=indent   build folds from indentation\n\
          \t:set foldmethod=marker   build folds from fold markers (manual = default)\n\
          \n\
