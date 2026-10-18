@@ -6,6 +6,8 @@ All notable changes to rvim are recorded here. Versions follow
 ## [Unreleased]
 
 ### UI
+- `:set title` shows the current file name (with a modified marker) in the
+  terminal window title, and the previous title is restored on exit.
 - `:set colorcolumn` accepts several comma-separated columns (e.g. `cc=80,120`),
   each drawn as a guide including past the end of short lines.
 

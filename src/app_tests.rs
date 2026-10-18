@@ -995,3 +995,12 @@
         app.run_ex("command W W"); // alias to itself must not loop forever
         app.run_ex("W"); // returns (bounded resolution), no hang
     }
+
+    #[test]
+    fn set_title_option_toggles() {
+        let mut app = App::new();
+        app.run_ex("set title");
+        assert!(app.editor.title);
+        app.run_ex("set notitle");
+        assert!(!app.editor.title);
+    }
