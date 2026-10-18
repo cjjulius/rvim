@@ -349,8 +349,8 @@ impl Layout {
                             // The focused window is in child `i`. The nearest
                             // enclosing split of the requested kind adjusts it.
                             if *k == kind {
-                                let w = weights[i] as i16 + delta;
-                                weights[i] = w.max(1) as u16;
+                                let w = weights[i] as i32 + delta as i32;
+                                weights[i] = w.clamp(1, u16::MAX as i32) as u16;
                                 return ResizeResult::Done;
                             }
                             return ResizeResult::InSubtree;
@@ -473,6 +473,34 @@ mod tests {
         let h = |n: usize| r.iter().find(|(WinId(x), _)| *x == n).unwrap().1.h;
         assert_eq!(h(1), 16);
         assert_eq!(h(0), 8);
+    }
+
+    #[test]
+    fn resize_adjusts_the_nearest_enclosing_split_of_that_kind() {
+        // Vertical split, then split the left column horizontally: the left
+        // column (containing windows 2 over 1) sits in the vertical split.
+        let mut l = Layout::new(WinId(0));
+        l.split(WinId(0), SplitKind::Vertical, WinId(1)); // [1 | 0]
+        l.split(WinId(1), SplitKind::Horizontal, WinId(2)); // left col: 2 over 1
+        // A vertical resize of window 2 widens the whole left column.
+        assert!(l.resize(WinId(2), SplitKind::Vertical, 1));
+        let r = l.rects(AREA);
+        let w = |n: usize| r.iter().find(|(WinId(x), _)| *x == n).unwrap().1.w;
+        // Left column (windows 1 and 2) is now wider than the right (window 0).
+        assert!(w(2) > w(0));
+        assert_eq!(w(1), w(2)); // the two left windows share the column width
+    }
+
+    #[test]
+    fn resize_shrink_clamps_at_minimum_weight() {
+        let mut l = Layout::new(WinId(0));
+        l.split(WinId(0), SplitKind::Horizontal, WinId(1));
+        // Shrinking far past the floor keeps the window present (weight >= 1).
+        l.resize(WinId(1), SplitKind::Horizontal, -100);
+        let r = l.rects(AREA);
+        let total: u16 = r.iter().map(|(_, rc)| rc.h).sum();
+        assert_eq!(total, 24);
+        assert!(r.iter().all(|(_, rc)| rc.h >= 1));
     }
 
     #[test]
