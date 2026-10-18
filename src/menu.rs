@@ -73,7 +73,7 @@ fn capitalize(s: &str) -> String {
 
 /// Build the full menu tree. `themes` and `plugin_cmds` make the View/Tools
 /// menus reflect what's actually registered.
-pub fn build_menus(themes: &[&str], plugin_cmds: &[&str]) -> Vec<Menu> {
+pub fn build_menus(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> Vec<Menu> {
     let file = Menu {
         title: "File".into(),
         items: vec![
@@ -132,6 +132,17 @@ pub fn build_menus(themes: &[&str], plugin_cmds: &[&str]) -> Vec<Menu> {
                 ],
             ),
             MenuItem::submenu(
+                "Folding",
+                vec![
+                    MenuItem::command("Method: Manual", "set foldmethod=manual"),
+                    MenuItem::command("Method: Indent", "set foldmethod=indent"),
+                    MenuItem::command("Method: Marker", "set foldmethod=marker"),
+                    MenuItem::command("Method: Syntax", "set foldmethod=syntax"),
+                    MenuItem::command("Fold Column On", "set foldcolumn=4"),
+                    MenuItem::command("Fold Column Off", "set foldcolumn=0"),
+                ],
+            ),
+            MenuItem::submenu(
                 "Options",
                 vec![
                     MenuItem::command("Mouse On", "set mouse"),
@@ -140,26 +151,37 @@ pub fn build_menus(themes: &[&str], plugin_cmds: &[&str]) -> Vec<Menu> {
                     MenuItem::command("Search Highlight Off", "set nohlsearch"),
                     MenuItem::command("Auto-indent On", "set autoindent"),
                     MenuItem::command("Auto-indent Off", "set noautoindent"),
+                    MenuItem::command("Smart-indent On", "set smartindent"),
+                    MenuItem::command("Smart-indent Off", "set nosmartindent"),
+                    MenuItem::command("Show Whitespace On", "set list"),
+                    MenuItem::command("Show Whitespace Off", "set nolist"),
+                    MenuItem::command("Cursor Line On", "set cursorline"),
+                    MenuItem::command("Cursor Line Off", "set nocursorline"),
                 ],
             ),
         ],
     };
 
+    let window = Menu {
+        title: "Window".into(),
+        items: vec![
+            MenuItem::command("Split", "split"),
+            MenuItem::command("Vertical Split", "vsplit"),
+            MenuItem::command_hint("Split File…", "split", "split "),
+            MenuItem::command("Close Window", "close"),
+            MenuItem::command("Only This Window", "only"),
+        ],
+    };
+
+    // Generated from the language table so new languages appear automatically.
+    let mut ft_items: Vec<MenuItem> = langs
+        .iter()
+        .map(|l| MenuItem::command(&capitalize(l), &format!("set ft={l}")))
+        .collect();
+    ft_items.push(MenuItem::command("Plain Text", "set ft=text"));
     let language = Menu {
         title: "Language".into(),
-        items: vec![MenuItem::submenu(
-            "Set Filetype",
-            vec![
-                MenuItem::command("Rust", "set ft=rust"),
-                MenuItem::command("T-SQL", "set ft=tsql"),
-                MenuItem::command("PostgreSQL", "set ft=pgsql"),
-                MenuItem::command("Trino / Starburst", "set ft=trino"),
-                MenuItem::command("Snowflake", "set ft=snowflake"),
-                MenuItem::command("Z80 Assembly", "set ft=z80"),
-                MenuItem::command("ANSI SQL", "set ft=sql"),
-                MenuItem::command("Plain Text", "set ft=text"),
-            ],
-        )],
+        items: vec![MenuItem::submenu("Set Filetype", ft_items)],
     };
 
     let tools = Menu {
@@ -178,7 +200,7 @@ pub fn build_menus(themes: &[&str], plugin_cmds: &[&str]) -> Vec<Menu> {
         ],
     };
 
-    vec![file, buffers, edit, view, language, tools, help]
+    vec![file, buffers, edit, view, window, language, tools, help]
 }
 
 /// The result of a navigation key.
@@ -348,17 +370,41 @@ mod tests {
     use super::*;
 
     fn state() -> MenuState {
-        MenuState::new(build_menus(&["matrix", "cobalt"], &["wordcount"]))
+        MenuState::new(build_menus(&["matrix", "cobalt"], &["rust"], &["wordcount"]))
     }
 
     #[test]
     fn menus_cover_core_commands() {
-        let menus = build_menus(&["matrix"], &["wordcount"]);
+        let menus = build_menus(&["matrix"], &["rust"], &["wordcount"]);
         let titles: Vec<&str> = menus.iter().map(|m| m.title.as_str()).collect();
         assert_eq!(
             titles,
-            vec!["File", "Buffers", "Edit", "View", "Language", "Tools", "Help"]
+            vec!["File", "Buffers", "Edit", "View", "Window", "Language", "Tools", "Help"]
         );
+    }
+
+    #[test]
+    fn filetype_menu_is_generated_and_window_fold_entries_exist() {
+        fn walk(items: &[MenuItem], out: &mut Vec<String>) {
+            for it in items {
+                match &it.action {
+                    MenuAction::Command(c) => out.push(c.clone()),
+                    MenuAction::Submenu(sub) => walk(sub, out),
+                }
+            }
+        }
+        let menus = build_menus(&["matrix"], &["typescript", "go"], &[]);
+        let mut cmds = Vec::new();
+        for m in &menus {
+            walk(&m.items, &mut cmds);
+        }
+        // Filetypes come from the provided language list.
+        assert!(cmds.contains(&"set ft=typescript".to_string()));
+        assert!(cmds.contains(&"set ft=go".to_string()));
+        // New Window and Folding actions are present.
+        assert!(cmds.contains(&"vsplit".to_string()));
+        assert!(cmds.contains(&"only".to_string()));
+        assert!(cmds.contains(&"set foldmethod=indent".to_string()));
     }
 
     #[test]
