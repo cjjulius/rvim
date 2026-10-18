@@ -269,7 +269,8 @@ fn draw_text_area(
     let search = editor.search_regex();
     let paren = editor.match_highlight();
     // Color-column guides as 0-based columns (computed once for all rows).
-    let color_cols: Vec<usize> = editor.colorcolumns.iter().map(|c| c - 1).collect();
+    // saturating_sub guards the hot path against a stray 0 in the (public) field.
+    let color_cols: Vec<usize> = editor.colorcolumns.iter().map(|c| c.saturating_sub(1)).collect();
 
     let mut line_state = top_state;
     let folding = editor.folding();
