@@ -701,3 +701,40 @@
         app.handle_window_key(kev('o'), area); // Ctrl-w o
         assert_eq!(app.window_count(), 1);
     }
+
+    fn mouse(kind: MouseEventKind, col: u16, row: u16) -> event::MouseEvent {
+        event::MouseEvent { kind, column: col, row, modifiers: KeyModifiers::NONE }
+    }
+
+    #[test]
+    fn mouse_click_focuses_and_positions_in_the_hovered_pane() {
+        let mut app = App::new();
+        app.editor.show_line_numbers = false;
+        app.editor.buffer =
+            crate::buffer::Buffer::from_text("aaaaaaaa\nbbbbbbbb\ncccccccc\ndddddddd");
+        app.run_ex("vsplit"); // left = new (focused), right = id 0
+        assert_ne!(app.focused, WinId(0));
+        let layout = Layout::compute(80, 24, 4, false, false);
+        // Click in the right pane (x >= 41), on row 2.
+        app.handle_mouse_split(mouse(MouseEventKind::Down(MouseButton::Left), 50, 2), &layout);
+        assert_eq!(app.focused, WinId(0), "click should focus the hovered pane");
+        assert_eq!(app.editor.cursor.row, 2);
+        assert!(app.editor.cursor.col <= 7); // clamped to the line
+    }
+
+    #[test]
+    fn mouse_scroll_scrolls_the_hovered_pane_without_focusing() {
+        let mut app = App::new();
+        app.editor.show_line_numbers = false;
+        let text: String = (0..50).map(|i| format!("line{i}")).collect::<Vec<_>>().join("\n");
+        app.editor.buffer = crate::buffer::Buffer::from_text(&text);
+        app.run_ex("vsplit");
+        let focused_before = app.focused;
+        let layout = Layout::compute(80, 24, 50, false, false);
+        // Scroll over the right (non-focused) pane.
+        app.handle_mouse_split(mouse(MouseEventKind::ScrollDown, 60, 3), &layout);
+        // Focus is unchanged, and the right pane (id 0) scrolled down.
+        assert_eq!(app.focused, focused_before);
+        let right = app.panes.iter().find(|p| p.id == WinId(0)).unwrap();
+        assert_eq!(right.editor.top, 3);
+    }

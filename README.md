@@ -535,7 +535,9 @@ as expected.
 
 ### Mouse support
 `:set mouse` enables click-to-position, drag-to-select (dragging starts a visual
-selection), and scroll-wheel paging; `:set nomouse` disables it.
+selection), and scroll-wheel paging; `:set nomouse` disables it. With split
+windows, clicking a pane focuses it and the wheel scrolls whichever pane is under
+the pointer.
 
 ---
 
@@ -605,7 +607,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **692 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **695 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

@@ -6,6 +6,9 @@ All notable changes to rvim are recorded here. Versions follow
 ## [Unreleased]
 
 ### Windows
+- Split-window polish: the mouse now focuses the pane under the pointer, clicks
+  position the cursor within that pane, and the wheel scrolls the hovered pane;
+  the command-line completion wildmenu is drawn in split mode too.
 - Split windows: `:split`/`:vsplit` (and `Ctrl-w s`/`v`) divide the screen into
   panes, `Ctrl-w h/j/k/l` and `Ctrl-w w`/`W` move focus, and `:close`/`:only`
   (`Ctrl-w c`/`o`) tidy up. Each window keeps its own cursor and scroll position;

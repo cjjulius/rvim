@@ -652,6 +652,11 @@ impl App {
             }
             return;
         }
+        // With split windows, route the event to the pane under the pointer.
+        if !self.panes.is_empty() {
+            self.handle_mouse_split(m, layout);
+            return;
+        }
         // Screen cell -> buffer position, if the click is in the text area.
         // Capture scroll offsets as locals so the closure doesn't borrow `self`.
         let (view_top, view_left) = (self.editor.top, self.editor.left);
@@ -686,6 +691,69 @@ impl App {
             }
             MouseEventKind::ScrollUp => {
                 self.editor.top = self.editor.top.saturating_sub(3);
+            }
+            _ => {}
+        }
+    }
+
+    /// A mutable handle to the editor shown in window `id`.
+    fn editor_mut(&mut self, id: WinId) -> Option<&mut Editor> {
+        if id == self.focused {
+            Some(&mut self.editor)
+        } else {
+            self.panes.iter_mut().find(|p| p.id == id).map(|p| &mut p.editor)
+        }
+    }
+
+    /// Mouse handling when the screen is split: focus and position within the pane
+    /// under the pointer, and scroll the hovered pane.
+    fn handle_mouse_split(&mut self, m: event::MouseEvent, layout: &Layout) {
+        let area = self.window_area(layout.cols, layout.rows, layout.top_offset > 0);
+        let hit = self
+            .layout
+            .rects(area)
+            .into_iter()
+            .find(|(_, r)| {
+                m.column >= r.x && m.column < r.x + r.w && m.row >= r.y && m.row < r.y + r.h
+            });
+        let Some((id, rect)) = hit else { return };
+        // The last row of a pane is its status line, not text.
+        let in_text = m.row < rect.y + rect.h.saturating_sub(1);
+        // Buffer position of the click within `ed`'s rect.
+        let pos = |ed: &Editor| -> (usize, usize) {
+            let gw = ui::gutter_width(ed.buffer.line_count(), ed.show_line_numbers);
+            let row = ed.top + (m.row - rect.y) as usize;
+            let col = ed
+                .left
+                .saturating_add((m.column.saturating_sub(rect.x + gw)) as usize);
+            (row, col)
+        };
+        match m.kind {
+            MouseEventKind::Down(MouseButton::Left) => {
+                self.activate_window(id);
+                self.editor.clear_visual();
+                if in_text {
+                    let (row, col) = pos(&self.editor);
+                    self.editor.set_cursor_clamped(row, col);
+                }
+            }
+            MouseEventKind::Drag(MouseButton::Left) => {
+                // Extend a selection only within the already-focused pane.
+                if id == self.focused && in_text {
+                    let (row, col) = pos(&self.editor);
+                    self.editor.begin_mouse_visual();
+                    self.editor.set_cursor_clamped(row, col);
+                }
+            }
+            MouseEventKind::ScrollDown => {
+                if let Some(ed) = self.editor_mut(id) {
+                    ed.top = (ed.top + 3).min(ed.buffer.line_count().saturating_sub(1));
+                }
+            }
+            MouseEventKind::ScrollUp => {
+                if let Some(ed) = self.editor_mut(id) {
+                    ed.top = ed.top.saturating_sub(3);
+                }
             }
             _ => {}
         }
