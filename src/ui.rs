@@ -1214,6 +1214,42 @@ mod tests {
         assert!(out.contains("AAAA"), "left window text missing");
         assert!(out.contains("BBBB"), "right window text missing");
         assert!(out.contains('│'), "vertical separator missing");
+        // The focused window shows the cursor (Show sequence emitted).
+        assert!(out.contains("\u{1b}[?25h"), "focused cursor not shown");
+    }
+
+    #[test]
+    fn render_split_positions_focused_cursor_within_its_rect() {
+        use crate::buffer::Buffer;
+        use crate::window::Rect;
+        let mut a = Editor::new();
+        a.buffer = Buffer::from_text("top\ntext");
+        a.show_line_numbers = false;
+        // Focused window is the second one, at an x offset and a y offset.
+        let mut b = Editor::new();
+        b.buffer = Buffer::from_text("hello\nworld");
+        b.show_line_numbers = false;
+        b.cursor.row = 1;
+        b.cursor.col = 3;
+        let rect_b = Rect::new(20, 0, 20, 8);
+        let views = vec![
+            WindowView { editor: &a, rect: Rect::new(0, 0, 19, 8), top_state: LineState::Normal, focused: false },
+            WindowView { editor: &b, rect: rect_b, top_state: LineState::Normal, focused: true },
+        ];
+        let theme = crate::theme::matrix();
+        let syntax = Registry::default();
+        let mut buf: Vec<u8> = Vec::new();
+        render_split(&mut buf, &views, &theme, &syntax, &[]).unwrap();
+        let out = String::from_utf8_lossy(&buf);
+        // The final cursor MoveTo (just before Show) must land inside window b's
+        // rect: column 20..40, row 0..8 (1-based in the escape sequence).
+        let re = regex::Regex::new("\u{1b}\\[(\\d+);(\\d+)H\u{1b}\\[\\?25h").unwrap();
+        let caps = re.captures(&out).expect("no cursor MoveTo before Show");
+        let row: u16 = caps[1].parse().unwrap();
+        let col: u16 = caps[2].parse().unwrap();
+        // Cursor at b (row 1, col 3), gutter 0 -> x = 20+3 = 23, y = 0+1 = 1;
+        // escape is 1-based, so expect col 24, row 2.
+        assert_eq!((row, col), (2, 24), "focused cursor landed outside window b");
     }
 
     #[test]
