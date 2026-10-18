@@ -5760,3 +5760,38 @@
         ed.handle_key(special(KeyCode::Esc));
         assert_eq!(ed.buffer.line(1), Some("wor"));
     }
+
+    // ---- smartindent -----------------------------------------------------
+
+    #[test]
+    fn smartindent_adds_level_after_open_brace() {
+        let mut ed = ed_with("fn f() {");
+        ed.smartindent = true;
+        ed.expandtab = true;
+        ed.shiftwidth = 4;
+        ed.handle_key(key('A')); // append at end of line, insert mode
+        ed.handle_key(special(KeyCode::Enter));
+        assert_eq!(ed.buffer.line(1), Some("    ")); // one indent level
+    }
+
+    #[test]
+    fn smartindent_dedents_on_closing_brace() {
+        let mut ed = ed_with("fn f() {\n    x\n    ");
+        ed.smartindent = true;
+        ed.expandtab = true;
+        ed.shiftwidth = 4;
+        ed.cursor.row = 2;
+        ed.handle_key(key('A')); // append at end of the indented blank line (col 4)
+        ed.handle_key(key('}'));
+        ed.handle_key(special(KeyCode::Esc));
+        assert_eq!(ed.buffer.line(2), Some("}")); // dedented to column 0
+    }
+
+    #[test]
+    fn smartindent_off_leaves_indentation_alone() {
+        let mut ed = ed_with("fn f() {");
+        // smartindent defaults off; autoindent copies the (empty) indent only.
+        ed.handle_key(key('A'));
+        ed.handle_key(special(KeyCode::Enter));
+        assert_eq!(ed.buffer.line(1), Some(""));
+    }

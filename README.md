@@ -165,9 +165,10 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   Recording to an uppercase register (`qA`) appends to that macro instead of
   overwriting it.
   `@:` repeats the last `:` command-line command.
-- **Insert mode:** autoindent on Enter (`:set autoindent`/`noai`), `Ctrl-w`
-  (delete word before cursor), `Ctrl-u` (delete to line start), `Ctrl-r<reg>`
-  (paste a register), `Ctrl-t`/`Ctrl-d` (indent/dedent line), `Tab`.
+- **Insert mode:** autoindent on Enter (`:set autoindent`/`noai`), optional
+  smartindent (`:set smartindent` adds a level after `{` and dedents on `}`),
+  `Ctrl-w` (delete word before cursor), `Ctrl-u` (delete to line start),
+  `Ctrl-r<reg>` (paste a register), `Ctrl-t`/`Ctrl-d` (indent/dedent line), `Tab`.
 - **Literal and numeric entry (`Ctrl-v`):** `Ctrl-v` then a key inserts it
   literally (so `Ctrl-v Tab` inserts a real tab even with `expandtab`), or a
   character code: decimal digits (`Ctrl-v 065` → `A`), `u` plus four hex digits
@@ -323,7 +324,7 @@ Grouped by what they do. Most line commands accept a leading range such as
 - Options you will reach for most:
   - Display: `number`, `relativenumber`, `cursorline`, `colorcolumn=N`, `list`.
   - Search: `ignorecase`, `smartcase`, `incsearch`.
-  - Indent: `expandtab`, `shiftwidth=N`, `tabstop=N`, `shiftround`.
+  - Indent: `expandtab`, `shiftwidth=N`, `tabstop=N`, `shiftround`, `smartindent`.
   - Joining: `joinspaces` (two spaces after a sentence when you press `J`).
   - Other: `scrolloff=N`, `textwidth=N`, `matchpairs`, `mouse`.
 
@@ -628,7 +629,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **764 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **767 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

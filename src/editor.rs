@@ -222,6 +222,9 @@ pub struct Editor {
     saved_hlsearch: bool,
     /// Whether Enter in insert mode copies the previous line's indentation.
     pub autoindent: bool,
+    /// `:set smartindent` — add an indent level after a line ending in `{`, and
+    /// dedent when `}` is typed as the first non-blank character (default off).
+    pub smartindent: bool,
     /// Insert spaces instead of a tab character (`:set expandtab`).
     pub expandtab: bool,
     /// Columns inserted/removed by `>>`/`<<` and `=` (`:set shiftwidth`).
@@ -462,6 +465,7 @@ impl Editor {
             saved_last_search: String::new(),
             saved_hlsearch: true,
             autoindent: true,
+            smartindent: false,
             expandtab: true,
             shiftwidth: 4,
             shiftround: false,
@@ -1218,6 +1222,7 @@ impl Editor {
             "smartcase" | "scs" => flag(self.smartcase, "smartcase"),
             "incsearch" | "is" => flag(self.incsearch, "incsearch"),
             "autoindent" | "ai" => flag(self.autoindent, "autoindent"),
+            "smartindent" | "si" => flag(self.smartindent, "smartindent"),
             "expandtab" | "et" => flag(self.expandtab, "expandtab"),
             "list" => flag(self.list, "list"),
             "listchars" | "lcs" => self.listchars_summary(),
@@ -1365,7 +1370,8 @@ impl Editor {
     /// Canonical option names shown by `:set` / `:set all`, in display order.
     const OPTION_NAMES: &'static [&'static str] = &[
         "number", "relativenumber", "hlsearch", "ignorecase", "smartcase",
-        "incsearch", "autoindent", "expandtab", "list", "wrapscan", "cursorline",
+        "incsearch", "autoindent", "smartindent", "expandtab", "list", "wrapscan",
+        "cursorline",
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
         "matchpairs", "filetype", "fileformat", "foldmethod", "foldcolumn",
@@ -3027,6 +3033,20 @@ impl Editor {
                 if !is_word_char(c) {
                     self.maybe_expand_abbrev();
                 }
+                // `:set smartindent`: typing `}` as the first non-blank dedents one
+                // level to line up with its opener.
+                if self.smartindent && c == '}' {
+                    let before: String = self
+                        .buffer
+                        .line(self.cursor.row)
+                        .unwrap_or("")
+                        .chars()
+                        .take(self.cursor.col)
+                        .collect();
+                    if !before.is_empty() && before.chars().all(|c| c == ' ' || c == '\t') {
+                        self.insert_indent(false);
+                    }
+                }
                 self.buffer.insert_char(self.cursor, c);
                 self.cursor.col += 1;
                 self.cur_insert.push(c);
@@ -3036,11 +3056,25 @@ impl Editor {
             KeyCode::Enter => {
                 self.maybe_expand_abbrev();
                 self.cur_insert.push('\n');
-                let indent = if self.autoindent {
+                // `:set smartindent`: an extra level after a line ending in `{`.
+                let opens_block = self.smartindent && {
+                    let before: String = self
+                        .buffer
+                        .line(self.cursor.row)
+                        .unwrap_or("")
+                        .chars()
+                        .take(self.cursor.col)
+                        .collect();
+                    before.trim_end().ends_with('{')
+                };
+                let mut indent = if self.autoindent || self.smartindent {
                     self.leading_indent(self.cursor.row)
                 } else {
                     String::new()
                 };
+                if opens_block {
+                    indent.push_str(&self.indent_unit());
+                }
                 self.buffer.split_line(self.cursor);
                 self.cursor.row += 1;
                 self.cursor.col = 0;
@@ -6449,6 +6483,15 @@ impl Editor {
     fn leading_indent(&self, row: usize) -> String {
         let line = self.buffer.line(row).unwrap_or("");
         line.chars().take_while(|c| *c == ' ' || *c == '\t').collect()
+    }
+
+    /// One indentation step: `shiftwidth` spaces with `expandtab`, else a tab.
+    fn indent_unit(&self) -> String {
+        if self.expandtab {
+            " ".repeat(self.shiftwidth.max(1))
+        } else {
+            "\t".to_string()
+        }
     }
 
     // ---- deletes / yanks / paste ----------------------------------------

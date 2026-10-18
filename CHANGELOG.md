@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Editing
+- `:set smartindent` adds an indent level after a line ending in `{` and dedents
+  when `}` is typed as the first non-blank character.
+
 ### Files
 - Line endings are preserved: a file loaded with Windows CRLF is written back with
   CRLF, Unix LF stays LF, and `:set fileformat=dos` / `=unix` chooses explicitly.
