@@ -1099,3 +1099,17 @@
         assert!(!std::path::Path::new(&bak).exists());
         let _ = std::fs::remove_file(&p);
     }
+
+    #[test]
+    fn status_display_toggles() {
+        let mut app = App::new();
+        assert!(app.editor.showmode && app.editor.showcmd && app.editor.ruler);
+        app.run_ex("set noshowmode");
+        assert!(!app.editor.showmode);
+        app.run_ex("set noruler");
+        assert!(!app.editor.ruler);
+        app.run_ex("set noshowcmd");
+        assert!(!app.editor.showcmd);
+        app.run_ex("set showmode");
+        assert!(app.editor.showmode);
+    }

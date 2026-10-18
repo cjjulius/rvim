@@ -1175,6 +1175,9 @@ impl App {
             ExCommand::ToggleBackup(on) => {
                 self.editor.backup = on;
             }
+            ExCommand::ToggleShowMode(on) => self.editor.showmode = on,
+            ExCommand::ToggleShowCmd(on) => self.editor.showcmd = on,
+            ExCommand::ToggleRuler(on) => self.editor.ruler = on,
             ExCommand::ToggleExpandTab(on) => {
                 self.editor.expandtab = on;
             }

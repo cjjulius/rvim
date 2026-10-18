@@ -902,7 +902,12 @@ fn draw_status_line(
         None => String::new(),
     };
     let mid = format!(" {file}{dirty} ");
-    let right = format!(" {rec}{lang} | {pos} | {scroll} ");
+    // `:set ruler` controls the cursor position + scroll indicator.
+    let right = if editor.ruler {
+        format!(" {rec}{lang} | {pos} | {scroll} ")
+    } else {
+        format!(" {rec}{lang} ")
+    };
 
     let total_w = layout.cols as usize;
     let used = left.chars().count() + mid.chars().count() + right.chars().count();
@@ -939,7 +944,7 @@ fn draw_command_line(
 
     let content = if editor.mode == Mode::Command {
         format!("{}{}", editor.cmdline_prefix(), editor.cmdline)
-    } else if let Some(indicator) = editor.mode_indicator() {
+    } else if let Some(indicator) = editor.mode_indicator().filter(|_| editor.showmode) {
         // showmode: `-- INSERT --` / `-- VISUAL --` etc. while in those modes.
         indicator.to_string()
     } else {
@@ -950,7 +955,7 @@ fn draw_command_line(
 
     // showcmd: the pending command, or the selection size while in visual mode,
     // right-aligned (vim shows it bottom-right). Never overlaps the left content.
-    if editor.mode != Mode::Command {
+    if editor.mode != Mode::Command && editor.showcmd {
         let indicator = editor
             .visual_size()
             .unwrap_or_else(|| editor.pending_command().to_string());
@@ -1504,6 +1509,32 @@ mod tests {
         assert!(out.contains('▸')); // tab marker
         assert!(out.contains('·')); // trailing-space / tab-fill marker
         assert!(out.contains('$')); // end-of-line marker
+    }
+
+    #[test]
+    fn showmode_and_ruler_toggles_gate_their_display() {
+        use crate::buffer::Buffer;
+        let theme = crate::theme::matrix();
+        let syntax = Registry::default();
+        let render_to = |ed: &Editor| {
+            let mut buf: Vec<u8> = Vec::new();
+            render(&mut buf, ed, &theme, &syntax, &[], LineState::Normal).unwrap();
+            String::from_utf8_lossy(&buf).into_owned()
+        };
+        let mut ed = Editor::new();
+        ed.buffer = Buffer::from_text("hello");
+        ed.mode = Mode::Insert;
+        ed.set_viewport(10, 40);
+        // Defaults on: the showmode indicator and ruler position show.
+        let on = render_to(&ed);
+        assert!(on.contains("-- INSERT --")); // command-line mode indicator
+        assert!(on.contains("1:1")); // ruler position
+        // Turning them off removes each (the status-line mode label is separate).
+        ed.showmode = false;
+        ed.ruler = false;
+        let off = render_to(&ed);
+        assert!(!off.contains("-- INSERT --"));
+        assert!(!off.contains("1:1"));
     }
 
     #[test]

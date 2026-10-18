@@ -229,6 +229,12 @@ pub struct Editor {
     pub title: bool,
     /// `:set backup` — before overwriting a file, copy it to `{name}~`.
     pub backup: bool,
+    /// Status-line / command-line display toggles (all default on):
+    /// `:set showmode` (`-- INSERT --`), `:set showcmd` (pending command),
+    /// `:set ruler` (cursor position and scroll percentage).
+    pub showmode: bool,
+    pub showcmd: bool,
+    pub ruler: bool,
     /// Insert spaces instead of a tab character (`:set expandtab`).
     pub expandtab: bool,
     /// Columns inserted/removed by `>>`/`<<` and `=` (`:set shiftwidth`).
@@ -472,6 +478,9 @@ impl Editor {
             smartindent: false,
             title: false,
             backup: false,
+            showmode: true,
+            showcmd: true,
+            ruler: true,
             expandtab: true,
             shiftwidth: 4,
             shiftround: false,
@@ -1243,6 +1252,9 @@ impl Editor {
             "smartindent" | "si" => flag(self.smartindent, "smartindent"),
             "title" => flag(self.title, "title"),
             "backup" | "bk" => flag(self.backup, "backup"),
+            "showmode" | "smd" => flag(self.showmode, "showmode"),
+            "showcmd" | "sc" => flag(self.showcmd, "showcmd"),
+            "ruler" | "ru" => flag(self.ruler, "ruler"),
             "expandtab" | "et" => flag(self.expandtab, "expandtab"),
             "list" => flag(self.list, "list"),
             "listchars" | "lcs" => self.listchars_summary(),
@@ -1397,8 +1409,8 @@ impl Editor {
     /// Canonical option names shown by `:set` / `:set all`, in display order.
     const OPTION_NAMES: &'static [&'static str] = &[
         "number", "relativenumber", "hlsearch", "ignorecase", "smartcase",
-        "incsearch", "autoindent", "smartindent", "title", "backup", "expandtab",
-        "list", "wrapscan", "cursorline",
+        "incsearch", "autoindent", "smartindent", "title", "backup", "showmode",
+        "showcmd", "ruler", "expandtab", "list", "wrapscan", "cursorline",
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
         "matchpairs", "filetype", "fileformat", "foldmethod", "foldcolumn",
