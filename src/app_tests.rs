@@ -823,3 +823,39 @@
         assert_eq!(app.window_count(), 1);
         assert_eq!(app.editor.buffer.line(0), Some("solo"));
     }
+
+    // ---- per-window syntax-state memo ------------------------------------
+
+    #[test]
+    fn refresh_window_syntax_memoizes_and_prunes() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("a\nb\nc");
+        app.run_ex("split");
+        let area = Rect::new(0, 0, 80, 24);
+        assert!(app.win_block_memo.is_empty());
+        app.refresh_window_syntax(area);
+        assert_eq!(app.win_block_memo.len(), 2);
+        app.run_ex("only"); // back to a single window
+        app.refresh_window_syntax(area);
+        assert_eq!(app.win_block_memo.len(), 1); // stale entry pruned
+    }
+
+    #[test]
+    fn window_views_top_state_matches_direct_computation() {
+        let mut app = App::new();
+        app.editor.language = Language::Rust;
+        app.editor.buffer = crate::buffer::Buffer::from_text("/* open\nx\ny\nz");
+        app.run_ex("vsplit");
+        let area = Rect::new(0, 0, 80, 24);
+        app.refresh_window_syntax(area);
+        let views = app.window_views(area);
+        assert!(!views.is_empty());
+        for v in &views {
+            let direct = app.syntax.block_state_at(
+                v.editor.language,
+                v.editor.buffer.lines(),
+                v.editor.top,
+            );
+            assert_eq!(v.top_state, direct);
+        }
+    }

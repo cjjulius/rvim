@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Performance
+- Split windows memoize each pane's first-visible-line syntax state, so scrolling
+  or moving the cursor no longer re-scans every pane from the top of the buffer
+  each frame (large files with block comments / multiline strings redraw faster).
+
 ### UI
 - The cursor shape now follows the mode: a block in Normal, a bar in Insert, an
   underline in Replace (terminals that lack DECSCUSR keep their usual cursor; the

@@ -13,6 +13,7 @@ use crate::window::{self, Move, SplitKind, WinId};
 use crossterm::event::{
     self, Event, KeyCode, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind,
 };
+use std::collections::HashMap;
 use std::io::{self, BufWriter};
 
 /// One non-focused on-screen window: its layout id and the editor it shows.
@@ -50,6 +51,9 @@ pub struct App {
     /// buffer every frame when the view hasn't changed (e.g. cursor moving
     /// on-screen).
     block_memo: Option<(u64, Language, usize, LineState)>,
+    /// The same memo, per window id, for the split-screen path so each pane's
+    /// first-visible-line syntax state is only recomputed when its view changes.
+    win_block_memo: HashMap<WinId, (u64, Language, usize, LineState)>,
     /// Path of the buffer most recently switched away from (vim's alternate file,
     /// reachable with `Ctrl-^` / `:b#`).
     alternate: Option<String>,
@@ -73,6 +77,7 @@ impl App {
             quit: false,
             want_mouse: false,
             block_memo: None,
+            win_block_memo: HashMap::new(),
             alternate: None,
         }
     }
@@ -527,25 +532,73 @@ impl App {
 
     /// The per-window views for the renderer (focused window first is not
     /// required; order follows the layout). Computes each window's syntax state.
+    /// The editor shown in window `id` (falls back to the focused editor).
+    fn editor_ref(&self, id: WinId) -> &Editor {
+        if id == self.focused {
+            &self.editor
+        } else {
+            self.panes
+                .iter()
+                .find(|p| p.id == id)
+                .map(|p| &p.editor)
+                .unwrap_or(&self.editor)
+        }
+    }
+
+    /// Refresh each window's first-visible-line syntax state into the memo,
+    /// recomputing only when its (revision, language, top) changed — the costly
+    /// part is re-folding from the top of the buffer for multiline languages.
+    /// Kept separate from [`window_views`](App::window_views) so the latter can
+    /// stay a shared borrow alongside the theme and syntax registry at render.
+    fn refresh_window_syntax(&mut self, area: window::Rect) {
+        let rects = self.layout.rects(area);
+        for (id, _) in &rects {
+            let (rev, lang, top) = {
+                let ed = self.editor_ref(*id);
+                (ed.buffer.revision(), ed.language, ed.top)
+            };
+            let fresh = matches!(
+                self.win_block_memo.get(id),
+                Some((r, l, t, _)) if *r == rev && *l == lang && *t == top
+            );
+            if !fresh {
+                let state =
+                    self.syntax
+                        .block_state_at(lang, self.editor_ref(*id).buffer.lines(), top);
+                self.win_block_memo.insert(*id, (rev, lang, top, state));
+            }
+        }
+        // Drop memo entries for windows that no longer exist.
+        self.win_block_memo
+            .retain(|id, _| rects.iter().any(|(rid, _)| rid == id));
+    }
+
     fn window_views(&self, area: window::Rect) -> Vec<ui::WindowView<'_>> {
         self.layout
             .rects(area)
             .into_iter()
-            .filter_map(|(id, rect)| {
-                let editor = if id == self.focused {
-                    &self.editor
-                } else {
-                    &self.panes.iter().find(|p| p.id == id)?.editor
+            .map(|(id, rect)| {
+                let editor = self.editor_ref(id);
+                // Use the memoized state when present; otherwise compute it (so the
+                // view is correct even if called without a prior refresh).
+                let top_state = match self.win_block_memo.get(&id) {
+                    Some((r, l, t, s))
+                        if *r == editor.buffer.revision()
+                            && *l == editor.language
+                            && *t == editor.top =>
+                    {
+                        *s
+                    }
+                    _ => self
+                        .syntax
+                        .block_state_at(editor.language, editor.buffer.lines(), editor.top),
                 };
-                let top_state =
-                    self.syntax
-                        .block_state_at(editor.language, editor.buffer.lines(), editor.top);
-                Some(ui::WindowView {
+                ui::WindowView {
                     editor,
                     rect,
                     top_state,
                     focused: id == self.focused,
-                })
+                }
             })
             .collect()
     }
@@ -584,6 +637,7 @@ impl App {
             if split {
                 // Multiple windows: size each to its rectangle and draw them all.
                 self.size_windows(area);
+                self.refresh_window_syntax(area);
                 let views = self.window_views(area);
                 ui::render_split(&mut out, &views, self.themes.current(), &self.syntax, &tabs)?;
             } else {
