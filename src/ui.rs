@@ -268,6 +268,8 @@ fn draw_text_area(
     let linewise = editor.mode == Mode::VisualLine;
     let search = editor.search_regex();
     let paren = editor.match_highlight();
+    // Color-column guides as 0-based columns (computed once for all rows).
+    let color_cols: Vec<usize> = editor.colorcolumns.iter().map(|c| c - 1).collect();
 
     let mut line_state = top_state;
     let folding = editor.folding();
@@ -326,7 +328,6 @@ fn draw_text_area(
                 syntax.highlight_stateful(editor.language, line, line_state);
             line_state = next_state;
             let match_col = paren.filter(|p| p.row == row).map(|p| p.col);
-            let color_col = editor.colorcolumn.checked_sub(1);
             let cursor_col = if editor.cursorcolumn {
                 Some(editor.cursor.col)
             } else {
@@ -340,7 +341,7 @@ fn draw_text_area(
             draw_text_line(
                 out, line, &tokens, theme, layout, editor.left, row, line_bg, sel, linewise,
                 search, editor.tabstop.max(1), block, match_col, editor.list,
-                editor.listchars(), color_col, cursor_col, cur_match,
+                editor.listchars(), &color_cols, cursor_col, cur_match,
             )?;
         }
         row += 1;
@@ -683,7 +684,7 @@ fn draw_text_line(
     match_col: Option<usize>,
     list: bool,
     listchars: (char, char, char, char),
-    color_col: Option<usize>,
+    color_cols: &[usize],
     cursor_col: Option<usize>,
     cur_match: Option<(usize, usize)>,
 ) -> io::Result<()> {
@@ -740,7 +741,7 @@ fn draw_text_line(
             (fg[ci], theme.cur_search_bg)
         } else if in_match {
             (fg[ci], theme.search_bg)
-        } else if color_col == Some(ci) {
+        } else if color_cols.contains(&ci) {
             (fg[ci], theme.color_column_bg)
         } else if cursor_col == Some(ci) {
             (fg[ci], theme.cursor_line_bg)
@@ -792,44 +793,38 @@ fn draw_text_line(
     // Pad the rest of the row with the line background. With `:set list`, mark the
     // end of the actual line text with a `$` in the first padding cell.
     if printed < width {
-        queue!(out, SetBackgroundColor(line_bg))?;
         if list && left <= chars.len() {
             queue!(
                 out,
+                SetBackgroundColor(line_bg),
                 SetForegroundColor(theme.gutter_fg),
                 Print(listchars.3),
                 Print(" ".repeat(width - printed - 1))
             )?;
-        } else if let Some(screen) = color_col
-            .filter(|&c| c >= left)
-            .map(|c| c - left)
-            .filter(|&s| s >= printed && s < width)
-        {
-            // The colorcolumn falls in the padding past the line's end.
-            queue!(
-                out,
-                Print(" ".repeat(screen - printed)),
-                SetBackgroundColor(theme.color_column_bg),
-                Print(" "),
-                SetBackgroundColor(line_bg),
-                Print(" ".repeat(width - screen - 1)),
-            )?;
-        } else if let Some(screen) = cursor_col
-            .filter(|&c| c >= left)
-            .map(|c| c - left)
-            .filter(|&s| s >= printed && s < width)
-        {
-            // The cursorcolumn falls in the padding past the line's end.
-            queue!(
-                out,
-                Print(" ".repeat(screen - printed)),
-                SetBackgroundColor(theme.cursor_line_bg),
-                Print(" "),
-                SetBackgroundColor(line_bg),
-                Print(" ".repeat(width - screen - 1)),
-            )?;
         } else {
-            queue!(out, Print(" ".repeat(width - printed)))?;
+            // Fill the padding, marking any color columns and the cursor column
+            // that fall past the line's end. Consecutive same-background cells are
+            // batched into one write.
+            let bg_at = |screen: usize| -> Color {
+                let abs = screen + left;
+                if color_cols.contains(&abs) {
+                    theme.color_column_bg
+                } else if cursor_col == Some(abs) {
+                    theme.cursor_line_bg
+                } else {
+                    line_bg
+                }
+            };
+            let mut s = printed;
+            while s < width {
+                let bg = bg_at(s);
+                let mut e = s + 1;
+                while e < width && bg_at(e) == bg {
+                    e += 1;
+                }
+                queue!(out, SetBackgroundColor(bg), Print(" ".repeat(e - s)))?;
+                s = e;
+            }
         }
     }
     Ok(())
@@ -1449,7 +1444,7 @@ mod tests {
         let mut buf: Vec<u8> = Vec::new();
         draw_text_line(
             &mut buf, "a\tb  ", &[], &theme, &layout, 0, 0, theme.bg, None, false, None, 4,
-            None, None, true, ('▸', '·', '·', '$'), None, None, None,
+            None, None, true, ('▸', '·', '·', '$'), &[], None, None,
         )
         .unwrap();
         let out = String::from_utf8_lossy(&buf);
@@ -1459,13 +1454,32 @@ mod tests {
     }
 
     #[test]
+    fn multiple_color_columns_are_drawn() {
+        let theme = crate::theme::matrix();
+        let layout = Layout::compute(20, 24, 1, false, false);
+        let mut buf: Vec<u8> = Vec::new();
+        // Line "ab"; guides at 0-based columns 1 (inside, the 'b') and 4 (past EOL).
+        draw_text_line(
+            &mut buf, "ab", &[], &theme, &layout, 0, 0, theme.bg, None, false, None, 4,
+            None, None, false, ('▸', '·', '·', '$'), &[1, 4], None, None,
+        )
+        .unwrap();
+        let out = String::from_utf8_lossy(&buf);
+        // The color-column background should appear for both guide cells.
+        let mut probe: Vec<u8> = Vec::new();
+        queue!(probe, SetBackgroundColor(theme.color_column_bg)).unwrap();
+        let esc = String::from_utf8_lossy(&probe).into_owned();
+        assert!(out.matches(&esc).count() >= 2, "both guide columns should be colored");
+    }
+
+    #[test]
     fn list_off_renders_no_markers() {
         let theme = crate::theme::matrix();
         let layout = Layout::compute(80, 24, 1, false, false);
         let mut buf: Vec<u8> = Vec::new();
         draw_text_line(
             &mut buf, "a\tb  ", &[], &theme, &layout, 0, 0, theme.bg, None, false, None, 4,
-            None, None, false, ('▸', '·', '·', '$'), None, None, None,
+            None, None, false, ('▸', '·', '·', '$'), &[], None, None,
         )
         .unwrap();
         let out = String::from_utf8_lossy(&buf);

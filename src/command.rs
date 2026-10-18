@@ -192,8 +192,9 @@ pub enum ExCommand {
     ToggleJoinSpaces(bool),
     /// `:set cursorcolumn` / `:set nocursorcolumn` — highlight the cursor's column.
     ToggleCursorColumn(bool),
-    /// `:set colorcolumn=N` — highlight column N as a guide (0 disables).
-    SetColorColumn(usize),
+    /// `:set colorcolumn=N[,M...]` — highlight these columns as guides (empty
+    /// disables).
+    SetColorColumn(Vec<usize>),
     /// `:set listchars=tab:xy,trail:z` — configure the `:set list` markers.
     SetListchars(String),
     /// `:set matchpairs=(:),{:}` — configure the pairs `%` jumps between.
@@ -1034,10 +1035,14 @@ fn parse_set(rest: &str) -> ExCommand {
                 .strip_prefix("colorcolumn=")
                 .or_else(|| opt.strip_prefix("cc="))
             {
-                match v.trim().parse::<usize>() {
-                    Ok(n) => ExCommand::SetColorColumn(n),
-                    _ => unknown_set(opt),
-                }
+                // Comma-separated columns; 0/invalid entries are dropped, so
+                // `cc=0` or `cc=` clears.
+                let cols: Vec<usize> = v
+                    .split(',')
+                    .filter_map(|p| p.trim().parse::<usize>().ok())
+                    .filter(|&n| n > 0)
+                    .collect();
+                ExCommand::SetColorColumn(cols)
             } else if let Some(v) = opt
                 .strip_prefix("textwidth=")
                 .or_else(|| opt.strip_prefix("tw="))

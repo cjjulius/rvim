@@ -122,9 +122,11 @@
     fn colorcolumn_sets_value() {
         let mut app = App::new();
         app.run_ex("set colorcolumn=80");
-        assert_eq!(app.editor.colorcolumn, 80);
+        assert_eq!(app.editor.colorcolumns, vec![80]);
+        app.run_ex("set cc=80,120");
+        assert_eq!(app.editor.colorcolumns, vec![80, 120]);
         app.run_ex("set cc=0");
-        assert_eq!(app.editor.colorcolumn, 0);
+        assert_eq!(app.editor.colorcolumns, Vec::<usize>::new());
     }
 
     #[test]
