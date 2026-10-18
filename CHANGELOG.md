@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Internal
+- Added a UTF-8 regression suite (multibyte delete/replace/toggle-case, word
+  motions, `$`, and visual-block delete) to guard the char/byte boundary.
+
 ### Fixed
 - A file ending in a newline no longer loads with a phantom trailing blank line,
   and saving no longer appends an extra blank line each time (load/save now
