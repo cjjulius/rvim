@@ -5512,3 +5512,53 @@
         ed.set_viewport(10, 40); // triggers the revision-gated recompute
         assert!(ed.folds().all().iter().any(|f| f.start == 1 && f.end == 3));
     }
+
+    // ---- marker folding (foldmethod=marker) ------------------------------
+
+    #[test]
+    fn marker_folds_a_marked_region() {
+        let ls = lines(&["start {{{", "a", "b", "end }}}", "tail"]);
+        assert_eq!(marker_fold_ranges(&ls), vec![(0, 3)]);
+    }
+
+    #[test]
+    fn marker_folds_nest() {
+        let ls = lines(&["o {{{", "  i {{{", "  x", "  c }}}", "c }}}"]);
+        let got = marker_fold_ranges(&ls);
+        assert!(got.contains(&(0, 4))); // outer
+        assert!(got.contains(&(1, 3))); // inner
+    }
+
+    #[test]
+    fn marker_unmatched_open_makes_no_fold() {
+        let ls = lines(&["a {{{", "b", "c"]);
+        assert!(marker_fold_ranges(&ls).is_empty());
+    }
+
+    #[test]
+    fn marker_same_line_open_close_makes_no_fold() {
+        let ls = lines(&["inline {{{ }}} done", "next"]);
+        assert!(marker_fold_ranges(&ls).is_empty());
+    }
+
+    #[test]
+    fn set_foldmethod_marker_computes_folds_and_recomputes() {
+        let mut ed = ed_with("head {{{\nx\ny\ntail }}}\nafter");
+        ed.autoindent = false;
+        ed.set_fold_method("marker");
+        assert_eq!(ed.foldmethod, FoldMethod::Marker);
+        assert!(ed.folds().all().iter().any(|f| f.start == 0 && f.end == 3));
+        // zM closes; the body is hidden under the header.
+        ed.handle_key(key('z'));
+        ed.handle_key(key('M'));
+        assert!(ed.folds().is_hidden(1));
+        // Editing inside grows the fold; it recomputes on the next viewport pass.
+        ed.handle_key(key('z'));
+        ed.handle_key(key('R')); // open so the cursor can move freely
+        ed.cursor.row = 2;
+        ed.handle_key(key('o'));
+        ed.handle_key(key('z'));
+        ed.handle_key(special(KeyCode::Esc));
+        ed.set_viewport(10, 40);
+        assert!(ed.folds().all().iter().any(|f| f.start == 0 && f.end == 4));
+    }

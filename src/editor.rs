@@ -66,6 +66,7 @@ struct SubstConfirm {
 pub enum FoldMethod {
     Manual,
     Indent,
+    Marker,
 }
 
 /// The leading-whitespace width of a line, counting a tab as `tabstop` columns.
@@ -139,6 +140,30 @@ pub fn indent_fold_ranges(
                 }
             } else {
                 i += 1;
+            }
+        }
+    }
+    out
+}
+
+/// Fold ranges `[start, end]` from vim-style fold markers: a line containing
+/// `{{{` opens a fold, the next `}}}` closes the most recently opened one. Nesting
+/// is handled with a stack; an unmatched open or a same-line open/close produces
+/// no fold. Pure and testable.
+pub fn marker_fold_ranges(lines: &[String]) -> Vec<(usize, usize)> {
+    let mut stack: Vec<usize> = Vec::new();
+    let mut out: Vec<(usize, usize)> = Vec::new();
+    for (i, line) in lines.iter().enumerate() {
+        let opens = line.matches("{{{").count();
+        let closes = line.matches("}}}").count();
+        for _ in 0..opens {
+            stack.push(i);
+        }
+        for _ in 0..closes {
+            if let Some(start) = stack.pop() {
+                if i > start {
+                    out.push((start, i));
+                }
             }
         }
     }
@@ -619,19 +644,34 @@ impl Editor {
                 self.foldmethod = FoldMethod::Manual;
                 self.message = "foldmethod=manual".into();
             }
-            "indent" => {
-                self.foldmethod = FoldMethod::Indent;
-                self.recompute_indent_folds();
+            "indent" | "marker" => {
+                self.foldmethod = if name == "indent" {
+                    FoldMethod::Indent
+                } else {
+                    FoldMethod::Marker
+                };
+                self.recompute_auto_folds();
                 let n = self.folds.all().len();
-                self.message = format!("foldmethod=indent ({n} folds; zM to close)");
+                self.message = format!("foldmethod={name} ({n} folds; zM to close)");
             }
             other => self.message = format!("E474: unsupported foldmethod: {other}"),
         }
     }
 
-    /// Rebuild the fold set from indentation, preserving which ranges were closed.
-    /// New folds start open (vim's default), matching `foldlevelstart`.
-    fn recompute_indent_folds(&mut self) {
+    /// Fold ranges for the active automatic fold method.
+    fn auto_fold_ranges(&self) -> Vec<(usize, usize)> {
+        match self.foldmethod {
+            FoldMethod::Indent => {
+                indent_fold_ranges(self.buffer.lines(), self.shiftwidth, self.tabstop)
+            }
+            FoldMethod::Marker => marker_fold_ranges(self.buffer.lines()),
+            FoldMethod::Manual => Vec::new(),
+        }
+    }
+
+    /// Rebuild the fold set for the active automatic method, preserving which
+    /// ranges were closed. New folds start open (vim's default foldlevelstart).
+    fn recompute_auto_folds(&mut self) {
         let closed: Vec<(usize, usize)> = self
             .folds
             .all()
@@ -640,7 +680,7 @@ impl Editor {
             .map(|f| (f.start, f.end))
             .collect();
         self.folds.clear();
-        for (s, e) in indent_fold_ranges(self.buffer.lines(), self.shiftwidth, self.tabstop) {
+        for (s, e) in self.auto_fold_ranges() {
             self.folds.create(s, e);
         }
         self.folds.open_all();
@@ -650,11 +690,13 @@ impl Editor {
         self.fold_rev = self.buffer.revision();
     }
 
-    /// Recompute indent folds if the buffer changed since the last computation.
+    /// Recompute automatic folds if the buffer changed since the last computation.
     /// Cheap no-op for manual folding or an unchanged buffer.
     fn refresh_auto_folds(&mut self) {
-        if self.foldmethod == FoldMethod::Indent && self.buffer.revision() != self.fold_rev {
-            self.recompute_indent_folds();
+        if matches!(self.foldmethod, FoldMethod::Indent | FoldMethod::Marker)
+            && self.buffer.revision() != self.fold_rev
+        {
+            self.recompute_auto_folds();
         }
     }
 
@@ -1081,6 +1123,7 @@ impl Editor {
                 match self.foldmethod {
                     FoldMethod::Manual => "manual",
                     FoldMethod::Indent => "indent",
+                    FoldMethod::Marker => "marker",
                 }
             ),
             other => format!("E518: Unknown option: {other}"),
