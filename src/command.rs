@@ -97,6 +97,8 @@ pub enum ExCommand {
     ToggleSmartIndent(bool),
     /// `:set title` / `:set notitle` — show the file name in the window title.
     ToggleTitle(bool),
+    /// `:set backup` / `:set nobackup` — keep a `~` backup on overwrite.
+    ToggleBackup(bool),
     /// `:set expandtab` / `:set noexpandtab`
     ToggleExpandTab(bool),
     /// `:set shiftwidth=N`
@@ -970,6 +972,8 @@ fn parse_set(rest: &str) -> ExCommand {
         "nosmartindent" | "nosi" => ExCommand::ToggleSmartIndent(false),
         "title" => ExCommand::ToggleTitle(true),
         "notitle" => ExCommand::ToggleTitle(false),
+        "backup" | "bk" => ExCommand::ToggleBackup(true),
+        "nobackup" | "nobk" => ExCommand::ToggleBackup(false),
         "splitbelow" | "sb" => ExCommand::ToggleSplitBelow(true),
         "nosplitbelow" | "nosb" => ExCommand::ToggleSplitBelow(false),
         "splitright" | "spr" => ExCommand::ToggleSplitRight(true),

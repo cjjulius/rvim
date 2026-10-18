@@ -1070,3 +1070,32 @@
         app.run_ex("windo %s/a/b/");
         assert_eq!(app.editor.buffer.line(0), Some("b"));
     }
+
+    // ---- :set backup -----------------------------------------------------
+
+    #[test]
+    fn backup_keeps_previous_contents_on_write() {
+        let p = std::env::temp_dir().join(format!("rvim_bk_{}.txt", std::process::id()));
+        std::fs::write(&p, "orig\n").unwrap();
+        let mut app = App::open(p.to_str().unwrap()).unwrap();
+        app.run_ex("set backup");
+        app.editor.handle_key(kev('x')); // "orig" -> "rig"
+        app.run_ex("w");
+        let bak = format!("{}~", p.display());
+        assert_eq!(std::fs::read_to_string(&bak).unwrap(), "orig\n");
+        assert_eq!(std::fs::read_to_string(&p).unwrap(), "rig\n");
+        let _ = std::fs::remove_file(&p);
+        let _ = std::fs::remove_file(&bak);
+    }
+
+    #[test]
+    fn no_backup_by_default() {
+        let p = std::env::temp_dir().join(format!("rvim_nobk_{}.txt", std::process::id()));
+        std::fs::write(&p, "orig\n").unwrap();
+        let mut app = App::open(p.to_str().unwrap()).unwrap();
+        app.editor.handle_key(kev('x'));
+        app.run_ex("w");
+        let bak = format!("{}~", p.display());
+        assert!(!std::path::Path::new(&bak).exists());
+        let _ = std::fs::remove_file(&p);
+    }

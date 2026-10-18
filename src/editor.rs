@@ -227,6 +227,8 @@ pub struct Editor {
     pub smartindent: bool,
     /// `:set title` — set the terminal window title to the current file name.
     pub title: bool,
+    /// `:set backup` — before overwriting a file, copy it to `{name}~`.
+    pub backup: bool,
     /// Insert spaces instead of a tab character (`:set expandtab`).
     pub expandtab: bool,
     /// Columns inserted/removed by `>>`/`<<` and `=` (`:set shiftwidth`).
@@ -469,6 +471,7 @@ impl Editor {
             autoindent: true,
             smartindent: false,
             title: false,
+            backup: false,
             expandtab: true,
             shiftwidth: 4,
             shiftround: false,
@@ -1239,6 +1242,7 @@ impl Editor {
             "autoindent" | "ai" => flag(self.autoindent, "autoindent"),
             "smartindent" | "si" => flag(self.smartindent, "smartindent"),
             "title" => flag(self.title, "title"),
+            "backup" | "bk" => flag(self.backup, "backup"),
             "expandtab" | "et" => flag(self.expandtab, "expandtab"),
             "list" => flag(self.list, "list"),
             "listchars" | "lcs" => self.listchars_summary(),
@@ -1393,8 +1397,8 @@ impl Editor {
     /// Canonical option names shown by `:set` / `:set all`, in display order.
     const OPTION_NAMES: &'static [&'static str] = &[
         "number", "relativenumber", "hlsearch", "ignorecase", "smartcase",
-        "incsearch", "autoindent", "smartindent", "title", "expandtab", "list",
-        "wrapscan", "cursorline",
+        "incsearch", "autoindent", "smartindent", "title", "backup", "expandtab",
+        "list", "wrapscan", "cursorline",
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
         "matchpairs", "filetype", "fileformat", "foldmethod", "foldcolumn",
