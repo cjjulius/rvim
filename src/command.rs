@@ -111,6 +111,10 @@ pub enum ExCommand {
     SetFoldMethod(String),
     /// `:set foldcolumn=N` (`fdc=`) — width of the fold-indicator column.
     SetFoldColumn(usize),
+    /// `:set splitbelow` / `:set nosplitbelow`.
+    ToggleSplitBelow(bool),
+    /// `:set splitright` / `:set nosplitright`.
+    ToggleSplitRight(bool),
     /// `:help`
     Help,
     /// `:version`
@@ -928,6 +932,10 @@ fn parse_set(rest: &str) -> ExCommand {
         "noshiftround" | "nosr" => ExCommand::ToggleShiftRound(false),
         "joinspaces" | "js" => ExCommand::ToggleJoinSpaces(true),
         "nojoinspaces" | "nojs" => ExCommand::ToggleJoinSpaces(false),
+        "splitbelow" | "sb" => ExCommand::ToggleSplitBelow(true),
+        "nosplitbelow" | "nosb" => ExCommand::ToggleSplitBelow(false),
+        "splitright" | "spr" => ExCommand::ToggleSplitRight(true),
+        "nosplitright" | "nospr" => ExCommand::ToggleSplitRight(false),
         _ => {
             if let Some(v) = opt
                 .strip_prefix("listchars=")

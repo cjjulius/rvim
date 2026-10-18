@@ -162,6 +162,8 @@ impl App {
         ed.show_line_numbers = self.editor.show_line_numbers;
         ed.relative_numbers = self.editor.relative_numbers;
         ed.hlsearch = self.editor.hlsearch;
+        ed.splitbelow = self.editor.splitbelow;
+        ed.splitright = self.editor.splitright;
     }
 
     /// `:e <file>` — edit a file, switching to it if already open.
@@ -385,7 +387,14 @@ impl App {
         } else {
             SplitKind::Horizontal
         };
-        if !self.layout.split(self.focused, kind, new_id) {
+        // `splitbelow`/`splitright` put the new window after (below/right); the
+        // default is before (above/left).
+        let before = if vertical {
+            !self.editor.splitright
+        } else {
+            !self.editor.splitbelow
+        };
+        if !self.layout.split_dir(self.focused, kind, new_id, before) {
             return;
         }
         let new_editor = match file {
@@ -1103,6 +1112,8 @@ impl App {
                 self.editor.foldcolumn = n.min(12);
                 self.editor.message = format!("foldcolumn={}", self.editor.foldcolumn);
             }
+            ExCommand::ToggleSplitBelow(on) => self.editor.splitbelow = on,
+            ExCommand::ToggleSplitRight(on) => self.editor.splitright = on,
             ExCommand::Help => self.open_help(),
             ExCommand::Version => {
                 self.editor.message = format!("rvim {}", crate::VERSION);

@@ -412,6 +412,10 @@ pub struct Editor {
     pub foldmethod: FoldMethod,
     /// `:set foldcolumn` — width of the fold-indicator column (0 = off).
     pub foldcolumn: usize,
+    /// `:set splitbelow` — a new horizontal split opens below the current window
+    /// (default off: above). `:set splitright` — vertical split opens to the right.
+    pub splitbelow: bool,
+    pub splitright: bool,
     /// Buffer revision at the last automatic (indent) fold recompute, so the
     /// folds are rebuilt only when the text actually changed.
     fold_rev: u64,
@@ -559,6 +563,8 @@ impl Editor {
             foldenable: true,
             foldmethod: FoldMethod::Manual,
             foldcolumn: 0,
+            splitbelow: false,
+            splitright: false,
             fold_rev: u64::MAX,
         }
     }
@@ -996,6 +1002,8 @@ impl Editor {
         ed.cursorcolumn = self.cursorcolumn;
         ed.colorcolumn = self.colorcolumn;
         ed.matchpairs = self.matchpairs.clone();
+        ed.splitbelow = self.splitbelow;
+        ed.splitright = self.splitright;
         ed
     }
 
@@ -1212,6 +1220,8 @@ impl Editor {
             "colorcolumn" | "cc" => format!("colorcolumn={}", self.colorcolumn),
             "filetype" | "ft" | "syntax" => format!("filetype={}", self.language.name()),
             "foldcolumn" | "fdc" => format!("foldcolumn={}", self.foldcolumn),
+            "splitbelow" | "sb" => flag(self.splitbelow, "splitbelow"),
+            "splitright" | "spr" => flag(self.splitright, "splitright"),
             "foldmethod" | "fdm" => format!(
                 "foldmethod={}",
                 match self.foldmethod {
@@ -1342,7 +1352,8 @@ impl Editor {
         "incsearch", "autoindent", "expandtab", "list", "wrapscan", "cursorline",
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
-        "matchpairs", "filetype", "foldmethod", "foldcolumn",
+        "matchpairs", "filetype", "foldmethod", "foldcolumn", "splitbelow",
+        "splitright",
     ];
 
     /// A `:set` / `:set all` listing: one option per line with its current value.
