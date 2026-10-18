@@ -399,7 +399,10 @@ pre-filled so you learn it by doing.
 - **Navigate:** arrow keys or `h`/`j`/`k`/`l`; `Enter` opens a submenu or selects
   an item; items marked `▸` open a cascading submenu with clear borders.
 - **Long lists scroll** (▲/▼ in the border) — e.g. *View ▸ Theme*,
-  *Language ▸ Set Filetype*.
+  *Language ▸ Set Filetype* (every supported language, generated from the same
+  table the editor uses).
+- **Menus:** File, Buffers, Edit, View (themes, line numbers, folding, options),
+  Window (splits), Language, Tools (plugins), Help.
 - **Esc** backs out one layer at a time; the last `Esc` hides the bar and returns
   to the cursor.
 - **Mouse** (with `:set mouse`): click a top-level title to open it, click a
@@ -635,7 +638,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **793 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **794 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
@@ -649,7 +652,6 @@ Still planned, not yet built:
   (today they are independent views).
 - Language-grammar folding beyond brace blocks (the current `foldmethod=syntax`
   folds `{` … `}` regions; languages without braces rely on indent folding).
-- More menu-bar actions.
 - More accessibility options: screen-reader hints and configurable cues.
 - Dynamic plugin loading.
 

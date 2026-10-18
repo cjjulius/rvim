@@ -787,6 +787,7 @@ impl App {
                     {
                         let menus = crate::menu::build_menus(
                             &self.themes.names(),
+                            &crate::syntax::language_names(),
                             &self.plugins.all_commands(),
                         );
                         self.editor.open_menu(menus);

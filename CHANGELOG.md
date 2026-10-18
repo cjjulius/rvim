@@ -6,6 +6,9 @@ All notable changes to rvim are recorded here. Versions follow
 ## [Unreleased]
 
 ### UI
+- Expanded the Alt menu bar: a Window menu (splits), a Folding submenu (fold
+  methods and fold column), more View options (smart-indent, whitespace, cursor
+  line), and a Set Filetype list generated from every supported language.
 - Status-line display toggles: `:set noshowmode`, `:set noshowcmd`, `:set noruler`
   trim the mode indicator, pending-command display, and cursor-position ruler
   (all on by default).
