@@ -93,6 +93,8 @@ pub enum ExCommand {
     ToggleRelativeNumbers(bool),
     /// `:set autoindent` / `:set noautoindent`
     ToggleAutoIndent(bool),
+    /// `:set smartindent` / `:set nosmartindent`
+    ToggleSmartIndent(bool),
     /// `:set expandtab` / `:set noexpandtab`
     ToggleExpandTab(bool),
     /// `:set shiftwidth=N`
@@ -934,6 +936,8 @@ fn parse_set(rest: &str) -> ExCommand {
         "noshiftround" | "nosr" => ExCommand::ToggleShiftRound(false),
         "joinspaces" | "js" => ExCommand::ToggleJoinSpaces(true),
         "nojoinspaces" | "nojs" => ExCommand::ToggleJoinSpaces(false),
+        "smartindent" | "si" => ExCommand::ToggleSmartIndent(true),
+        "nosmartindent" | "nosi" => ExCommand::ToggleSmartIndent(false),
         "splitbelow" | "sb" => ExCommand::ToggleSplitBelow(true),
         "nosplitbelow" | "nosb" => ExCommand::ToggleSplitBelow(false),
         "splitright" | "spr" => ExCommand::ToggleSplitRight(true),

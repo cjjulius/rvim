@@ -1085,6 +1085,9 @@ impl App {
             ExCommand::ToggleAutoIndent(on) => {
                 self.editor.autoindent = on;
             }
+            ExCommand::ToggleSmartIndent(on) => {
+                self.editor.smartindent = on;
+            }
             ExCommand::ToggleExpandTab(on) => {
                 self.editor.expandtab = on;
             }
