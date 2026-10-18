@@ -700,6 +700,33 @@ impl Editor {
         }
     }
 
+    /// `zj` — move to the start of the next fold below the cursor.
+    fn fold_move_next(&mut self) {
+        if let Some(row) = self.folds.next_fold_start(self.cursor.row) {
+            self.cursor.row = row.min(self.buffer.line_count().saturating_sub(1));
+            self.move_first_nonblank();
+            self.scroll_into_view();
+        }
+    }
+
+    /// `zk` — move to the end of the previous fold above the cursor.
+    fn fold_move_prev(&mut self) {
+        if let Some(row) = self.folds.prev_fold_end(self.cursor.row) {
+            self.cursor.row = row;
+            self.move_first_nonblank();
+            self.scroll_into_view();
+        }
+    }
+
+    /// `[z` / `]z` — move to the start / end of the current (innermost) fold.
+    fn fold_move_edge(&mut self, to_end: bool) {
+        if let Some((start, end)) = self.folds.current_fold(self.cursor.row) {
+            self.cursor.row = if to_end { end } else { start };
+            self.move_first_nonblank();
+            self.scroll_into_view();
+        }
+    }
+
     /// `zi` — toggle whether folds are applied at all.
     fn fold_toggle_enable(&mut self) {
         self.foldenable = !self.foldenable;
@@ -3678,6 +3705,9 @@ impl Editor {
                 ('[', KeyCode::Char('p'))
                 | ('[', KeyCode::Char('P'))
                 | (']', KeyCode::Char('P')) => self.paste_reindent(false),
+                // `[z` / `]z` — move to the start / end of the current fold.
+                ('[', KeyCode::Char('z')) => self.fold_move_edge(false),
+                (']', KeyCode::Char('z')) => self.fold_move_edge(true),
                 _ => {}
             }
             return Action::None;
@@ -4474,6 +4504,8 @@ impl Editor {
                 KeyCode::Char('d') => self.fold_delete(),
                 KeyCode::Char('E') => self.fold_eliminate(),
                 KeyCode::Char('i') => self.fold_toggle_enable(),
+                KeyCode::Char('j') => self.fold_move_next(),
+                KeyCode::Char('k') => self.fold_move_prev(),
                 _ => {}
             },
             // `zf{motion}` — fold the lines spanned by the motion.

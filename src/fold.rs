@@ -201,6 +201,33 @@ impl Folds {
         }
     }
 
+    /// The start line of the next fold that begins below `line` (`zj`).
+    pub fn next_fold_start(&self, line: usize) -> Option<usize> {
+        self.items
+            .iter()
+            .map(|f| f.start)
+            .filter(|&s| s > line)
+            .min()
+    }
+
+    /// The end line of the previous fold that ends above `line` (`zk`).
+    pub fn prev_fold_end(&self, line: usize) -> Option<usize> {
+        self.items
+            .iter()
+            .map(|f| f.end)
+            .filter(|&e| e < line)
+            .max()
+    }
+
+    /// The innermost fold containing `line` as `(start, end)` (`[z` / `]z`).
+    pub fn current_fold(&self, line: usize) -> Option<(usize, usize)> {
+        self.items
+            .iter()
+            .filter(|f| f.start <= line && line <= f.end)
+            .max_by_key(|f| f.start)
+            .map(|f| (f.start, f.end))
+    }
+
     /// Nesting depth at `line` (how many folds contain it), at least 1. Drives
     /// the width of the `+--` marker on a fold header.
     pub fn level(&self, line: usize) -> usize {
@@ -328,6 +355,34 @@ mod tests {
         assert!(f.delete_at(3)); // removes inner [2,4]
         assert_eq!(f.all().len(), 1);
         assert_eq!(f.all()[0], Fold { start: 0, end: 10, open: false });
+    }
+
+    #[test]
+    fn fold_navigation_queries() {
+        let mut f = Folds::default();
+        f.create(1, 3);
+        f.create(6, 8);
+        // zj: next fold start below the line.
+        assert_eq!(f.next_fold_start(0), Some(1));
+        assert_eq!(f.next_fold_start(1), Some(6));
+        assert_eq!(f.next_fold_start(6), None);
+        // zk: previous fold end above the line.
+        assert_eq!(f.prev_fold_end(10), Some(8));
+        assert_eq!(f.prev_fold_end(5), Some(3));
+        assert_eq!(f.prev_fold_end(1), None);
+        // [z / ]z: current fold edges.
+        assert_eq!(f.current_fold(2), Some((1, 3)));
+        assert_eq!(f.current_fold(7), Some((6, 8)));
+        assert_eq!(f.current_fold(5), None);
+    }
+
+    #[test]
+    fn current_fold_returns_innermost() {
+        let mut f = Folds::default();
+        f.create(0, 10);
+        f.create(2, 4);
+        assert_eq!(f.current_fold(3), Some((2, 4))); // inner, not outer
+        assert_eq!(f.current_fold(6), Some((0, 10)));
     }
 
     #[test]
