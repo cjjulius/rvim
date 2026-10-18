@@ -633,6 +633,9 @@ impl App {
             .with_foldcolumn(self.editor.foldcolumn as u16);
             let split = !self.panes.is_empty();
             let area = self.window_area(cols, rows, tabs.len() > 1);
+            // Keep syntax folds current with edits (no-op unless fdm=syntax and the
+            // buffer changed); other fold methods refresh inside set_viewport.
+            self.editor.recompute_syntax_folds(&self.syntax);
 
             if split {
                 // Multiple windows: size each to its rectangle and draw them all.
@@ -1087,7 +1090,15 @@ impl App {
                 }
                 None => self.editor.message = format!("Unknown filetype '{name}'"),
             },
-            ExCommand::SetFoldMethod(name) => self.editor.set_fold_method(&name),
+            ExCommand::SetFoldMethod(name) => {
+                self.editor.set_fold_method(&name);
+                // Syntax folding needs the registry; compute it here and report.
+                if name == "syntax" {
+                    self.editor.recompute_syntax_folds(&self.syntax);
+                    let n = self.editor.folds().all().len();
+                    self.editor.message = format!("foldmethod=syntax ({n} folds; zM to close)");
+                }
+            }
             ExCommand::SetFoldColumn(n) => {
                 self.editor.foldcolumn = n.min(12);
                 self.editor.message = format!("foldcolumn={}", self.editor.foldcolumn);
@@ -1502,7 +1513,8 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t[z / ]z            jump to start / end of the current fold\n\
          \t:set foldcolumn=N   show a fold-indicator column N wide\n\
          \t:set foldmethod=indent   build folds from indentation\n\
-         \t:set foldmethod=marker   build folds from fold markers (manual = default)\n\
+         \t:set foldmethod=marker   build folds from fold markers\n\
+         \t:set foldmethod=syntax   build folds from brace blocks (manual = default)\n\
          \n\
          WINDOWS\n\
          \t:split / :vsplit    split the window (horizontal / vertical)\n\

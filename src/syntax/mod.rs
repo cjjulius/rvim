@@ -682,6 +682,45 @@ impl Registry {
 
     /// Compute the carry-over state the line at `row` begins in, by folding state
     /// from the top of the buffer.
+    /// Fold ranges `[start, end]` for `foldmethod=syntax`: brace-delimited blocks
+    /// (`{` … `}`) spanning more than one line, with braces inside strings, chars
+    /// and comments ignored via the tokenizer. Nesting produces nested folds.
+    /// Languages without braces (or highlighting) simply yield no folds.
+    pub fn syntax_fold_ranges(&self, lang: Language, lines: &[String]) -> Vec<(usize, usize)> {
+        let mut state = LineState::Normal;
+        let mut stack: Vec<usize> = Vec::new();
+        let mut out: Vec<(usize, usize)> = Vec::new();
+        for (i, line) in lines.iter().enumerate() {
+            let (tokens, next) = self.highlight_stateful(lang, line, state);
+            for (b, ch) in line.char_indices() {
+                if ch != '{' && ch != '}' {
+                    continue;
+                }
+                // Skip braces that fall inside a string/char/comment token.
+                let masked = tokens.iter().any(|t| {
+                    b >= t.start
+                        && b < t.end
+                        && matches!(
+                            t.kind,
+                            TokenKind::String | TokenKind::Char | TokenKind::Comment
+                        )
+                });
+                if masked {
+                    continue;
+                }
+                if ch == '{' {
+                    stack.push(i);
+                } else if let Some(start) = stack.pop() {
+                    if i > start {
+                        out.push((start, i));
+                    }
+                }
+            }
+            state = next;
+        }
+        out
+    }
+
     pub fn block_state_at(&self, lang: Language, lines: &[String], row: usize) -> LineState {
         // Languages without any line-spanning construct never carry state, so skip
         // folding from the top of the buffer entirely.
@@ -980,6 +1019,65 @@ mod tests {
         assert_eq!(r.block_state_at(Language::Rust, &lines, 1), LineState::Block); // inside
         assert_eq!(r.block_state_at(Language::Rust, &lines, 2), LineState::Block); // inside
         assert_eq!(r.block_state_at(Language::Rust, &lines, 3), LineState::Normal); // after close
+    }
+
+    #[test]
+    fn syntax_folds_brace_blocks_and_nest() {
+        let r = Registry::with_builtins();
+        let lines: Vec<String> = ["fn f() {", "    if a {", "        b();", "    }", "}"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let got = r.syntax_fold_ranges(Language::Rust, &lines);
+        assert!(got.contains(&(0, 4))); // outer function body
+        assert!(got.contains(&(1, 3))); // inner if block
+    }
+
+    #[test]
+    fn syntax_folds_ignore_braces_in_strings_and_comments() {
+        let r = Registry::with_builtins();
+        let lines: Vec<String> = [
+            "fn f() {",
+            "    let s = \"a { b }\";",
+            "    // stray } and {",
+            "}",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        // Only the real braces on lines 0 and 3 form a fold.
+        assert_eq!(r.syntax_fold_ranges(Language::Rust, &lines), vec![(0, 3)]);
+    }
+
+    #[test]
+    fn syntax_folds_mask_braces_in_strings_with_utf8() {
+        let r = Registry::with_builtins();
+        // The braces inside the string sit at shifted byte offsets (é is 2 bytes)
+        // and must be masked; only the real fn-body braces form a fold.
+        let lines: Vec<String> = ["let s = \"café { x }\";", "fn f() {", "}"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert_eq!(r.syntax_fold_ranges(Language::Rust, &lines), vec![(1, 2)]);
+    }
+
+    #[test]
+    fn syntax_folds_mask_brace_in_continued_block_comment() {
+        let r = Registry::with_builtins();
+        // The `}` on line 1 is inside a carried-over block comment and must be
+        // ignored; the real block is lines 2..=3.
+        let lines: Vec<String> = ["/* open", "} still comment", "*/ fn f() {", "}"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert_eq!(r.syntax_fold_ranges(Language::Rust, &lines), vec![(2, 3)]);
+    }
+
+    #[test]
+    fn syntax_folds_empty_without_braces() {
+        let r = Registry::with_builtins();
+        let lines: Vec<String> = ["x = 1", "y = 2"].iter().map(|s| s.to_string()).collect();
+        assert!(r.syntax_fold_ranges(Language::Rust, &lines).is_empty());
     }
 
     #[test]

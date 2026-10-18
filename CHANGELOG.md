@@ -34,6 +34,9 @@ All notable changes to rvim are recorded here. Versions follow
   foldmethod=manual` (the default) is unchanged.
 - `:set foldmethod=marker` builds folds from `{{{` / `}}}` markers in the text,
   nesting and refreshing the same way.
+- `:set foldmethod=syntax` builds folds from brace-delimited blocks, using the
+  tokenizer so braces inside strings, chars and comments are ignored; nests and
+  refreshes on edit like the other automatic methods.
 - Fold navigation: `zj`/`zk` jump to the next/previous fold, and `[z`/`]z` jump to
   the start/end of the current fold.
 - `:set foldcolumn=N` draws a fold-indicator column that marks where folds start

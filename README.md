@@ -508,10 +508,11 @@ even when scrolled.
 
 ### Code folding
 Collapse ranges of lines to a single summary row so you can read structure
-without the noise. By default you choose the ranges by hand; `:set
-foldmethod=indent` builds folds automatically from the indentation, and `:set
-foldmethod=marker` builds them from `{{{` / `}}}` markers in the text (press `zM`
-to collapse the automatic folds, `zR` to open them all).
+without the noise. By default you choose the ranges by hand. The automatic
+methods build folds for you: `:set foldmethod=indent` from the indentation,
+`:set foldmethod=marker` from `{{{` / `}}}` markers, and `:set foldmethod=syntax`
+from brace-delimited blocks (braces inside strings and comments are ignored).
+Press `zM` to collapse the automatic folds and `zR` to open them all.
 
 - Create a fold with `zf` plus a motion (`zf5j`, `zfG`, `zf}`), or select lines
   in visual mode and press `zf`. `zF` folds a count of lines (`3zF`).
@@ -623,7 +624,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **738 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **745 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
@@ -635,8 +636,8 @@ Still planned, not yet built:
 
 - Shared-buffer splits: two windows on the same file that mirror edits live
   (today they are independent views).
-- Syntax-aware folding (`:set foldmethod=syntax`); indent and manual folding are
-  already supported.
+- Language-grammar folding beyond brace blocks (the current `foldmethod=syntax`
+  folds `{` … `}` regions; languages without braces rely on indent folding).
 - More menu-bar actions.
 - More accessibility options: screen-reader hints and configurable cues.
 - Dynamic plugin loading.
