@@ -950,3 +950,46 @@
         app.run_ex("set ff=unix");
         assert_eq!(app.editor.option_value("fileformat"), "fileformat=unix");
     }
+
+    // ---- user-defined commands (:command) --------------------------------
+
+    #[test]
+    fn user_command_aliases_a_builtin() {
+        let mut app = App::new();
+        app.run_ex("command W set number");
+        app.editor.show_line_numbers = false;
+        app.run_ex("W");
+        assert!(app.editor.show_line_numbers);
+    }
+
+    #[test]
+    fn user_command_appends_arguments() {
+        let mut app = App::new();
+        app.run_ex("command Theme theme");
+        app.run_ex("Theme cobalt");
+        assert_eq!(app.themes.current().name, "cobalt");
+    }
+
+    #[test]
+    fn user_command_requires_uppercase_name() {
+        let mut app = App::new();
+        app.run_ex("command foo w");
+        assert!(app.editor.message.contains("uppercase"));
+        assert!(app.user_commands.is_empty());
+    }
+
+    #[test]
+    fn delcommand_removes_a_user_command() {
+        let mut app = App::new();
+        app.run_ex("command W w");
+        assert_eq!(app.user_commands.len(), 1);
+        app.run_ex("delcommand W");
+        assert!(app.user_commands.is_empty());
+    }
+
+    #[test]
+    fn self_referential_user_command_terminates() {
+        let mut app = App::new();
+        app.run_ex("command W W"); // alias to itself must not loop forever
+        app.run_ex("W"); // returns (bounded resolution), no hang
+    }

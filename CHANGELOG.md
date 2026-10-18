@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Command line
+- `:command Name expansion` defines a user command (name must start uppercase),
+  with typed arguments appended; `:delcommand` removes one and `:command` lists
+  them. Alias resolution is bounded, so a self-referential alias can't loop.
+
 ### Editing
 - `:set smartindent` adds an indent level after a line ending in `{` and dedents
   when `}` is typed as the first non-blank character.

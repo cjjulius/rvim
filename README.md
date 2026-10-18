@@ -295,6 +295,7 @@ Grouped by what they do. Most line commands accept a leading range such as
 - `:e <file>` opens a file; `:e` / `:e!` reloads the current one. `:r <file>` inserts a file below the cursor, and `:r !cmd` inserts a command's output.
 - `:ls` lists buffers; `:bn` / `:bp` (or `:n` / `:N`) / `:b <n>` / `:bd` switch or close them; `Ctrl-^` (or `:b#`) returns to the previous buffer.
 - `:<n>` jumps to line `n`.
+- `:command Name expansion` defines a shortcut (the name must start with a capital), e.g. `:command W w` makes `:W` save; `:delcommand Name` removes one and `:command` lists them.
 
 **Search and replace**
 
@@ -629,7 +630,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **767 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **772 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

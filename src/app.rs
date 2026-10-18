@@ -57,6 +57,8 @@ pub struct App {
     /// Path of the buffer most recently switched away from (vim's alternate file,
     /// reachable with `Ctrl-^` / `:b#`).
     alternate: Option<String>,
+    /// User-defined ex commands (`:command Name expansion`), keyed by name.
+    user_commands: HashMap<String, String>,
 }
 
 impl App {
@@ -79,7 +81,31 @@ impl App {
             block_memo: None,
             win_block_memo: HashMap::new(),
             alternate: None,
+            user_commands: HashMap::new(),
         }
+    }
+
+    /// Expand a leading user-defined command (`:command`) into its definition,
+    /// appending any typed arguments. Resolves chains with a bounded loop so a
+    /// self-referential alias can't spin forever. Returns the resolved input.
+    fn resolve_user_command(&self, input: &str) -> String {
+        let mut cur = input.trim().to_string();
+        for _ in 0..16 {
+            let (word, rest) = match cur.split_once(char::is_whitespace) {
+                Some((w, r)) => (w.to_string(), r.trim().to_string()),
+                None => (cur.clone(), String::new()),
+            };
+            // User commands must start uppercase, so builtins are never shadowed.
+            if !word.chars().next().is_some_and(|c| c.is_ascii_uppercase()) {
+                break;
+            }
+            match self.user_commands.get(&word) {
+                Some(exp) if rest.is_empty() => cur = exp.clone(),
+                Some(exp) => cur = format!("{exp} {rest}"),
+                None => break,
+            }
+        }
+        cur
     }
 
     /// Record the current buffer as the alternate (called before switching away).
@@ -928,6 +954,9 @@ impl App {
 
     /// Execute a parsed ex-command.
     pub fn run_ex(&mut self, input: &str) {
+        // Expand any leading user-defined command first.
+        let resolved = self.resolve_user_command(input);
+        let input = resolved.as_str();
         // `:set a b c` — apply each space-separated option in turn (vim allows
         // several options per `:set`). Each token is itself a valid `:set` command.
         let trimmed = input.trim();
@@ -1251,6 +1280,33 @@ impl App {
             ExCommand::MapList => {
                 let text = self.editor.nmap_listing();
                 self.open_scratch(&text, "mappings —", "mappings — :bd to close");
+            }
+            ExCommand::DefineCommand { name, expansion } => {
+                if !name.chars().next().is_some_and(|c| c.is_ascii_uppercase()) {
+                    self.editor.message =
+                        "E183: user command names must start with an uppercase letter".into();
+                } else {
+                    self.user_commands.insert(name, expansion);
+                }
+            }
+            ExCommand::DeleteCommand(name) => {
+                if self.user_commands.remove(&name).is_none() {
+                    self.editor.message = format!("E184: no such user command: {name}");
+                }
+            }
+            ExCommand::CommandList => {
+                let mut names: Vec<_> = self.user_commands.iter().collect();
+                names.sort_by(|a, b| a.0.cmp(b.0));
+                let body = if names.is_empty() {
+                    "no user commands".to_string()
+                } else {
+                    let mut s = String::from("user commands — :bd to close\n\n");
+                    for (n, e) in names {
+                        s.push_str(&format!("{n}\t{e}\n"));
+                    }
+                    s
+                };
+                self.open_scratch(&body, "commands —", "commands — :bd to close");
             }
             ExCommand::Global {
                 pattern,
