@@ -2682,15 +2682,19 @@ impl Editor {
             }
             Some(_) => {
                 let cmd = &body[..first_space.unwrap()];
-                if cmd != "set" && cmd != "se" {
-                    return; // only :set argument completion is supported
-                }
                 let last = self.cmdline.rfind(' ').unwrap();
                 let stem = self.cmdline[last + 1..].to_string();
-                if stem.contains('=') {
-                    return; // completing a value, not an option name
+                if cmd == "set" || cmd == "se" {
+                    if stem.contains('=') {
+                        return; // completing a value, not an option name
+                    }
+                    (self.cmdline[..=last].to_string(), stem, Self::SET_OPTIONS.to_vec())
+                } else if Self::is_file_command(cmd) {
+                    // Complete filesystem paths for the file argument.
+                    return self.cmdline_complete_file(last, &stem, backward);
+                } else {
+                    return;
                 }
-                (self.cmdline[..=last].to_string(), stem, Self::SET_OPTIONS.to_vec())
             }
         };
 
@@ -2704,6 +2708,51 @@ impl Editor {
         }
         let idx = if backward { matches.len() - 1 } else { 0 };
         self.cmdline = format!("{}{}", base, matches[idx]);
+        self.cmd_comp = Some(CmdComp { base, matches, idx });
+    }
+
+    /// Whether an ex command takes a file-path argument (for `<Tab>` completion).
+    fn is_file_command(cmd: &str) -> bool {
+        matches!(
+            cmd,
+            "e" | "edit" | "e!" | "edit!" | "w" | "write" | "r" | "re" | "read"
+                | "source" | "so" | "sp" | "split" | "vs" | "vsp" | "vsplit"
+                | "new" | "vnew" | "sav" | "saveas"
+        )
+    }
+
+    /// Filename completion for a command's file argument. `last` is the byte index
+    /// of the space before the stem; `stem` is the partial path being completed.
+    fn cmdline_complete_file(&mut self, last: usize, stem: &str, backward: bool) {
+        // Split the stem into an already-typed directory and the partial name.
+        let (dir, prefix) = match stem.rfind(['/', '\\']) {
+            Some(i) => (stem[..=i].to_string(), stem[i + 1..].to_string()),
+            None => (String::new(), stem.to_string()),
+        };
+        let read_from = if dir.is_empty() { ".".to_string() } else { dir.clone() };
+        let Ok(entries) = std::fs::read_dir(&read_from) else {
+            self.message = format!("E484: can't read \"{read_from}\"");
+            return;
+        };
+        let mut matches: Vec<String> = entries
+            .flatten()
+            .filter_map(|e| {
+                let name = e.file_name().to_string_lossy().into_owned();
+                if !name.starts_with(&prefix) {
+                    return None;
+                }
+                // Directories get a trailing slash so the next Tab can descend.
+                let slash = if e.path().is_dir() { "/" } else { "" };
+                Some(format!("{dir}{name}{slash}"))
+            })
+            .collect();
+        if matches.is_empty() {
+            return;
+        }
+        matches.sort();
+        let base = self.cmdline[..=last].to_string();
+        let idx = if backward { matches.len() - 1 } else { 0 };
+        self.cmdline = format!("{base}{}", matches[idx]);
         self.cmd_comp = Some(CmdComp { base, matches, idx });
     }
 

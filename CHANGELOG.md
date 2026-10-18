@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Command line
+- `Tab` now completes filenames for commands that take a path (`:e`, `:w`, `:r`,
+  `:split`, `:vsplit`, `:source`, …): it fills the first match, cycles with
+  repeated `Tab`/`Shift-Tab`, and adds a trailing slash to directories.
+
 ### Folding
 - `:set foldmethod=indent` builds folds automatically from indentation (nested
   blocks fold into nested folds); they refresh as you edit. `:set
