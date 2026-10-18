@@ -1004,3 +1004,40 @@
         app.run_ex("set notitle");
         assert!(!app.editor.title);
     }
+
+    // ---- :bufdo ----------------------------------------------------------
+
+    #[test]
+    fn bufdo_runs_command_on_every_buffer() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("a");
+        let mut b1 = Editor::new();
+        b1.buffer = crate::buffer::Buffer::from_text("a");
+        let mut b2 = Editor::new();
+        b2.buffer = crate::buffer::Buffer::from_text("a");
+        app.others.push(b1);
+        app.others.push(b2);
+        app.run_ex("bufdo %s/a/b/");
+        assert_eq!(app.editor.buffer.line(0), Some("b"));
+        assert_eq!(app.others[0].buffer.line(0), Some("b"));
+        assert_eq!(app.others[1].buffer.line(0), Some("b"));
+    }
+
+    #[test]
+    fn bufdo_single_buffer_runs_once() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("a");
+        app.run_ex("bufdo %s/a/b/");
+        assert_eq!(app.editor.buffer.line(0), Some("b"));
+    }
+
+    #[test]
+    fn bufdo_returns_to_starting_buffer() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("start");
+        let mut b1 = Editor::new();
+        b1.buffer = crate::buffer::Buffer::from_text("other");
+        app.others.push(b1);
+        app.run_ex("bufdo set number");
+        assert_eq!(app.editor.buffer.line(0), Some("start")); // focus restored
+    }
