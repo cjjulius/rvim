@@ -493,6 +493,9 @@ even when scrolled.
   `-- INSERT --`, `-- REPLACE --`, `-- VISUAL --`, `-- VISUAL LINE --`, or
   `-- VISUAL BLOCK --`, so you always know which mode you are in. Normal mode
   shows nothing (and the message or command line takes the space).
+- **Cursor shape** — the cursor is a block in Normal mode, a bar while inserting,
+  and an underline while replacing, so the active mode is clear at the cursor too
+  (on terminals that support it; others simply keep their usual cursor).
 - **Command preview (showcmd)** — the partially-typed command (count, operator,
   text-object prefix) appears at the bottom-right as you type, so you can see
   exactly what rvim is waiting for — e.g. `2d` while `2dw` is mid-entry. It clears
@@ -620,7 +623,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **734 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **736 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
