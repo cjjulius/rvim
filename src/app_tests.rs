@@ -738,3 +738,21 @@
         let right = app.panes.iter().find(|p| p.id == WinId(0)).unwrap();
         assert_eq!(right.editor.top, 3);
     }
+
+    #[test]
+    fn with_foldcolumn_widens_gutter_and_shrinks_text() {
+        let l = Layout::compute(80, 24, 10, true, false); // gutter 4, text 76
+        let l2 = l.with_foldcolumn(2);
+        assert_eq!(l2.fold_width, 2);
+        assert_eq!(l2.gutter_width, 6);
+        assert_eq!(l2.text_cols, 74);
+    }
+
+    #[test]
+    fn set_foldcolumn_option_clamps_and_reports() {
+        let mut app = App::new();
+        app.run_ex("set foldcolumn=3");
+        assert_eq!(app.editor.foldcolumn, 3);
+        app.run_ex("set fdc=99"); // clamped to 12
+        assert_eq!(app.editor.foldcolumn, 12);
+    }

@@ -519,6 +519,8 @@ to collapse the automatic folds, `zR` to open them all).
 - `zi` turns folding off and on without discarding your folds.
 - `zj` and `zk` jump to the next and previous fold; `[z` and `]z` jump to the
   start and end of the fold you are in.
+- `:set foldcolumn=N` shows a small column on the left that marks where folds
+  start and which lines they cover, so folds are visible at a glance.
 
 Movement respects folds: `j` and `k` step over a closed fold as if it were one
 line, the screen motions `H`, `M`, `L` and the page keys count collapsed folds as
@@ -614,7 +616,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **718 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **724 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

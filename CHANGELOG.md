@@ -13,6 +13,8 @@ All notable changes to rvim are recorded here. Versions follow
   nesting and refreshing the same way.
 - Fold navigation: `zj`/`zk` jump to the next/previous fold, and `[z`/`]z` jump to
   the start/end of the current fold.
+- `:set foldcolumn=N` draws a fold-indicator column that marks where folds start
+  (`+` closed, `-`/`|` open) so fold structure is visible without probing.
 - `H`, `M`, `L` and the page keys (`Ctrl-f`/`Ctrl-b`) now count a closed fold as a
   single screen row, so they land on the right line when folds are open.
 
