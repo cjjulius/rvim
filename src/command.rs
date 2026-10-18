@@ -109,6 +109,8 @@ pub enum ExCommand {
     SetFiletype(String),
     /// `:set foldmethod=manual|indent` (`fdm=`).
     SetFoldMethod(String),
+    /// `:set fileformat=unix|dos` (`ff=`).
+    SetFileFormat(String),
     /// `:set foldcolumn=N` (`fdc=`) — width of the fold-indicator column.
     SetFoldColumn(usize),
     /// `:set splitbelow` / `:set nosplitbelow`.
@@ -958,6 +960,11 @@ fn parse_set(rest: &str) -> ExCommand {
                 .or_else(|| opt.strip_prefix("fdm="))
             {
                 ExCommand::SetFoldMethod(v.trim().to_string())
+            } else if let Some(v) = opt
+                .strip_prefix("fileformat=")
+                .or_else(|| opt.strip_prefix("ff="))
+            {
+                ExCommand::SetFileFormat(v.trim().to_string())
             } else if let Some(v) = opt
                 .strip_prefix("foldcolumn=")
                 .or_else(|| opt.strip_prefix("fdc="))
