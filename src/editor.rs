@@ -299,8 +299,8 @@ pub struct Editor {
     pub cursorline: bool,
     /// `:set cursorcolumn` — highlight the column the cursor is on (default off).
     pub cursorcolumn: bool,
-    /// `:set colorcolumn` — 1-based column to highlight as a guide (0 = off).
-    pub colorcolumn: usize,
+    /// `:set colorcolumn` — 1-based columns to highlight as guides (empty = off).
+    pub colorcolumns: Vec<usize>,
     pending_replace: bool,
     pending_replace_count: usize,
     /// Command-line `Ctrl-r`: the next key names the register to insert.
@@ -511,7 +511,7 @@ impl Editor {
             listchars_eol: '$',
             cursorline: true,
             cursorcolumn: false,
-            colorcolumn: 0,
+            colorcolumns: Vec::new(),
             pending_replace: false,
             pending_replace_count: 1,
             cmdline_pending_reg: false,
@@ -1019,7 +1019,7 @@ impl Editor {
         ed.list = self.list;
         ed.cursorline = self.cursorline;
         ed.cursorcolumn = self.cursorcolumn;
-        ed.colorcolumn = self.colorcolumn;
+        ed.colorcolumns = self.colorcolumns.clone();
         ed.matchpairs = self.matchpairs.clone();
         ed.splitbelow = self.splitbelow;
         ed.splitright = self.splitright;
@@ -1237,7 +1237,14 @@ impl Editor {
             "scrolloff" | "so" => format!("scrolloff={}", self.scrolloff),
             "sidescrolloff" | "siso" => format!("sidescrolloff={}", self.sidescrolloff),
             "textwidth" | "tw" => format!("textwidth={}", self.textwidth),
-            "colorcolumn" | "cc" => format!("colorcolumn={}", self.colorcolumn),
+            "colorcolumn" | "cc" => format!(
+                "colorcolumn={}",
+                self.colorcolumns
+                    .iter()
+                    .map(|c| c.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
             "filetype" | "ft" | "syntax" => format!("filetype={}", self.language.name()),
             "fileformat" | "ff" => format!("fileformat={}", self.buffer.fileformat().name()),
             "foldcolumn" | "fdc" => format!("foldcolumn={}", self.foldcolumn),

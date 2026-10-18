@@ -197,8 +197,10 @@
 
     #[test]
     fn set_colorcolumn() {
-        assert_eq!(parse("set colorcolumn=80"), ExCommand::SetColorColumn(80));
-        assert_eq!(parse("set cc=0"), ExCommand::SetColorColumn(0));
+        assert_eq!(parse("set colorcolumn=80"), ExCommand::SetColorColumn(vec![80]));
+        assert_eq!(parse("set cc=80,120"), ExCommand::SetColorColumn(vec![80, 120]));
+        assert_eq!(parse("set cc=0"), ExCommand::SetColorColumn(vec![]));
+        assert_eq!(parse("set cc="), ExCommand::SetColorColumn(vec![])); // empty clears
     }
 
     #[test]

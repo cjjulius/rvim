@@ -323,7 +323,7 @@ Grouped by what they do. Most line commands accept a leading range such as
 - `:theme <name>` switches the color theme.
 - `:set <option>` toggles or sets an option; `:set {option}?` shows a value, and `:set all` lists them all.
 - Options you will reach for most:
-  - Display: `number`, `relativenumber`, `cursorline`, `colorcolumn=N`, `list`.
+  - Display: `number`, `relativenumber`, `cursorline`, `colorcolumn=N[,M]`, `list`.
   - Search: `ignorecase`, `smartcase`, `incsearch`.
   - Indent: `expandtab`, `shiftwidth=N`, `tabstop=N`, `shiftround`, `smartindent`.
   - Joining: `joinspaces` (two spaces after a sentence when you press `J`).
@@ -489,9 +489,10 @@ even when scrolled.
   hides them again. Markers are width-preserving, so columns stay exact. Customize
   them with `:set listchars=tab:>-,trail:~,eol:#` (`tab:` takes two characters,
   `trail:` and `eol:` one each).
-- **Color column (`:set colorcolumn=N`)** — highlight column N as a visual
-  line-length guide (works past the end of short lines too); `:set cc=0` turns
-  it off. Pair it with `:set textwidth` to see your wrap boundary.
+- **Color columns (`:set colorcolumn=N`)** — highlight one or more columns as
+  visual line-length guides (e.g. `:set cc=80,120`, and they work past the end of
+  short lines too); `:set cc=0` turns them off. Pair with `:set textwidth` to see
+  your wrap boundary.
 - **Mode indicator (showmode)** — the bottom line shows the active mode as
   `-- INSERT --`, `-- REPLACE --`, `-- VISUAL --`, `-- VISUAL LINE --`, or
   `-- VISUAL BLOCK --`, so you always know which mode you are in. Normal mode
@@ -630,7 +631,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **772 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **773 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
