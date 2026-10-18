@@ -5,6 +5,12 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Internal
+- Window layout manager (foundation for split windows): a split tree that turns
+  `:split`/`:vsplit` structure into per-window rectangles (siblings divide space
+  evenly), with directional focus moves and close/only operations. Not yet wired
+  to the editor — see the roadmap.
+
 ### Folding
 - Manual code folding: `zf{motion}` / visual `zf` / `zF` create a fold, `zo`/`zc`/
   `za` open/close/toggle it, `zR`/`zM` open/close all, `zd`/`zE` delete one/all,

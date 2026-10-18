@@ -16,6 +16,7 @@
 //! - [`plugin`]   — the plugin trait + manager for extensibility.
 //! - [`terminal`] — raw-mode / alternate-screen RAII guard (cross-platform).
 //! - [`ui`]       — rendering of the text area, gutter and status line.
+//! - [`window`]   — the split-window layout manager (geometry + focus moves).
 //! - [`app`]      — wires everything together and runs the event loop.
 
 pub mod app;
@@ -33,6 +34,7 @@ pub mod syntax;
 pub mod terminal;
 pub mod theme;
 pub mod ui;
+pub mod window;
 
 /// The current rvim version, surfaced by `--version` and `:version`.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
