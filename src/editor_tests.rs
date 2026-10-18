@@ -5653,3 +5653,46 @@
         let ed = ed_with("a\nb");
         assert_eq!(ed.fold_column_cells(0, 0), "");
     }
+
+    // ---- command-line filename completion --------------------------------
+
+    #[test]
+    fn cmdline_completes_a_unique_filename() {
+        let mut ed = Editor::new();
+        ed.line_kind = LineKind::Ex;
+        // cwd during tests is the crate root; src/main.rs is the only src/ma*.
+        ed.cmdline = "e src/ma".into();
+        ed.cmdline_complete(false);
+        assert_eq!(ed.cmdline, "e src/main.rs");
+    }
+
+    #[test]
+    fn cmdline_completes_directory_with_trailing_slash() {
+        let mut ed = Editor::new();
+        ed.line_kind = LineKind::Ex;
+        ed.cmdline = "e sr".into(); // "src" is a directory
+        ed.cmdline_complete(false);
+        assert_eq!(ed.cmdline, "e src/");
+    }
+
+    #[test]
+    fn cmdline_file_completion_cycles() {
+        let mut ed = Editor::new();
+        ed.line_kind = LineKind::Ex;
+        ed.cmdline = "vsplit src/m".into(); // main.rs, menu.rs, mode.rs, ...
+        ed.cmdline_complete(false);
+        let first = ed.cmdline.clone();
+        assert!(first.starts_with("vsplit src/m"));
+        ed.cmdline_complete(false);
+        assert_ne!(ed.cmdline, first); // advanced to the next match
+    }
+
+    #[test]
+    fn cmdline_file_completion_only_for_file_commands() {
+        let mut ed = Editor::new();
+        ed.line_kind = LineKind::Ex;
+        // `:noh` takes no file arg; its argument should not get path completion.
+        ed.cmdline = "noh src/ma".into();
+        ed.cmdline_complete(false);
+        assert_eq!(ed.cmdline, "noh src/ma"); // unchanged
+    }
