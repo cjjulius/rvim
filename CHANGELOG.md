@@ -5,6 +5,14 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Fixed
+- A file ending in a newline no longer loads with a phantom trailing blank line,
+  and saving no longer appends an extra blank line each time (load/save now
+  round-trips exactly, DOS line endings included).
+
+### Files
+- `:set backup` keeps the previous contents as `{name}~` before overwriting a file.
+
 ### Themes
 - New `paper` theme: a light color scheme (dark text on a warm background) for
   bright environments — the first non-dark built-in. Switch with `:theme paper`.

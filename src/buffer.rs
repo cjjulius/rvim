@@ -500,6 +500,15 @@ mod tests {
         assert_eq!(Buffer::from_text("").line_count(), 1);
         // A genuine blank last line (two trailing newlines) is preserved.
         assert_eq!(Buffer::from_text("a\n\n").line_count(), 2);
+        // A lone newline is a single empty line.
+        assert_eq!(Buffer::from_text("\n").line_count(), 1);
+        // A CRLF file round-trips with its line endings intact.
+        let pc = std::env::temp_dir().join(format!("rvim_rtc_{}.txt", std::process::id()));
+        let mut c = Buffer::from_text("a\r\nb\r\n");
+        assert_eq!(c.line_count(), 2);
+        c.save_as(&pc).unwrap();
+        assert_eq!(std::fs::read(&pc).unwrap(), b"a\r\nb\r\n");
+        let _ = std::fs::remove_file(&pc);
         // Save reproduces the input exactly (no extra blank line accrues).
         let p = std::env::temp_dir().join(format!("rvim_rt_{}.txt", std::process::id()));
         let mut b = Buffer::from_text("a\nb\n");
