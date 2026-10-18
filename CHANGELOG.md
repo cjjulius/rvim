@@ -6,6 +6,9 @@ All notable changes to rvim are recorded here. Versions follow
 ## [Unreleased]
 
 ### UI
+- Horizontal-scroll edge markers: a `>` at the right edge marks a line that
+  continues off-screen and a `<` at the left edge marks text hidden by rightward
+  scrolling, so truncated content is always signalled.
 - Error messages (vim-style `E123:`) now render in a distinct per-theme error
   color on the command line, so failed commands stand out from status text.
 - Expanded the Alt menu bar: a Window menu (splits), a Folding submenu (fold
