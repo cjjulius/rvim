@@ -47,6 +47,8 @@ All notable changes to rvim are recorded here. Versions follow
   you expect.
 
 ### Folding
+- Recursive fold commands `zO` / `zC` / `zA` open, close, or toggle the fold under
+  the cursor together with every fold nested inside it.
 - `:set foldmethod=syntax` now folds brace-less languages (Python, YAML, Ruby, Lua,
   Shell) by indentation instead of producing no folds; brace languages are
   unchanged.
