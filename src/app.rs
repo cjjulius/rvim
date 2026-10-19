@@ -209,7 +209,7 @@ impl App {
             if let Some(n) = line {
                 self.editor.goto_line(n);
             }
-            self.editor.message = format!("already editing \"{path}\"");
+            self.notify_fmt("already editing \"{path}\"", &[("{path}", path)]);
             return;
         }
         if let Some(i) = self
@@ -222,7 +222,7 @@ impl App {
             if let Some(n) = line {
                 self.editor.goto_line(n);
             }
-            self.editor.message = format!("\"{path}\" (buffer switched)");
+            self.notify_fmt("\"{path}\" (buffer switched)", &[("{path}", path)]);
             return;
         }
         match Editor::from_file(path) {
@@ -348,7 +348,8 @@ impl App {
             std::mem::swap(&mut self.editor, &mut self.others[idx]);
             self.editor.message = format!("\"{}\"", Self::buffer_name(&self.editor));
         } else {
-            self.editor.message = format!("E86: Buffer {n} does not exist");
+            let n = n.to_string();
+            self.notify_fmt("E86: Buffer {n} does not exist", &[("{n}", &n)]);
         }
     }
 
@@ -364,7 +365,8 @@ impl App {
             return;
         }
         self.editor = self.others.remove(0);
-        self.editor.message = format!("buffer closed; now \"{}\"", Self::buffer_name(&self.editor));
+        let name = Self::buffer_name(&self.editor);
+        self.notify_fmt("buffer closed; now \"{name}\"", &[("{name}", &name)]);
     }
 
     /// Build the tab-bar entries (active first, then the others in order).
@@ -1738,7 +1740,7 @@ impl App {
                 }
             }
             None => {
-                self.editor.message = format!("E492: Not an editor command: {name}");
+                self.notify_fmt("E492: Not an editor command: {name}", &[("{name}", name)]);
             }
         }
     }

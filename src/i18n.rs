@@ -161,6 +161,11 @@ fn vi(s: &str) -> Option<&'static str> {
         "\"{path}\" {lines} lines --reloaded--" => "\"{path}\" {lines} dòng --đã tải lại--",
         "\"{name}\" {bytes}B written" => "đã ghi \"{name}\" {bytes}B",
         "{count} buffer(s) done" => "{count} bộ đệm đã xong",
+        "already editing \"{path}\"" => "đang mở \"{path}\"",
+        "\"{path}\" (buffer switched)" => "\"{path}\" (đã chuyển bộ đệm)",
+        "buffer closed; now \"{name}\"" => "đã đóng bộ đệm; giờ \"{name}\"",
+        "E86: Buffer {n} does not exist" => "E86: Bộ đệm {n} không tồn tại",
+        "E492: Not an editor command: {name}" => "E492: Không phải lệnh: {name}",
         // Mode indicators.
         "-- INSERT --" => "-- CHÈN --",
         "-- REPLACE --" => "-- THAY THẾ --",
@@ -269,6 +274,11 @@ fn fr(s: &str) -> Option<&'static str> {
         "\"{path}\" {lines} lines --reloaded--" => "\"{path}\" {lines} lignes --rechargé--",
         "\"{name}\" {bytes}B written" => "\"{name}\" {bytes} B écrit",
         "{count} buffer(s) done" => "{count} tampon(s) traité(s)",
+        "already editing \"{path}\"" => "déjà ouvert \"{path}\"",
+        "\"{path}\" (buffer switched)" => "\"{path}\" (tampon changé)",
+        "buffer closed; now \"{name}\"" => "tampon fermé ; maintenant \"{name}\"",
+        "E86: Buffer {n} does not exist" => "E86: le tampon {n} n'existe pas",
+        "E492: Not an editor command: {name}" => "E492: commande inconnue : {name}",
         // Mode indicators.
         "-- INSERT --" => "-- INSERTION --",
         "-- REPLACE --" => "-- REMPLACEMENT --",
@@ -300,6 +310,18 @@ mod tests {
         assert_eq!(tr(Locale::French, "All"), "Tout");
         // Untranslated strings fall back to English.
         assert_eq!(tr(Locale::French, "Not translated yet"), "Not translated yet");
+    }
+
+    #[test]
+    fn buffer_and_command_messages_translate() {
+        assert_eq!(
+            tr(Locale::French, "E492: Not an editor command: {name}"),
+            "E492: commande inconnue : {name}"
+        );
+        assert_eq!(
+            tr(Locale::Vietnamese, "\"{path}\" (buffer switched)"),
+            "\"{path}\" (đã chuyển bộ đệm)"
+        );
     }
 
     #[test]
