@@ -73,6 +73,7 @@ impl ThemeRegistry {
                 nord(),
                 paper(),
                 dracula(),
+                solarized_dark(),
             ],
             current: 0,
         }
@@ -440,6 +441,46 @@ pub fn dracula() -> Theme {
     }
 }
 
+/// The classic Solarized Dark palette: low-contrast blue-grey base with precise
+/// accent colors (the dark companion to the `paper` light theme).
+pub fn solarized_dark() -> Theme {
+    Theme {
+        name: "solarized-dark".into(),
+        bg: rgb(0, 43, 54),            // base03
+        fg: rgb(131, 148, 150),        // base0
+        cursor_line_bg: rgb(7, 54, 66), // base02
+        selection_bg: rgb(7, 54, 66),
+        search_bg: rgb(88, 80, 40),
+        cur_search_bg: rgb(181, 137, 0), // yellow
+        color_column_bg: rgb(7, 54, 66),
+        gutter_bg: rgb(0, 43, 54),
+        gutter_fg: rgb(88, 110, 117),   // base01
+        current_line_nr_fg: rgb(147, 161, 161), // base1
+        status_bg: rgb(7, 54, 66),
+        status_fg: rgb(147, 161, 161),
+        mode_bg: rgb(38, 139, 210),     // blue
+        mode_fg: rgb(253, 246, 227),    // base3
+        message_fg: rgb(131, 148, 150),
+        error_fg: rgb(220, 50, 47),     // red
+        tokens: token_map(&[
+            (TokenKind::Keyword, rgb(133, 153, 0)),       // green
+            (TokenKind::Type, rgb(181, 137, 0)),          // yellow
+            (TokenKind::Function, rgb(38, 139, 210)),     // blue
+            (TokenKind::Builtin, rgb(38, 139, 210)),
+            (TokenKind::String, rgb(42, 161, 152)),       // cyan
+            (TokenKind::Char, rgb(42, 161, 152)),
+            (TokenKind::Number, rgb(211, 54, 130)),       // magenta
+            (TokenKind::Comment, rgb(88, 110, 117)),      // base01
+            (TokenKind::Operator, rgb(133, 153, 0)),
+            (TokenKind::Punctuation, rgb(131, 148, 150)),
+            (TokenKind::Preprocessor, rgb(203, 75, 22)),  // orange
+            (TokenKind::Label, rgb(108, 113, 196)),       // violet
+            (TokenKind::Register, rgb(42, 161, 152)),
+            (TokenKind::Variable, rgb(131, 148, 150)),
+        ]),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -450,7 +491,7 @@ mod tests {
         assert_eq!(r.current().name, "matrix");
         assert_eq!(
             r.names(),
-            vec!["matrix", "retrowave", "cobalt", "high-contrast", "gruvbox", "nord", "paper", "dracula"]
+            vec!["matrix", "retrowave", "cobalt", "high-contrast", "gruvbox", "nord", "paper", "dracula", "solarized-dark"]
         );
     }
 
@@ -493,6 +534,7 @@ mod tests {
         assert_eq!(r.cycle(), "nord");
         assert_eq!(r.cycle(), "paper");
         assert_eq!(r.cycle(), "dracula");
+        assert_eq!(r.cycle(), "solarized-dark");
         assert_eq!(r.cycle(), "matrix");
     }
 
@@ -515,6 +557,14 @@ mod tests {
         let mut r = ThemeRegistry::with_builtins();
         assert!(r.set_current("dracula"));
         assert_eq!(r.current().bg, rgb(40, 42, 54));
+        assert_ne!(r.current().token_color(TokenKind::Keyword), r.current().fg);
+    }
+
+    #[test]
+    fn solarized_dark_is_selectable() {
+        let mut r = ThemeRegistry::with_builtins();
+        assert!(r.set_current("solarized-dark"));
+        assert_eq!(r.current().bg, rgb(0, 43, 54));
         assert_ne!(r.current().token_color(TokenKind::Keyword), r.current().fg);
     }
 

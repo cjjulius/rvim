@@ -25,6 +25,8 @@ All notable changes to rvim are recorded here. Versions follow
   coverage and new languages can grow incrementally.
 
 ### Themes
+- Added the Solarized Dark theme (`:theme solarized-dark`): the classic
+  low-contrast blue-grey palette, a dark companion to the `paper` light theme.
 - Added the Dracula theme (`:theme dracula`): soft dark background with vivid
   pink, purple and green accents.
 
