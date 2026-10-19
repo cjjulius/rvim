@@ -245,6 +245,8 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   clear with `:noh` (`:set hlsearch`/`nohlsearch`). Case
   handling follows `:set ignorecase` and `:set smartcase` (an uppercase letter in
   the pattern forces a case-sensitive search), with per-pattern `\c`/`\C` overrides.
+  Patterns are regular expressions, and vim's word-boundary atoms `\<` / `\>` work
+  (e.g. `/\<cat\>` matches the whole word `cat`, not `category`).
   With `:set incsearch` (on by default) the first match is previewed as you type;
   `Enter` jumps to it, `Esc` returns to where you started. Typing a substitute
   (`:s/pattern/...` or `:%s/...`) highlights the matches live too, so you can see
@@ -683,7 +685,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **830 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **831 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

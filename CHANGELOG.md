@@ -11,6 +11,9 @@ All notable changes to rvim are recorded here. Versions follow
   and split status lines).
 
 ### Search
+- vim's word-boundary atoms `\<` / `\>` now work in search and substitute patterns
+  (translated to the regex engine's `\b`); previously they dropped the pattern to a
+  literal match.
 - Live substitute preview: typing `:s/pattern/...` or `:%s/...` highlights the
   pattern's matches as you type (like vim's `inccommand`), restoring the previous
   highlight on Esc. Honors `ignorecase`/`smartcase` and `\c`/`\C`.
