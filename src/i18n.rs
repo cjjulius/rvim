@@ -15,6 +15,7 @@ pub enum Locale {
     #[default]
     English,
     Vietnamese,
+    French,
 }
 
 impl Locale {
@@ -23,6 +24,7 @@ impl Locale {
         match s.trim().to_ascii_lowercase().as_str() {
             "en" | "english" => Some(Locale::English),
             "vi" | "vn" | "vietnamese" => Some(Locale::Vietnamese),
+            "fr" | "french" | "français" | "francais" => Some(Locale::French),
             _ => None,
         }
     }
@@ -32,6 +34,7 @@ impl Locale {
         match self {
             Locale::English => "en",
             Locale::Vietnamese => "vi",
+            Locale::French => "fr",
         }
     }
 
@@ -40,12 +43,13 @@ impl Locale {
         match self {
             Locale::English => "English",
             Locale::Vietnamese => "Tiếng Việt",
+            Locale::French => "Français",
         }
     }
 
     /// Every selectable locale, in display order.
     pub fn all() -> &'static [Locale] {
-        &[Locale::English, Locale::Vietnamese]
+        &[Locale::English, Locale::Vietnamese, Locale::French]
     }
 }
 
@@ -55,6 +59,7 @@ pub fn tr(locale: Locale, s: &'static str) -> &'static str {
     match locale {
         Locale::English => s,
         Locale::Vietnamese => vi(s).unwrap_or(s),
+        Locale::French => fr(s).unwrap_or(s),
     }
 }
 
@@ -161,6 +166,109 @@ fn vi(s: &str) -> Option<&'static str> {
     })
 }
 
+/// French translations of rvim's UI strings. Returns `None` for untranslated
+/// strings so [`tr`] can fall back to English.
+fn fr(s: &str) -> Option<&'static str> {
+    Some(match s {
+        // Menu-bar titles.
+        "File" => "Fichier",
+        "Buffers" => "Tampons",
+        "Edit" => "Édition",
+        "View" => "Affichage",
+        "Window" => "Fenêtre",
+        "Language" => "Langue",
+        "Tools" => "Outils",
+        "Help" => "Aide",
+        // File menu.
+        "Write" => "Écrire",
+        "Write As…" => "Écrire sous…",
+        "Write & Quit" => "Écrire et quitter",
+        "Save & Quit" => "Enregistrer et quitter",
+        "Quit" => "Quitter",
+        "Quit Without Saving" => "Quitter sans enregistrer",
+        "Open File…" => "Ouvrir un fichier…",
+        "Read File…" => "Lire un fichier…",
+        "Source Script…" => "Exécuter un script…",
+        // Buffers menu.
+        "List Buffers" => "Lister les tampons",
+        "Next Buffer" => "Tampon suivant",
+        "Previous Buffer" => "Tampon précédent",
+        "Go To Buffer…" => "Aller au tampon…",
+        "Close Buffer" => "Fermer le tampon",
+        // Edit menu.
+        "Substitute (line)…" => "Substituer (ligne)…",
+        "Substitute (file)…" => "Substituer (fichier)…",
+        "Sort Lines" => "Trier les lignes",
+        "Sort Descending" => "Trier (décroissant)",
+        "Sort Unique" => "Trier (unique)",
+        "Go To Line…" => "Aller à la ligne…",
+        "Clear Search Highlight" => "Effacer la surbrillance",
+        // View menu + submenus.
+        "Theme" => "Thème",
+        "Line Numbers" => "Numéros de ligne",
+        "Folding" => "Repliage",
+        "Options" => "Options",
+        "Absolute On" => "Absolu : Activé",
+        "Absolute Off" => "Absolu : Désactivé",
+        "Relative On" => "Relatif : Activé",
+        "Relative Off" => "Relatif : Désactivé",
+        "Method: Manual" => "Méthode : Manuel",
+        "Method: Indent" => "Méthode : Indentation",
+        "Method: Marker" => "Méthode : Marqueur",
+        "Method: Syntax" => "Méthode : Syntaxe",
+        "Fold Column On" => "Colonne de repli : Activée",
+        "Fold Column Off" => "Colonne de repli : Désactivée",
+        "Mouse On" => "Souris : Activée",
+        "Mouse Off" => "Souris : Désactivée",
+        "Search Highlight On" => "Surbrillance : Activée",
+        "Search Highlight Off" => "Surbrillance : Désactivée",
+        "Auto-indent On" => "Auto-indentation : Activée",
+        "Auto-indent Off" => "Auto-indentation : Désactivée",
+        "Smart-indent On" => "Indentation intelligente : Activée",
+        "Smart-indent Off" => "Indentation intelligente : Désactivée",
+        "Show Whitespace On" => "Espaces visibles : Activé",
+        "Show Whitespace Off" => "Espaces visibles : Désactivé",
+        "Cursor Line On" => "Ligne du curseur : Activée",
+        "Cursor Line Off" => "Ligne du curseur : Désactivée",
+        // Window menu.
+        "Split" => "Diviser",
+        "Vertical Split" => "Diviser verticalement",
+        "Split File…" => "Diviser avec un fichier…",
+        "Close Window" => "Fermer la fenêtre",
+        "Only This Window" => "Seulement cette fenêtre",
+        // Language menu.
+        "Set Filetype" => "Définir le type",
+        "Plain Text" => "Texte brut",
+        // Help menu.
+        "Version" => "Version",
+        // Status-line scroll indicator.
+        "Top" => "Haut",
+        "Bot" => "Bas",
+        "All" => "Tout",
+        // Common status / error messages.
+        "paste" => "collage",
+        "nopaste" => "sans collage",
+        "readonly" => "lecture seule",
+        "noreadonly" => "sans lecture seule",
+        "only one buffer" => "un seul tampon",
+        "E32: No file name" => "E32 : Aucun nom de fichier",
+        "E444: Cannot close last window" => "E444 : Impossible de fermer la dernière fenêtre",
+        "E37: No write since last change (add ! to override)" => {
+            "E37 : Aucune écriture depuis la dernière modification (ajouter ! pour forcer)"
+        }
+        "E45: 'readonly' option is set (add ! to override)" => {
+            "E45 : l'option 'readonly' est activée (ajouter ! pour forcer)"
+        }
+        // Mode indicators.
+        "-- INSERT --" => "-- INSERTION --",
+        "-- REPLACE --" => "-- REMPLACEMENT --",
+        "-- VISUAL --" => "-- VISUEL --",
+        "-- VISUAL LINE --" => "-- VISUEL LIGNE --",
+        "-- VISUAL BLOCK --" => "-- VISUEL BLOC --",
+        _ => return None,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -170,7 +278,18 @@ mod tests {
         assert_eq!(Locale::from_code("vi"), Some(Locale::Vietnamese));
         assert_eq!(Locale::from_code("Vietnamese"), Some(Locale::Vietnamese));
         assert_eq!(Locale::from_code("EN"), Some(Locale::English));
+        assert_eq!(Locale::from_code("fr"), Some(Locale::French));
+        assert_eq!(Locale::from_code("French"), Some(Locale::French));
         assert_eq!(Locale::from_code("xx"), None);
+    }
+
+    #[test]
+    fn french_translates_with_english_fallback() {
+        assert_eq!(tr(Locale::French, "File"), "Fichier");
+        assert_eq!(tr(Locale::French, "-- INSERT --"), "-- INSERTION --");
+        assert_eq!(tr(Locale::French, "All"), "Tout");
+        // Untranslated strings fall back to English.
+        assert_eq!(tr(Locale::French, "Not translated yet"), "Not translated yet");
     }
 
     #[test]
