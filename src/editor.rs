@@ -324,6 +324,12 @@ pub struct Editor {
     /// of `:set list`; set either to a space to hide it.
     pub listchars_precedes: char,
     pub listchars_extends: char,
+    /// `:set listchars` markers for spaces, shown when `:set list` is on: `space`
+    /// replaces every ordinary space (default a plain space, i.e. no change until
+    /// set), and `nbsp` marks a non-breaking space (U+00A0) — invisible otherwise
+    /// and a common source of subtle bugs, so it defaults to a visible glyph.
+    pub listchars_space: char,
+    pub listchars_nbsp: char,
     /// `:set cursorline` — highlight the line the cursor is on (default on).
     pub cursorline: bool,
     /// `:set cursorcolumn` — highlight the column the cursor is on (default off).
@@ -547,6 +553,8 @@ impl Editor {
             listchars_eol: '$',
             listchars_precedes: '<',
             listchars_extends: '>',
+            listchars_space: ' ',
+            listchars_nbsp: '␣',
             cursorline: true,
             cursorcolumn: false,
             colorcolumns: Vec::new(),
@@ -1335,13 +1343,15 @@ impl Editor {
     /// A textual `listchars=...` summary for `:set listchars?` and messages.
     fn listchars_summary(&self) -> String {
         format!(
-            "listchars=tab:{}{},trail:{},eol:{},precedes:{},extends:{}",
+            "listchars=tab:{}{},trail:{},eol:{},precedes:{},extends:{},space:{},nbsp:{}",
             self.listchars_tab.0,
             self.listchars_tab.1,
             self.listchars_trail,
             self.listchars_eol,
             self.listchars_precedes,
-            self.listchars_extends
+            self.listchars_extends,
+            self.listchars_space,
+            self.listchars_nbsp
         )
     }
 
@@ -1372,10 +1382,11 @@ impl Editor {
         self.message = self.matchpairs_summary();
     }
 
-    /// `:set listchars=tab:xy,trail:z,eol:e,precedes:<,extends:>` — configure the
-    /// display markers. `tab:` takes two characters (head + fill); the rest take
-    /// one. `precedes`/`extends` are the horizontal-scroll edge markers (set either
-    /// to a space to hide it). Unknown keys are ignored.
+    /// `:set listchars=tab:xy,trail:z,eol:e,precedes:<,extends:>,space:.,nbsp:+`
+    /// — configure the display markers. `tab:` takes two characters (head + fill);
+    /// the rest take one. `precedes`/`extends` are the horizontal-scroll edge
+    /// markers (set either to a space to hide it). `space`/`nbsp` mark ordinary and
+    /// non-breaking spaces when `:set list` is on. Unknown keys are ignored.
     pub fn set_listchars(&mut self, spec: &str) {
         for item in spec.split(',') {
             let Some((key, val)) = item.split_once(':') else {
@@ -1397,6 +1408,12 @@ impl Editor {
                 }
                 "extends" if vchars.len() == 1 => {
                     self.listchars_extends = vchars[0];
+                }
+                "space" if vchars.len() == 1 => {
+                    self.listchars_space = vchars[0];
+                }
+                "nbsp" if vchars.len() == 1 => {
+                    self.listchars_nbsp = vchars[0];
                 }
                 _ => {}
             }

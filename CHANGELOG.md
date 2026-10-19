@@ -11,6 +11,11 @@ All notable changes to rvim are recorded here. Versions follow
   shared, while each window keeps its own cursor and scroll. Opening a different
   file in a split stays independent.
 
+### Accessibility
+- `:set list` now flags non-breaking spaces with their own `listchars` `nbsp:`
+  marker (shown by default), and an optional `space:` marker reveals every
+  ordinary space — making invisible characters visible.
+
 ### Syntax
 - Kotlin highlighting (`.kt`, `.kts`): keywords, types, stdlib builtins, strings
   (including triple-quoted raw strings across lines), and `//` / `/* */` comments.

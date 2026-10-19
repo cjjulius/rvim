@@ -286,6 +286,8 @@ fn draw_text_area(
         block,
         list: editor.list,
         listchars: editor.listchars(),
+        space_mark: editor.listchars_space,
+        nbsp_mark: editor.listchars_nbsp,
         color_cols: &color_cols,
     };
 
@@ -727,6 +729,8 @@ struct RenderCtx<'a> {
     block: Option<(usize, usize, usize, usize)>,
     list: bool,
     listchars: (char, char, char, char),
+    space_mark: char,
+    nbsp_mark: char,
     color_cols: &'a [usize],
 }
 
@@ -760,6 +764,8 @@ fn draw_text_line(
         block,
         list,
         listchars,
+        space_mark,
+        nbsp_mark,
         color_cols,
     } = ctx;
     let LineHl { match_col, cursor_col, cur_match } = hl;
@@ -840,11 +846,23 @@ fn draw_text_line(
             } else {
                 " ".repeat(tab_width)
             }
+        } else if list && ch == '\u{00A0}' {
+            // Non-breaking space: invisible normally, so always flagged under list.
+            if plain {
+                cfg = theme.gutter_fg;
+            }
+            nbsp_mark.to_string()
         } else if list && ci >= trail_start && ch == ' ' {
             if plain {
                 cfg = theme.gutter_fg;
             }
             listchars.2.to_string()
+        } else if list && ch == ' ' && space_mark != ' ' {
+            // Ordinary spaces, only when a non-blank `space:` marker is configured.
+            if plain {
+                cfg = theme.gutter_fg;
+            }
+            space_mark.to_string()
         } else {
             ch.to_string()
         };
@@ -1606,13 +1624,35 @@ mod tests {
         let mut buf: Vec<u8> = Vec::new();
         let ctx = RenderCtx {
             theme: &theme, layout: &layout, left: 0, sel: None, linewise: false, search: None,
-            tab_width: 4, block: None, list: true, listchars: ('▸', '·', '·', '$'), color_cols: &[],
+            tab_width: 4, block: None, list: true, listchars: ('▸', '·', '·', '$'), space_mark: ' ', nbsp_mark: '␣', color_cols: &[],
         };
         draw_text_line(&mut buf, &ctx, "a\tb  ", &[], 0, theme.bg, NO_HL).unwrap();
         let out = String::from_utf8_lossy(&buf);
         assert!(out.contains('▸')); // tab marker
         assert!(out.contains('·')); // trailing-space / tab-fill marker
         assert!(out.contains('$')); // end-of-line marker
+    }
+
+    #[test]
+    fn list_mode_marks_nbsp_and_configured_space() {
+        let theme = crate::theme::matrix();
+        let layout = Layout::compute(80, 24, 1, false, false);
+        // nbsp always flagged under list; ordinary spaces only when space: is set.
+        let ctx = RenderCtx {
+            theme: &theme, layout: &layout, left: 0, sel: None, linewise: false, search: None,
+            tab_width: 4, block: None, list: true, listchars: ('▸', '·', '·', '$'),
+            space_mark: '•', nbsp_mark: '␣', color_cols: &[],
+        };
+        let mut buf: Vec<u8> = Vec::new();
+        draw_text_line(&mut buf, &ctx, "a\u{00A0}b c", &[], 0, theme.bg, NO_HL).unwrap();
+        let out = String::from_utf8_lossy(&buf);
+        assert!(out.contains('␣'), "non-breaking space marked");
+        assert!(out.contains('•'), "ordinary space marked when configured");
+        // With the default space marker (a space) ordinary spaces are untouched.
+        let ctx2 = RenderCtx { space_mark: ' ', ..ctx };
+        let mut buf2: Vec<u8> = Vec::new();
+        draw_text_line(&mut buf2, &ctx2, "a b", &[], 0, theme.bg, NO_HL).unwrap();
+        assert!(!String::from_utf8_lossy(&buf2).contains('•'));
     }
 
     #[test]
@@ -1667,7 +1707,7 @@ mod tests {
         let layout = Layout::compute(10, 24, 1, false, false); // 10-wide text area
         let ctx = RenderCtx {
             theme: &theme, layout: &layout, left: 0, sel: None, linewise: false, search: None,
-            tab_width: 4, block: None, list: false, listchars: ('▸', '·', '·', '$'), color_cols: &[],
+            tab_width: 4, block: None, list: false, listchars: ('▸', '·', '·', '$'), space_mark: ' ', nbsp_mark: '␣', color_cols: &[],
         };
         // A line wider than the text area reports right-truncation; a short one does not.
         let mut buf = Vec::new();
@@ -1696,7 +1736,7 @@ mod tests {
         let ctx = RenderCtx {
             theme: &theme, layout: &layout, left: 0, sel: None, linewise: false, search: None,
             tab_width: 4, block: None, list: false, listchars: ('▸', '·', '·', '$'),
-            color_cols: &[1, 4],
+            space_mark: ' ', nbsp_mark: '␣', color_cols: &[1, 4],
         };
         draw_text_line(&mut buf, &ctx, "ab", &[], 0, theme.bg, NO_HL).unwrap();
         let out = String::from_utf8_lossy(&buf);
@@ -1714,7 +1754,7 @@ mod tests {
         let mut buf: Vec<u8> = Vec::new();
         let ctx = RenderCtx {
             theme: &theme, layout: &layout, left: 0, sel: None, linewise: false, search: None,
-            tab_width: 4, block: None, list: false, listchars: ('▸', '·', '·', '$'), color_cols: &[],
+            tab_width: 4, block: None, list: false, listchars: ('▸', '·', '·', '$'), space_mark: ' ', nbsp_mark: '␣', color_cols: &[],
         };
         draw_text_line(&mut buf, &ctx, "a\tb  ", &[], 0, theme.bg, NO_HL).unwrap();
         let out = String::from_utf8_lossy(&buf);
