@@ -60,6 +60,8 @@ All notable changes to rvim are recorded here. Versions follow
   indentation travels with the file. Both the `set ... :` and bare `vi:opt:opt`
   forms are supported; only `:set` options are applied, never commands. Controlled
   by `:set modeline` / `:set nomodeline` (on by default) and `:set modelines=N`.
+  Files opened in the background (extra command-line arguments, `:bn`/`:b N`) get
+  their modeline applied the first time they are viewed, once per buffer.
 
 ### Files
 - `:enew` opens a new empty, unnamed buffer in the current window; the previous

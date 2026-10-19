@@ -205,6 +205,8 @@ impl App {
         if !self.editor.modeline {
             return;
         }
+        // Mark done even when nothing is found, so a later focus doesn't re-scan.
+        self.editor.modeline_done = true;
         let opts = self.editor.modeline_options();
         if opts.is_empty() {
             return;
@@ -212,6 +214,15 @@ impl App {
         let saved = std::mem::take(&mut self.editor.message);
         self.run_ex(&format!("set {}", opts.join(" ")));
         self.editor.message = saved;
+    }
+
+    /// Apply the focused buffer's modeline the first time it is seen. Called when
+    /// a buffer becomes focused (buffer switch), so files opened in the background
+    /// (extra CLI arguments, `:bn`/`:b`) get their modeline on first view.
+    fn apply_modelines_if_needed(&mut self) {
+        if !self.editor.modeline_done {
+            self.apply_modelines();
+        }
     }
 
     // ---- buffer management ----------------------------------------------
@@ -250,6 +261,7 @@ impl App {
         {
             self.remember_alternate();
             std::mem::swap(&mut self.editor, &mut self.others[i]);
+            self.apply_modelines_if_needed();
             if let Some(n) = line {
                 self.editor.goto_line(n);
             }
@@ -355,6 +367,7 @@ impl App {
         let next = self.others.remove(0);
         let old = std::mem::replace(&mut self.editor, next);
         self.others.push(old);
+        self.apply_modelines_if_needed();
         self.editor.message = format!("\"{}\"", Self::buffer_name(&self.editor));
     }
 
@@ -364,6 +377,7 @@ impl App {
             self.remember_alternate();
             let old = std::mem::replace(&mut self.editor, prev);
             self.others.insert(0, old);
+            self.apply_modelines_if_needed();
             self.editor.message = format!("\"{}\"", Self::buffer_name(&self.editor));
         } else {
             self.notify("only one buffer");
@@ -379,6 +393,7 @@ impl App {
         if idx < self.others.len() {
             self.remember_alternate();
             std::mem::swap(&mut self.editor, &mut self.others[idx]);
+            self.apply_modelines_if_needed();
             self.editor.message = format!("\"{}\"", Self::buffer_name(&self.editor));
         } else {
             let n = n.to_string();
