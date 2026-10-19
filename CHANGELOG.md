@@ -5,6 +5,12 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Interface language
+- The UI can be localized: `:set language=vi` switches menus and mode indicators
+  to Vietnamese, `:set language=en` back to English. The English text is the
+  translation key and untranslated strings fall back to English, so more languages
+  can be added incrementally.
+
 ### Themes
 - Added the Dracula theme (`:theme dracula`): soft dark background with vivid
   pink, purple and green accents.

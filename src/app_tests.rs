@@ -658,6 +658,23 @@
     }
 
     #[test]
+    fn set_language_switches_ui_locale() {
+        use crate::i18n::Locale;
+        use crate::mode::Mode;
+        let mut app = App::new();
+        assert_eq!(app.editor.locale, Locale::English);
+        app.run_ex("set language=vi");
+        assert_eq!(app.editor.locale, Locale::Vietnamese);
+        // Mode indicators now localize.
+        app.editor.mode = Mode::Insert;
+        assert_eq!(app.editor.mode_indicator(), Some("-- CHÈN --"));
+        // An unknown code is reported, locale unchanged.
+        app.run_ex("set language=xx");
+        assert!(app.editor.message.contains("E474"));
+        assert_eq!(app.editor.locale, Locale::Vietnamese);
+    }
+
+    #[test]
     fn readonly_blocks_write_until_forced() {
         let dir = std::env::temp_dir();
         let path = dir.join("rvim_ro_test.txt");

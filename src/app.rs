@@ -865,6 +865,7 @@ impl App {
                             &self.themes.names(),
                             &crate::syntax::language_names(),
                             &self.plugins.all_commands(),
+                            self.editor.locale,
                         );
                         self.editor.open_menu(menus);
                         if let KeyCode::Char(c) = key.code {
@@ -1292,6 +1293,13 @@ impl App {
                     self.editor.message = format!("filetype: {}", lang.name());
                 }
                 None => self.editor.message = format!("Unknown filetype '{name}'"),
+            },
+            ExCommand::SetLanguage(code) => match crate::i18n::Locale::from_code(&code) {
+                Some(loc) => {
+                    self.editor.locale = loc;
+                    self.editor.message = format!("language: {}", loc.display_name());
+                }
+                None => self.editor.message = format!("E474: Unknown language '{code}'"),
             },
             ExCommand::SetFileFormat(name) => self.editor.set_file_format(&name),
             ExCommand::SetFoldMethod(name) => {

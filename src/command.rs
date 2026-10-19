@@ -121,6 +121,8 @@ pub enum ExCommand {
     SetTextWidth(usize),
     /// `:set ft=<lang>`
     SetFiletype(String),
+    /// `:set language=<code>` — switch the UI language.
+    SetLanguage(String),
     /// `:set foldmethod=manual|indent` (`fdm=`).
     SetFoldMethod(String),
     /// `:set fileformat=unix|dos` (`ff=`).
@@ -1009,6 +1011,11 @@ fn parse_set(rest: &str) -> ExCommand {
                 .or_else(|| opt.strip_prefix("mps="))
             {
                 ExCommand::SetMatchPairs(v.to_string())
+            } else if let Some(v) = opt
+                .strip_prefix("language=")
+                .or_else(|| opt.strip_prefix("lang="))
+            {
+                ExCommand::SetLanguage(v.trim().to_string())
             } else if let Some(v) = opt
                 .strip_prefix("ft=")
                 .or_else(|| opt.strip_prefix("filetype="))
