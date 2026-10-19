@@ -145,7 +145,8 @@ impl App {
         let mut app = App::new();
         app.editor = Editor::from_file(path)?;
         app.editor.buf_id = app.fresh_buf_id();
-        app.editor.message = format!("\"{path}\" {} lines", app.editor.buffer.line_count());
+        let lines = app.editor.buffer.line_count().to_string();
+        app.notify_fmt("\"{path}\" {lines} lines", &[("{path}", path), ("{lines}", &lines)]);
         Ok(app)
     }
 
@@ -237,7 +238,8 @@ impl App {
                 if let Some(n) = line {
                     self.editor.goto_line(n);
                 }
-                self.editor.message = format!("\"{path}\" {lines} lines");
+                let lines = lines.to_string();
+                self.notify_fmt("\"{path}\" {lines} lines", &[("{path}", path), ("{lines}", &lines)]);
             }
             Err(e) => self.editor.message = format!("E212: Can't open \"{path}\": {e}"),
         }
@@ -261,9 +263,12 @@ impl App {
             Ok(mut ed) => {
                 self.inherit_prefs(&mut ed);
                 ed.cursor.row = row.min(ed.buffer.line_count().saturating_sub(1));
-                let lines = ed.buffer.line_count();
+                let lines = ed.buffer.line_count().to_string();
                 self.editor = ed;
-                self.editor.message = format!("\"{path}\" {lines} lines --reloaded--");
+                self.notify_fmt(
+                    "\"{path}\" {lines} lines --reloaded--",
+                    &[("{path}", &path), ("{lines}", &lines)],
+                );
             }
             Err(e) => self.editor.message = format!("E212: Can't open \"{path}\": {e}"),
         }
@@ -287,7 +292,8 @@ impl App {
             }
             self.buffer_next();
         }
-        self.editor.message = format!("{count} buffer(s) done");
+        let count = count.to_string();
+        self.notify_fmt("{count} buffer(s) done", &[("{count}", &count)]);
     }
 
     /// `:windo {cmd}` — run `cmd` in every window, returning focus to the window
@@ -460,6 +466,17 @@ impl App {
     /// Set the status message, localized to the current UI language.
     fn notify(&mut self, msg: &'static str) {
         self.editor.message = crate::i18n::tr(self.editor.locale, msg).into();
+    }
+
+    /// Set a localized status message from a template with `{name}`-style
+    /// placeholders. The English template is the translation key; after translating
+    /// (or falling back to English), each placeholder is replaced with its value.
+    fn notify_fmt(&mut self, template: &'static str, args: &[(&str, &str)]) {
+        let mut s = crate::i18n::tr(self.editor.locale, template).to_string();
+        for (key, val) in args {
+            s = s.replace(key, val);
+        }
+        self.editor.message = s;
     }
 
     /// Allocate a fresh buffer id for a newly opened file.
@@ -1560,7 +1577,11 @@ impl App {
                     .path()
                     .map(|p| p.display().to_string())
                     .unwrap_or_default();
-                self.editor.message = format!("\"{name}\" {bytes}B written");
+                let bytes = bytes.to_string();
+                self.notify_fmt(
+                    "\"{name}\" {bytes}B written",
+                    &[("{name}", &name), ("{bytes}", &bytes)],
+                );
                 true
             }
             Err(e) => {
