@@ -156,6 +156,49 @@ impl Folds {
         }
     }
 
+    /// The outermost fold containing `line`, as `(start, end)`.
+    fn outermost_fold(&self, line: usize) -> Option<(usize, usize)> {
+        self.items
+            .iter()
+            .filter(|f| f.start <= line && line <= f.end)
+            .min_by_key(|f| f.start)
+            .map(|f| (f.start, f.end))
+    }
+
+    /// `zO` — open the fold at `line` and every fold nested within it. Returns the
+    /// outermost fold's start.
+    pub fn open_recursive(&mut self, line: usize) -> Option<usize> {
+        let (s, e) = self.outermost_fold(line)?;
+        for f in &mut self.items {
+            if f.start >= s && f.end <= e {
+                f.open = true;
+            }
+        }
+        Some(s)
+    }
+
+    /// `zC` — close the fold at `line` and every fold nested within it. Returns the
+    /// outermost fold's start.
+    pub fn close_recursive(&mut self, line: usize) -> Option<usize> {
+        let (s, e) = self.outermost_fold(line)?;
+        for f in &mut self.items {
+            if f.start >= s && f.end <= e {
+                f.open = false;
+            }
+        }
+        Some(s)
+    }
+
+    /// `zA` — toggle the fold at `line` recursively: open it and its nested folds
+    /// when closed, otherwise close them all. Returns the outermost fold's start.
+    pub fn toggle_recursive(&mut self, line: usize) -> Option<usize> {
+        if self.is_hidden(line) || self.header(line).is_some() {
+            self.open_recursive(line)
+        } else {
+            self.close_recursive(line)
+        }
+    }
+
     /// Delete the innermost fold containing `line` (`zd`). Returns whether one
     /// was removed.
     pub fn delete_at(&mut self, line: usize) -> bool {
@@ -251,6 +294,20 @@ mod tests {
         assert!(f.create(2, 5));
         assert!(!f.create(2, 5)); // duplicate
         assert_eq!(f.all().len(), 1);
+    }
+
+    #[test]
+    fn recursive_open_close_affect_nested_folds() {
+        let mut f = Folds::default();
+        assert!(f.create(0, 5)); // outer
+        assert!(f.create(1, 3)); // inner, nested inside the outer
+        f.open_all();
+        // zC at an inner line closes the outer fold and the nested one.
+        assert_eq!(f.close_recursive(2), Some(0));
+        assert!(f.all().iter().all(|fd| !fd.open));
+        // zO at the outer header opens both again.
+        assert_eq!(f.open_recursive(0), Some(0));
+        assert!(f.all().iter().all(|fd| fd.open));
     }
 
     #[test]

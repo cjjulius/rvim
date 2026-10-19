@@ -704,6 +704,26 @@ impl Editor {
         }
         self.scroll_into_view();
     }
+    fn fold_open_recursive(&mut self) {
+        self.folds.open_recursive(self.cursor.row);
+        self.scroll_into_view();
+    }
+    fn fold_close_recursive(&mut self) {
+        if let Some(start) = self.folds.close_recursive(self.cursor.row) {
+            self.cursor.row = start;
+            self.move_first_nonblank();
+        }
+        self.scroll_into_view();
+    }
+    fn fold_toggle_recursive(&mut self) {
+        if let Some(start) = self.folds.toggle_recursive(self.cursor.row) {
+            if self.folds.is_hidden(self.cursor.row) || self.folds.header(start).is_some() {
+                self.cursor.row = start;
+                self.move_first_nonblank();
+            }
+        }
+        self.scroll_into_view();
+    }
 
     /// `zR` — open every fold.
     fn fold_open_all(&mut self) {
@@ -4817,6 +4837,9 @@ impl Editor {
                 KeyCode::Char('o') => self.fold_open(),
                 KeyCode::Char('c') => self.fold_close(),
                 KeyCode::Char('a') => self.fold_toggle(),
+                KeyCode::Char('O') => self.fold_open_recursive(),
+                KeyCode::Char('C') => self.fold_close_recursive(),
+                KeyCode::Char('A') => self.fold_toggle_recursive(),
                 KeyCode::Char('R') => self.fold_open_all(),
                 KeyCode::Char('M') => self.fold_close_all(),
                 KeyCode::Char('d') => self.fold_delete(),

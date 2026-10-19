@@ -570,7 +570,8 @@ folds and `zR` to open them all.
   in visual mode and press `zf`. `zF` folds a count of lines (`3zF`).
 - A closed fold shows as a dimmed `+-- N lines: <first line>` bar; the line
   number of its first line stays in the gutter.
-- `zo` opens the fold under the cursor, `zc` closes it, and `za` toggles it.
+- `zo` opens the fold under the cursor, `zc` closes it, and `za` toggles it; the
+  capital forms `zO` / `zC` / `zA` do the same but reach every nested fold inside.
   `zR` opens every fold, `zM` closes every fold.
 - `zd` removes the fold under the cursor (keeping the text), `zE` removes all.
 - `zi` turns folding off and on without discarding your folds.
@@ -682,7 +683,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **828 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **829 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
