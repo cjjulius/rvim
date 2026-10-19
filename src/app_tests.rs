@@ -694,6 +694,19 @@
     }
 
     #[test]
+    fn pwd_reports_cwd_and_bad_cd_errors_without_changing_it() {
+        // Deliberately avoids a successful `:cd`, which would change the
+        // process-wide working directory and race other tests.
+        let mut app = App::new();
+        app.run_ex("pwd");
+        let cwd = std::env::current_dir().unwrap().display().to_string();
+        assert_eq!(app.editor.message, cwd);
+        app.run_ex("cd /no/such/dir/rvim-xyz");
+        assert!(app.editor.message.contains("E344"));
+        assert_eq!(std::env::current_dir().unwrap().display().to_string(), cwd);
+    }
+
+    #[test]
     fn readonly_blocks_write_until_forced() {
         let dir = std::env::temp_dir();
         let path = dir.join("rvim_ro_test.txt");

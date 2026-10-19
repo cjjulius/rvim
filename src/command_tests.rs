@@ -123,6 +123,14 @@
     }
 
     #[test]
+    fn cd_and_pwd_parse() {
+        assert_eq!(parse("pwd"), ExCommand::Pwd);
+        assert_eq!(parse("cd"), ExCommand::ChangeDir(None));
+        assert_eq!(parse("cd /tmp"), ExCommand::ChangeDir(Some("/tmp".into())));
+        assert_eq!(parse("chdir src"), ExCommand::ChangeDir(Some("src".into())));
+    }
+
+    #[test]
     fn writequit_variants() {
         assert_eq!(parse("wq"), ExCommand::WriteQuit { path: None, force: false });
         assert_eq!(parse("x"), ExCommand::WriteQuit { path: None, force: false });
