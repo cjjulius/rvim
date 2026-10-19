@@ -49,6 +49,7 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(yaml_spec())),
         Box::new(SpecHighlighter::new(typescript_spec())),
         Box::new(SpecHighlighter::new(kotlin_spec())),
+        Box::new(SpecHighlighter::new(ruby_spec())),
     ]
 }
 
@@ -190,6 +191,45 @@ const KOTLIN_BUILTINS: &[&str] = &[
     "println", "print", "listOf", "mapOf", "setOf", "mutableListOf", "mutableMapOf", "mutableSetOf",
     "arrayOf", "require", "check", "error", "TODO", "let", "also", "apply", "run", "with", "lazy",
     "takeIf", "takeUnless", "repeat",
+];
+
+// ---- Ruby ----------------------------------------------------------------
+
+fn ruby_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Ruby,
+        // `=begin`/`=end` block comments are line-anchored, not inline, so they are
+        // left out here; `#` line comments cover the common case.
+        multiline_strings: &[],
+        preprocessor: None,
+        line_comments: &["#"],
+        block_comment: None,
+        keywords: RUBY_KEYWORDS,
+        types: RUBY_TYPES,
+        builtins: RUBY_BUILTINS,
+        string_delims: &['"', '\''],
+        case_insensitive: false,
+        // `@ivar`, `@@cvar`, `$global` read as variables.
+        var_sigils: &['@', '$'],
+        detect_calls: true,
+    }
+}
+
+const RUBY_KEYWORDS: &[&str] = &[
+    "def", "end", "class", "module", "if", "elsif", "else", "unless", "while", "until", "for",
+    "in", "do", "then", "begin", "rescue", "ensure", "retry", "raise", "return", "yield", "next",
+    "break", "redo", "case", "when", "require", "require_relative", "load", "include", "extend",
+    "super", "self", "nil", "true", "false", "and", "or", "not", "lambda", "proc", "defined?",
+    "__method__", "alias", "undef",
+];
+const RUBY_TYPES: &[&str] = &[
+    "String", "Integer", "Float", "Array", "Hash", "Symbol", "Object", "Class", "Module", "Proc",
+    "Range", "Regexp", "Exception", "StandardError", "NilClass", "TrueClass", "FalseClass",
+    "Comparable", "Enumerable", "Numeric", "Struct",
+];
+const RUBY_BUILTINS: &[&str] = &[
+    "puts", "print", "p", "pp", "gets", "attr_accessor", "attr_reader", "attr_writer", "new",
+    "freeze", "loop", "format", "sprintf", "require", "catch", "throw", "fail",
 ];
 
 // ---- C / C++ -------------------------------------------------------------
@@ -802,6 +842,18 @@ mod tests {
         assert_eq!(state, LineState::MultiStr(0)); // raw string stays open
         let (_t2, state2) = h.highlight_line_stateful("end\"\"\"", state);
         assert_eq!(state2, LineState::Normal); // and closes
+    }
+
+    #[test]
+    fn ruby_highlights_keyword_type_builtin_string_and_ivar() {
+        let h = SpecHighlighter::new(ruby_spec());
+        let toks = h.highlight_line("def f; @a = Array.new(\"x\"); puts @a; end # c");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // def/end
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // Array
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // new/puts
+        assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "x"
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Variable)); // @a
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // # c
     }
 
     #[test]
