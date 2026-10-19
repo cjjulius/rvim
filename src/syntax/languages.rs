@@ -51,6 +51,7 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(kotlin_spec())),
         Box::new(SpecHighlighter::new(ruby_spec())),
         Box::new(SpecHighlighter::new(lua_spec())),
+        Box::new(SpecHighlighter::new(csharp_spec())),
     ]
 }
 
@@ -152,6 +153,46 @@ const JAVA_TYPES: &[&str] = &[
 const JAVA_BUILTINS: &[&str] = &[
     "System", "Math", "Arrays", "Objects", "Collections", "Thread", "Exception",
     "RuntimeException", "Override", "Deprecated", "SuppressWarnings",
+];
+
+// ---- C# -------------------------------------------------------------------
+
+fn csharp_spec() -> LangSpec {
+    LangSpec {
+        language: Language::CSharp,
+        // C# 11 raw string literals (`"""…"""`) can span lines.
+        multiline_strings: &["\"\"\""],
+        preprocessor: Some('#'), // #region, #if, #define, …
+        line_comments: &["//"],
+        block_comment: Some(("/*", "*/")),
+        keywords: CSHARP_KEYWORDS,
+        types: CSHARP_TYPES,
+        builtins: CSHARP_BUILTINS,
+        string_delims: &['"', '\''],
+        case_insensitive: false,
+        var_sigils: &[],
+        detect_calls: true,
+    }
+}
+
+const CSHARP_KEYWORDS: &[&str] = &[
+    "abstract", "as", "async", "await", "base", "break", "case", "catch", "checked", "class",
+    "const", "continue", "default", "delegate", "do", "else", "enum", "event", "explicit", "extern",
+    "false", "finally", "fixed", "for", "foreach", "goto", "if", "implicit", "in", "interface",
+    "internal", "is", "lock", "namespace", "new", "null", "operator", "out", "override", "params",
+    "private", "protected", "public", "readonly", "ref", "return", "sealed", "sizeof", "stackalloc",
+    "static", "struct", "switch", "this", "throw", "true", "try", "typeof", "unchecked", "unsafe",
+    "using", "virtual", "volatile", "while", "yield", "get", "set", "value", "record", "nameof",
+    "when", "where", "partial",
+];
+const CSHARP_TYPES: &[&str] = &[
+    "bool", "byte", "sbyte", "char", "decimal", "double", "float", "int", "uint", "long", "ulong",
+    "short", "ushort", "object", "string", "void", "var", "dynamic", "nint", "nuint", "String",
+    "Int32", "Int64", "Object", "List", "Dictionary", "IEnumerable", "Task", "Span",
+];
+const CSHARP_BUILTINS: &[&str] = &[
+    "Console", "Math", "Convert", "Enumerable", "WriteLine", "ToString", "Exception",
+    "ArgumentException", "Func", "Action",
 ];
 
 // ---- Kotlin --------------------------------------------------------------
@@ -910,6 +951,17 @@ mod tests {
         // A plain `--` line comment is NOT swallowed as a block.
         let (_t2, s2) = h.highlight_line_stateful("z = 3 -- just a note", LineState::Normal);
         assert_eq!(s2, LineState::Normal);
+    }
+
+    #[test]
+    fn csharp_highlights_keyword_type_builtin_string() {
+        let h = SpecHighlighter::new(csharp_spec());
+        let toks = h.highlight_line("public static void Main() { string s = \"hi\"; Console.WriteLine(s); } // c");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // public/static
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // void/string
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // Console
+        assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "hi"
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // // c
     }
 
     #[test]
