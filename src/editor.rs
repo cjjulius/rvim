@@ -776,7 +776,14 @@ impl Editor {
             .map(|f| (f.start, f.end))
             .collect();
         self.folds.clear();
-        for (s, e) in syntax.syntax_fold_ranges(self.language, self.buffer.lines()) {
+        // Brace languages fold by `{`…`}`; indentation-structured ones (Python,
+        // YAML, Ruby, Lua, Shell) have no braces, so fold them by indentation.
+        let ranges = if crate::syntax::prefers_indent_folds(self.language) {
+            indent_fold_ranges(self.buffer.lines(), self.shiftwidth, self.tabstop)
+        } else {
+            syntax.syntax_fold_ranges(self.language, self.buffer.lines())
+        };
+        for (s, e) in ranges {
             self.folds.create(s, e);
         }
         self.folds.open_all();

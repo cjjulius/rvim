@@ -5255,6 +5255,20 @@
     }
 
     #[test]
+    fn syntax_foldmethod_folds_indentation_languages() {
+        // Python has no braces; `foldmethod=syntax` should still fold by indent.
+        let mut ed = ed_with("def f():\n    a = 1\n    b = 2\nx = 3");
+        ed.set_language(crate::syntax::Language::Python);
+        ed.set_fold_method("syntax");
+        ed.recompute_syntax_folds(&crate::syntax::Registry::with_builtins());
+        assert!(
+            ed.folds().all().iter().any(|f| f.start == 1 && f.end == 2),
+            "expected an indent fold at lines 1-2, got {:?}",
+            ed.folds().all()
+        );
+    }
+
+    #[test]
     fn zf_motion_creates_closed_fold() {
         let mut ed = ed_with("a\nb\nc\nd\ne");
         // zf3j — fold the cursor line plus three down (lines 0..=3).

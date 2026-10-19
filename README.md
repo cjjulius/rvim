@@ -558,8 +558,10 @@ Collapse ranges of lines to a single summary row so you can read structure
 without the noise. By default you choose the ranges by hand. The automatic
 methods build folds for you: `:set foldmethod=indent` from the indentation,
 `:set foldmethod=marker` from `{{{` / `}}}` markers, and `:set foldmethod=syntax`
-from brace-delimited blocks (braces inside strings and comments are ignored).
-Press `zM` to collapse the automatic folds and `zR` to open them all.
+from the language's structure — brace-delimited blocks for brace languages (braces
+inside strings and comments are ignored), and indentation for languages that have
+no braces (Python, YAML, Ruby, Lua, Shell). Press `zM` to collapse the automatic
+folds and `zR` to open them all.
 
 - Create a fold with `zf` plus a motion (`zf5j`, `zfG`, `zf}`), or select lines
   in visual mode and press `zf`. `zF` folds a count of lines (`3zF`).
@@ -677,7 +679,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **823 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **824 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
@@ -687,8 +689,6 @@ layout.
 
 Still planned, not yet built:
 
-- Language-grammar folding beyond brace blocks (the current `foldmethod=syntax`
-  folds `{` … `}` regions; languages without braces rely on indent folding).
 - More accessibility options: screen-reader hints and configurable cues.
 - Dynamic plugin loading.
 

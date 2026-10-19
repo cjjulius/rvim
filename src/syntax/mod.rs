@@ -134,6 +134,17 @@ impl Language {
     }
 }
 
+/// Whether `foldmethod=syntax` should fold this language by indentation rather
+/// than by brace blocks. True for indentation-structured languages that have no
+/// `{`…`}` regions (Python, YAML) or use word-delimited blocks (Ruby, Lua, Shell),
+/// where indentation is the reliable structural cue.
+pub fn prefers_indent_folds(lang: Language) -> bool {
+    matches!(
+        lang,
+        Language::Python | Language::Yaml | Language::Ruby | Language::Lua | Language::Shell
+    )
+}
+
 /// All highlighter language names (for `:help` / `:set ft=`), excluding plain text.
 pub fn language_names() -> Vec<&'static str> {
     LANG_TABLE
