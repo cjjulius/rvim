@@ -454,6 +454,19 @@ Skip it with `rvim --no-config`. A CLI `--theme` overrides the config file.
 You can also load a settings file at runtime with `:source <file>`. See
 [`examples/rvimrc.example`](examples/rvimrc.example).
 
+**Per-file settings (modelines).** A file can carry its own options in a comment
+near the top or bottom, so a project's indentation travels with its files. rvim
+reads the first and last few lines for a `vim:` comment and applies the options
+it finds:
+
+```text
+# vim: set ts=2 sw=2 et ft=yaml:
+```
+
+Both the `vim: set ... :` and the shorter `vim: ts=2:sw=2` forms work. Only
+`:set` options are ever applied, never commands. Turn it off with
+`:set nomodeline`, or change how many lines are scanned with `:set modelines=N`.
+
 **Key mappings.** `:nnoremap {key} {keys}` remaps a single Normal-mode key to a
 sequence, for example `:nnoremap Y y$` or `:nnoremap ; :`. The right-hand side
 understands `<CR>`, `<Esc>`, `<Space>`, `<Tab>`, `<BS>`, and `<C-x>` (control).
@@ -693,7 +706,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **839 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **849 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

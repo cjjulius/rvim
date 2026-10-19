@@ -197,6 +197,23 @@ impl App {
         }
     }
 
+    /// Apply any modeline options found in the focused buffer (vim's `modeline`).
+    /// Each requested option goes through the normal `:set` path, so only options
+    /// are ever applied — never commands. The pre-existing message (e.g. the
+    /// file-load line) is preserved. Call this after loading a file from disk.
+    pub fn apply_modelines(&mut self) {
+        if !self.editor.modeline {
+            return;
+        }
+        let opts = self.editor.modeline_options();
+        if opts.is_empty() {
+            return;
+        }
+        let saved = std::mem::take(&mut self.editor.message);
+        self.run_ex(&format!("set {}", opts.join(" ")));
+        self.editor.message = saved;
+    }
+
     // ---- buffer management ----------------------------------------------
 
     fn buffer_name(ed: &Editor) -> String {
@@ -213,6 +230,8 @@ impl App {
         ed.hlsearch = self.editor.hlsearch;
         ed.splitbelow = self.editor.splitbelow;
         ed.splitright = self.editor.splitright;
+        ed.modeline = self.editor.modeline;
+        ed.modelines = self.editor.modelines;
     }
 
     /// `:e <file>` — edit a file, switching to it if already open.
@@ -252,6 +271,7 @@ impl App {
                 }
                 let lines = lines.to_string();
                 self.notify_fmt("\"{path}\" {lines} lines", &[("{path}", path), ("{lines}", &lines)]);
+                self.apply_modelines();
             }
             Err(e) => self.editor.message = format!("E212: Can't open \"{path}\": {e}"),
         }
@@ -281,6 +301,7 @@ impl App {
                     "\"{path}\" {lines} lines --reloaded--",
                     &[("{path}", &path), ("{lines}", &lines)],
                 );
+                self.apply_modelines();
             }
             Err(e) => self.editor.message = format!("E212: Can't open \"{path}\": {e}"),
         }
@@ -1319,6 +1340,14 @@ impl App {
                 self.editor.sidescrolloff = n;
                 self.editor.message = format!("sidescrolloff={n}");
             }
+            ExCommand::ToggleModeline(on) => {
+                self.editor.modeline = on;
+                self.editor.message = self.editor.option_value("modeline");
+            }
+            ExCommand::SetModelines(n) => {
+                self.editor.modelines = n;
+                self.editor.message = format!("modelines={n}");
+            }
             ExCommand::SetTextWidth(n) => {
                 self.editor.textwidth = n;
                 self.editor.message = format!("textwidth={n}");
@@ -1968,6 +1997,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set language=<code>   UI language (en, vi, fr)\n\
          \t:cd [dir]  :pwd        change / show the working directory\n\
          \t:set sidescrolloff=N   horizontal context columns\n\
+         \t:set modeline|noml     apply a file's vim: options (:set modelines=N)\n\
          \t:set {{option}}?        show an option's current value\n\
          \t:set / :set all        list modified / all options\n\
          \t:retab [N]             normalise tabs/spaces to tabstop (set to N)\n\

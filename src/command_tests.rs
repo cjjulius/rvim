@@ -206,6 +206,16 @@
     }
 
     #[test]
+    fn set_modeline() {
+        assert_eq!(parse("set modeline"), ExCommand::ToggleModeline(true));
+        assert_eq!(parse("set ml"), ExCommand::ToggleModeline(true));
+        assert_eq!(parse("set nomodeline"), ExCommand::ToggleModeline(false));
+        assert_eq!(parse("set noml"), ExCommand::ToggleModeline(false));
+        assert_eq!(parse("set modelines=3"), ExCommand::SetModelines(3));
+        assert_eq!(parse("set mls=0"), ExCommand::SetModelines(0));
+    }
+
+    #[test]
     fn set_list() {
         assert_eq!(parse("set list"), ExCommand::ToggleList(true));
         assert_eq!(parse("set nolist"), ExCommand::ToggleList(false));
