@@ -46,6 +46,10 @@ All notable changes to rvim are recorded here. Versions follow
   marker (shown by default), and an optional `space:` marker reveals every
   ordinary space — making invisible characters visible.
 
+### Command line
+- `-c <command>` runs an ex command on startup (repeatable), after the file and
+  config load — e.g. `rvim -c "set number" file`.
+
 ### Files
 - `:cd [dir]` changes the working directory (with `~` expansion; no argument goes
   home) and `:pwd` prints it, so relative paths for `:e`/`:w`/`:r` resolve where

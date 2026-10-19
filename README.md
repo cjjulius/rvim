@@ -35,7 +35,8 @@ cargo run --release -- src/main.rs src/editor.rs
 ```
 
 Open at a specific line with `+N` (bare `+` opens at the last line), or at the
-first match of a pattern with `+/PATTERN`:
+first match of a pattern with `+/PATTERN`. Run an ex command on startup with
+`-c <command>` (repeatable), e.g. `-c "set number"`:
 
 ```bash
 cargo run --release -- +42 src/main.rs

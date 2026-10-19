@@ -12,8 +12,8 @@ USAGE:
 OPTIONS:
     +N               open FILE at line N (bare + opens at the last line)
     +/PATTERN        open FILE at the first line matching PATTERN
-    --theme <name>   start with a color theme (matrix, retrowave, cobalt,
-                     gruvbox, nord, high-contrast)
+    -c <command>     run an ex command after loading (repeatable)
+    --theme <name>   start with a color theme (see :theme for the full list)
     --no-config      skip loading ~/.rvimrc
     --version        print version and exit
     --help, -h       print this help and exit
@@ -26,6 +26,7 @@ fn main() -> ExitCode {
     let mut no_config = false;
     let mut start_line: Option<usize> = None;
     let mut start_search: Option<String> = None;
+    let mut commands: Vec<String> = Vec::new();
 
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -53,6 +54,13 @@ fn main() -> ExitCode {
                 return ExitCode::SUCCESS;
             }
             "--no-config" => no_config = true,
+            "-c" => match args.next() {
+                Some(c) => commands.push(c),
+                None => {
+                    eprintln!("error: -c requires a command");
+                    return ExitCode::FAILURE;
+                }
+            },
             "--version" | "-V" => {
                 println!("rvim {}", rvim::VERSION);
                 return ExitCode::SUCCESS;
@@ -106,6 +114,11 @@ fn main() -> ExitCode {
         } else if let Some(pat) = start_search {
             app.editor.search_from_start(&pat);
         }
+    }
+
+    // `-c` ex commands run after the file and config are loaded (vim order).
+    for cmd in &commands {
+        app.run_ex(cmd);
     }
 
     if let Err(e) = app.run() {
