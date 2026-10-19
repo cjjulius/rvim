@@ -1241,7 +1241,7 @@ impl App {
             ExCommand::SetTheme(arg) => match arg {
                 Some(name) => {
                     if self.themes.set_current(&name) {
-                        self.editor.message = format!("theme: {name}");
+                        self.notify_fmt("theme: {name}", &[("{name}", &name)]);
                     } else {
                         self.editor.message = format!(
                             "Unknown theme '{name}'. Available: {}",
@@ -1251,7 +1251,7 @@ impl App {
                 }
                 None => {
                     let name = self.themes.cycle().to_string();
-                    self.editor.message = format!("theme: {name}");
+                    self.notify_fmt("theme: {name}", &[("{name}", &name)]);
                 }
             },
             ExCommand::ToggleNumbers(on) => {
@@ -1313,16 +1313,16 @@ impl App {
             ExCommand::SetFiletype(name) => match Language::from_name(&name) {
                 Some(lang) => {
                     self.editor.set_language(lang);
-                    self.editor.message = format!("filetype: {}", lang.name());
+                    self.notify_fmt("filetype: {name}", &[("{name}", lang.name())]);
                 }
-                None => self.editor.message = format!("Unknown filetype '{name}'"),
+                None => self.notify_fmt("Unknown filetype '{name}'", &[("{name}", &name)]),
             },
             ExCommand::SetLanguage(code) => match crate::i18n::Locale::from_code(&code) {
                 Some(loc) => {
                     self.editor.locale = loc;
-                    self.editor.message = format!("language: {}", loc.display_name());
+                    self.notify_fmt("language: {name}", &[("{name}", loc.display_name())]);
                 }
-                None => self.editor.message = format!("E474: Unknown language '{code}'"),
+                None => self.notify_fmt("E474: Unknown language '{code}'", &[("{code}", &code)]),
             },
             ExCommand::ChangeDir(dir) => self.change_dir(dir),
             ExCommand::Pwd => {

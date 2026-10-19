@@ -166,6 +166,11 @@ fn vi(s: &str) -> Option<&'static str> {
         "buffer closed; now \"{name}\"" => "đã đóng bộ đệm; giờ \"{name}\"",
         "E86: Buffer {n} does not exist" => "E86: Bộ đệm {n} không tồn tại",
         "E492: Not an editor command: {name}" => "E492: Không phải lệnh: {name}",
+        "theme: {name}" => "giao diện: {name}",
+        "filetype: {name}" => "loại tệp: {name}",
+        "Unknown filetype '{name}'" => "Loại tệp không rõ '{name}'",
+        "language: {name}" => "ngôn ngữ: {name}",
+        "E474: Unknown language '{code}'" => "E474: Ngôn ngữ không rõ '{code}'",
         // Mode indicators.
         "-- INSERT --" => "-- CHÈN --",
         "-- REPLACE --" => "-- THAY THẾ --",
@@ -279,6 +284,11 @@ fn fr(s: &str) -> Option<&'static str> {
         "buffer closed; now \"{name}\"" => "tampon fermé ; maintenant \"{name}\"",
         "E86: Buffer {n} does not exist" => "E86: le tampon {n} n'existe pas",
         "E492: Not an editor command: {name}" => "E492: commande inconnue : {name}",
+        "theme: {name}" => "thème : {name}",
+        "filetype: {name}" => "type : {name}",
+        "Unknown filetype '{name}'" => "Type de fichier inconnu '{name}'",
+        "language: {name}" => "langue : {name}",
+        "E474: Unknown language '{code}'" => "E474: langue inconnue '{code}'",
         // Mode indicators.
         "-- INSERT --" => "-- INSERTION --",
         "-- REPLACE --" => "-- REMPLACEMENT --",
@@ -322,6 +332,8 @@ mod tests {
             tr(Locale::Vietnamese, "\"{path}\" (buffer switched)"),
             "\"{path}\" (đã chuyển bộ đệm)"
         );
+        assert_eq!(tr(Locale::Vietnamese, "filetype: {name}"), "loại tệp: {name}");
+        assert_eq!(tr(Locale::French, "theme: {name}"), "thème : {name}");
     }
 
     #[test]
