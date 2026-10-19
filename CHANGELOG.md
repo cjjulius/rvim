@@ -39,6 +39,11 @@ All notable changes to rvim are recorded here. Versions follow
   marker (shown by default), and an optional `space:` marker reveals every
   ordinary space — making invisible characters visible.
 
+### Folding
+- `:set foldmethod=syntax` now folds brace-less languages (Python, YAML, Ruby, Lua,
+  Shell) by indentation instead of producing no folds; brace languages are
+  unchanged.
+
 ### Syntax
 - C# highlighting (`.cs`): keywords, types, common library builtins, strings
   (including `"""` raw strings across lines), `#` preprocessor directives, and
