@@ -72,6 +72,7 @@ pub enum Language {
     Lua,
     CSharp,
     Swift,
+    Php,
 }
 
 /// One language's metadata, driving `name`, `from_name`, `line_comment_token`,
@@ -114,6 +115,7 @@ const LANG_TABLE: &[LangInfo] = &[
     LangInfo { lang: Language::Lua, name: "lua", aliases: &[], extensions: &["lua"], comment: Some("--") },
     LangInfo { lang: Language::CSharp, name: "csharp", aliases: &["cs", "c#"], extensions: &["cs"], comment: Some("//") },
     LangInfo { lang: Language::Swift, name: "swift", aliases: &[], extensions: &["swift"], comment: Some("//") },
+    LangInfo { lang: Language::Php, name: "php", aliases: &[], extensions: &["php", "phtml"], comment: Some("//") },
 ];
 
 impl Language {
@@ -836,7 +838,7 @@ mod tests {
             Language::Json, Language::Python, Language::Toml, Language::JavaScript,
             Language::Go, Language::Shell, Language::C, Language::Java, Language::Yaml,
             Language::TypeScript, Language::Kotlin, Language::Ruby, Language::Lua,
-            Language::CSharp, Language::Swift,
+            Language::CSharp, Language::Swift, Language::Php,
         ];
         for lang in all {
             match lang {
@@ -845,7 +847,7 @@ mod tests {
                 | Language::Json | Language::Python | Language::Toml | Language::JavaScript
                 | Language::Go | Language::Shell | Language::C | Language::Java
                 | Language::Yaml | Language::TypeScript | Language::Kotlin | Language::Ruby
-                | Language::Lua | Language::CSharp | Language::Swift => {}
+                | Language::Lua | Language::CSharp | Language::Swift | Language::Php => {}
             }
             assert!(
                 LANG_TABLE.iter().any(|e| e.lang == lang),
