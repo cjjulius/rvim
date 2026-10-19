@@ -8,7 +8,7 @@ languages.
 
 > Status: **v0.2** — a mature, deeply vim-compatible editor. Modal editing, the
 > full operator/motion/text-object grammar, incremental search, line-range ex
-> commands, `:normal`, visual-mode operators, eight themes, twenty-two language
+> commands, `:normal`, visual-mode operators, nine themes, twenty-two language
 > highlighters, a plugin system, and mouse support are all working. See
 > [CHANGELOG.md](CHANGELOG.md) for what landed in 0.2.
 
@@ -455,7 +455,7 @@ Mappings are non-recursive; `:nunmap {key}` removes one and bare `:nnoremap`
 lists them. Put them in `~/.rvimrc` to make them permanent.
 
 ### Color theming
-Eight built-in themes, switchable live with `:theme <name>` (or cycle with a
+Nine built-in themes, switchable live with `:theme <name>` (or cycle with a
 bare `:theme`):
 
 | Theme            | Vibe                                              |
@@ -466,6 +466,7 @@ bare `:theme`):
 | `gruvbox`        | warm, earthy retro palette                         |
 | `nord`           | cool, muted arctic palette                          |
 | `dracula`        | soft dark with vivid pink, purple and green accents |
+| `solarized-dark` | the classic low-contrast blue-grey Solarized palette |
 | `paper`          | light theme: dark text on a warm paper background, for bright rooms |
 | `high-contrast`  | **accessibility:** pure black/white, colorblind-safe (Okabe–Ito) token palette |
 
@@ -637,7 +638,7 @@ src/
 ├── pattern.rs     regex compilation (literal fallback) for search & :s
 ├── terminal.rs    raw-mode / alt-screen RAII guard (cross-platform)
 ├── ui.rs          gutter + highlighted text + status/command lines
-├── theme.rs       Theme + ThemeRegistry (matrix, retrowave, cobalt, gruvbox, nord, dracula, paper)
+├── theme.rs       Theme + ThemeRegistry (matrix, retrowave, cobalt, gruvbox, nord, dracula, solarized-dark, paper)
 ├── plugin.rs      Plugin trait + PluginManager (+ example plugin)
 └── syntax/
     ├── mod.rs        Highlighter trait, spec-driven tokenizer, detection
@@ -681,7 +682,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **827 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **828 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
