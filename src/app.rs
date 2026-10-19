@@ -1203,6 +1203,7 @@ impl App {
             ExCommand::SplitWindow { vertical, file } => {
                 self.split_window(vertical, file.as_deref());
             }
+            ExCommand::Enew => self.edit_new_buffer(),
             ExCommand::CloseWindow { force } => {
                 self.close_window(force);
             }
@@ -1569,6 +1570,21 @@ impl App {
         }
     }
 
+    /// `:enew` — open a new empty, unnamed buffer in the current window. The old
+    /// buffer is kept in the buffer list (reachable with `:bn`/`:bp`) when it has a
+    /// file name or unsaved changes, so nothing is lost.
+    fn edit_new_buffer(&mut self) {
+        let mut ed = Editor::new();
+        self.inherit_prefs(&mut ed);
+        ed.buf_id = self.fresh_buf_id();
+        self.remember_alternate();
+        let old = std::mem::replace(&mut self.editor, ed);
+        if old.buffer.path().is_some() || old.buffer.is_dirty() {
+            self.others.push(old);
+        }
+        self.editor.message = "[No Name]".into();
+    }
+
     /// `:cd [dir]` — change the process working directory (affects relative paths
     /// for `:e`/`:w`/`:r`). No argument changes to the home directory; a leading
     /// `~` expands to home. Reports the new directory, or an error.
@@ -1929,7 +1945,8 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:w [file]  :q  :q!  :wq  :x   write / quit variants\n\
          \t:qa  :wa  :wqa     quit / write / write-quit all buffers (! to force)\n\
          \tZZ / ZQ            write & quit / quit without saving\n\
-         \t:e <file>          open file     :r <file>  read file below cursor\n\
+         \t:e <file>          open file     :enew  new empty buffer\n\
+         \t:r <file>          read file below the cursor\n\
          \t:e / :e!            reload current file (! discards changes)\n\
          \t:ls :bn :bp :b<n>  list / next / prev / goto buffer   :bd close\n\
          \t  (:n / :N are aliases for :bn / :bp)\n\

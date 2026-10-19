@@ -123,6 +123,12 @@
     }
 
     #[test]
+    fn enew_parses() {
+        assert_eq!(parse("enew"), ExCommand::Enew);
+        assert_eq!(parse("ene"), ExCommand::Enew);
+    }
+
+    #[test]
     fn cd_and_pwd_parse() {
         assert_eq!(parse("pwd"), ExCommand::Pwd);
         assert_eq!(parse("cd"), ExCommand::ChangeDir(None));

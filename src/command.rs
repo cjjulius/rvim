@@ -251,6 +251,8 @@ pub enum ExCommand {
     /// `:sp[lit]` / `:vs[plit]` — split the focused window (horizontally, or
     /// `vertical` for side-by-side), optionally opening `file` in the new window.
     SplitWindow { vertical: bool, file: Option<String> },
+    /// `:enew` — open a new empty, unnamed buffer in the current window.
+    Enew,
     /// `:clo[se][!]` — close the focused window (`force` discards unsaved changes).
     CloseWindow { force: bool },
     /// `:on[ly][!]` — close every window except the focused one.
@@ -461,6 +463,7 @@ pub fn parse(input: &str) -> ExCommand {
             },
         },
         "noh" | "nohl" | "nohlsearch" => ExCommand::ToggleHlSearch(false),
+        "enew" | "ene" => ExCommand::Enew,
         "sp" | "split" | "new" => ExCommand::SplitWindow { vertical: false, file: arg },
         "vs" | "vsp" | "vsplit" | "vnew" => ExCommand::SplitWindow { vertical: true, file: arg },
         "clo" | "close" => ExCommand::CloseWindow { force: false },

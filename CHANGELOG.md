@@ -55,6 +55,8 @@ All notable changes to rvim are recorded here. Versions follow
   forced with `:w!`).
 
 ### Files
+- `:enew` opens a new empty, unnamed buffer in the current window; the previous
+  buffer stays in the list (`:bn`/`:bp`) when it has a name or unsaved changes.
 - `:cd [dir]` changes the working directory (with `~` expansion; no argument goes
   home) and `:pwd` prints it, so relative paths for `:e`/`:w`/`:r` resolve where
   you expect.
