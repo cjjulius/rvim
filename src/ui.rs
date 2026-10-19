@@ -323,12 +323,12 @@ fn draw_text_area(
         let header = if folding { editor.folds().header(row) } else { None };
         if let Some((_, end)) = header {
             draw_fold_line(out, editor, buf, theme, layout, row, end)?;
+            // Advance the carry-over state across the hidden fold lines without
+            // tokenizing them (they are not drawn).
             let mut l = row;
             while l <= end && l < buf.line_count() {
                 if let Some(line) = buf.line(l) {
-                    let (_t, next_state) =
-                        syntax.highlight_stateful(editor.language, line, line_state);
-                    line_state = next_state;
+                    line_state = syntax.advance_block_state(editor.language, line, line_state);
                 }
                 l += 1;
             }

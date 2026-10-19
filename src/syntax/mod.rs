@@ -727,6 +727,19 @@ impl Registry {
         }
     }
 
+    /// Advance only the carry-over state across `line`, without producing tokens.
+    /// Uses the cheap [`Highlighter::fast_block_state`] short-circuit where possible
+    /// (most lines cannot change state), falling back to a full scan otherwise — so
+    /// skipping hidden lines (e.g. inside a closed fold) avoids tokenizing them.
+    pub fn advance_block_state(&self, lang: Language, line: &str, state: LineState) -> LineState {
+        match self.get(lang) {
+            Some(h) => h
+                .fast_block_state(line, state)
+                .unwrap_or_else(|| h.highlight_line_stateful(line, state).1),
+            None => LineState::Normal,
+        }
+    }
+
     /// Compute the carry-over state the line at `row` begins in, by folding state
     /// from the top of the buffer.
     /// Fold ranges `[start, end]` for `foldmethod=syntax`: brace-delimited blocks
@@ -1092,6 +1105,25 @@ mod tests {
         assert_eq!(h.fast_block_state("a /* b", LineState::Normal), None);
         // The fast path never fires once inside a block.
         assert_eq!(h.fast_block_state("anything", LineState::Block), None);
+    }
+
+    #[test]
+    fn advance_block_state_matches_full_scan() {
+        let r = Registry::with_builtins();
+        let lines = [
+            "let x = 1;",
+            "code /* open",   // enters a block comment
+            "still inside",   // stays in the block
+            "close */ done",  // leaves the block
+            "fn f() {}",
+        ];
+        let mut fast = LineState::Normal;
+        let mut full = LineState::Normal;
+        for line in lines {
+            fast = r.advance_block_state(Language::Rust, line, fast);
+            full = r.highlight_stateful(Language::Rust, line, full).1;
+            assert_eq!(fast, full, "state diverged on {line:?}");
+        }
     }
 
     #[test]
