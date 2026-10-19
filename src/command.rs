@@ -123,6 +123,10 @@ pub enum ExCommand {
     SetFiletype(String),
     /// `:set language=<code>` — switch the UI language.
     SetLanguage(String),
+    /// `:cd [dir]` — change the working directory (no arg: home).
+    ChangeDir(Option<String>),
+    /// `:pwd` — print the working directory.
+    Pwd,
     /// `:set foldmethod=manual|indent` (`fdm=`).
     SetFoldMethod(String),
     /// `:set fileformat=unix|dos` (`ff=`).
@@ -363,6 +367,8 @@ pub fn parse(input: &str) -> ExCommand {
     };
 
     match word {
+        "cd" | "chdir" | "cd!" | "chdir!" => ExCommand::ChangeDir(arg),
+        "pwd" => ExCommand::Pwd,
         "w" | "write" => ExCommand::Write { path: arg, force: false },
         "w!" | "write!" => ExCommand::Write { path: arg, force: true },
         "q" | "quit" => ExCommand::Quit { force: false },

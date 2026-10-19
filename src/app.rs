@@ -1322,6 +1322,12 @@ impl App {
                 }
                 None => self.editor.message = format!("E474: Unknown language '{code}'"),
             },
+            ExCommand::ChangeDir(dir) => self.change_dir(dir),
+            ExCommand::Pwd => {
+                self.editor.message = std::env::current_dir()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|_| "E187: unknown directory".into());
+            }
             ExCommand::SetFileFormat(name) => self.editor.set_file_format(&name),
             ExCommand::SetFoldMethod(name) => {
                 self.editor.set_fold_method(&name);
@@ -1546,6 +1552,51 @@ impl App {
         match std::fs::write(&file, out) {
             Ok(()) => self.editor.message = format!("\"{file}\" {} lines written", b - a + 1),
             Err(e) => self.editor.message = format!("E212: write failed: {e}"),
+        }
+    }
+
+    /// `:cd [dir]` — change the process working directory (affects relative paths
+    /// for `:e`/`:w`/`:r`). No argument changes to the home directory; a leading
+    /// `~` expands to home. Reports the new directory, or an error.
+    fn change_dir(&mut self, dir: Option<String>) {
+        let target: std::path::PathBuf = match dir {
+            Some(d) => {
+                let d = d.trim();
+                if d == "~" {
+                    match crate::config::home_dir() {
+                        Some(h) => h,
+                        None => {
+                            self.editor.message = "E472: no home directory".into();
+                            return;
+                        }
+                    }
+                } else if let Some(rest) = d.strip_prefix("~/").or_else(|| d.strip_prefix("~\\")) {
+                    match crate::config::home_dir() {
+                        Some(h) => h.join(rest),
+                        None => std::path::PathBuf::from(d),
+                    }
+                } else {
+                    std::path::PathBuf::from(d)
+                }
+            }
+            None => match crate::config::home_dir() {
+                Some(h) => h,
+                None => {
+                    self.editor.message = "E472: no home directory".into();
+                    return;
+                }
+            },
+        };
+        match std::env::set_current_dir(&target) {
+            Ok(_) => {
+                self.editor.message = std::env::current_dir()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|_| target.display().to_string());
+            }
+            Err(e) => {
+                self.editor.message =
+                    format!("E344: Can't change directory to \"{}\": {e}", target.display());
+            }
         }
     }
 

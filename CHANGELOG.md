@@ -39,6 +39,11 @@ All notable changes to rvim are recorded here. Versions follow
   marker (shown by default), and an optional `space:` marker reveals every
   ordinary space — making invisible characters visible.
 
+### Files
+- `:cd [dir]` changes the working directory (with `~` expansion; no argument goes
+  home) and `:pwd` prints it, so relative paths for `:e`/`:w`/`:r` resolve where
+  you expect.
+
 ### Folding
 - `:set foldmethod=syntax` now folds brace-less languages (Python, YAML, Ruby, Lua,
   Shell) by indentation instead of producing no folds; brace languages are

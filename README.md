@@ -300,6 +300,7 @@ Grouped by what they do. Most line commands accept a leading range such as
 - `:set readonly` (`ro`) guards a file against accidental overwrite: `:w` is refused (shown as `[RO]` in the status line) until you force it with `:w!`. `:set noreadonly` lifts the guard.
 - `:qa` / `:wa` / `:wqa` — quit or write every buffer at once.
 - `:e <file>` opens a file; `:e` / `:e!` reloads the current one. `:r <file>` inserts a file below the cursor, and `:r !cmd` inserts a command's output.
+- `:cd <dir>` changes the working directory (so relative `:e`/`:w`/`:r` paths resolve from there); a leading `~` is your home, and `:cd` alone goes home. `:pwd` shows the current directory.
 - `:ls` lists buffers; `:bn` / `:bp` (or `:n` / `:N`) / `:b <n>` / `:bd` switch or close them; `Ctrl-^` (or `:b#`) returns to the previous buffer. `:bufdo {cmd}` runs a command on every open buffer (e.g. `:bufdo %s/old/new/g`).
 - `:<n>` jumps to line `n`.
 - `:command Name expansion` defines a shortcut (the name must start with a capital), e.g. `:command W w` makes `:W` save; `:delcommand Name` removes one and `:command` lists them.
@@ -680,7 +681,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **825 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **827 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

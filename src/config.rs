@@ -26,14 +26,20 @@ pub fn parse_config(text: &str) -> Vec<String> {
         .collect()
 }
 
+/// The user's home directory (`$HOME`, else `%USERPROFILE%`), if known.
+pub fn home_dir() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+}
+
 /// The default config path: `$RVIMRC` if set, else `~/.rvimrc`
 /// (`$HOME` on Unix, `%USERPROFILE%` on Windows). `None` if no home is known.
 pub fn default_config_path() -> Option<PathBuf> {
     if let Some(explicit) = std::env::var_os("RVIMRC") {
         return Some(PathBuf::from(explicit));
     }
-    let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"))?;
-    Some(PathBuf::from(home).join(".rvimrc"))
+    Some(home_dir()?.join(".rvimrc"))
 }
 
 #[cfg(test)]
