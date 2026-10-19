@@ -67,6 +67,8 @@ All notable changes to rvim are recorded here. Versions follow
   unchanged.
 
 ### Syntax
+- PHP highlighting (`.php`, `.phtml`): keywords, type hints, common builtins,
+  strings, `$` variables, and `//` / `#` / `/* */` comments.
 - Swift highlighting (`.swift`): keywords, core types, common builtins, strings
   (including `"""` multi-line strings), `#` compilation directives, and `//` /
   `/* */` comments.

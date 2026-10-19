@@ -53,6 +53,7 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(lua_spec())),
         Box::new(SpecHighlighter::new(csharp_spec())),
         Box::new(SpecHighlighter::new(swift_spec())),
+        Box::new(SpecHighlighter::new(php_spec())),
     ]
 }
 
@@ -154,6 +155,43 @@ const JAVA_TYPES: &[&str] = &[
 const JAVA_BUILTINS: &[&str] = &[
     "System", "Math", "Arrays", "Objects", "Collections", "Thread", "Exception",
     "RuntimeException", "Override", "Deprecated", "SuppressWarnings",
+];
+
+// ---- PHP ------------------------------------------------------------------
+
+fn php_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Php,
+        multiline_strings: &[],
+        preprocessor: None,
+        line_comments: &["//", "#"],
+        block_comment: Some(("/*", "*/")),
+        keywords: PHP_KEYWORDS,
+        types: PHP_TYPES,
+        builtins: PHP_BUILTINS,
+        string_delims: &['"', '\''],
+        case_insensitive: false,
+        var_sigils: &['$'], // $variable
+        detect_calls: true,
+    }
+}
+
+const PHP_KEYWORDS: &[&str] = &[
+    "abstract", "and", "array", "as", "break", "callable", "case", "catch", "class", "clone",
+    "const", "continue", "declare", "default", "do", "echo", "else", "elseif", "empty", "enum",
+    "extends", "final", "finally", "fn", "for", "foreach", "function", "global", "goto", "if",
+    "implements", "include", "include_once", "instanceof", "insteadof", "interface", "isset",
+    "list", "match", "namespace", "new", "or", "print", "private", "protected", "public",
+    "readonly", "require", "require_once", "return", "static", "switch", "throw", "trait", "try",
+    "unset", "use", "var", "while", "xor", "yield", "true", "false", "null",
+];
+const PHP_TYPES: &[&str] = &[
+    "int", "float", "bool", "string", "array", "object", "void", "mixed", "iterable", "self",
+    "parent", "never", "null",
+];
+const PHP_BUILTINS: &[&str] = &[
+    "count", "strlen", "var_dump", "print_r", "implode", "explode", "array_map", "array_filter",
+    "in_array", "printf", "sprintf", "json_encode", "json_decode", "str_replace", "preg_match",
 ];
 
 // ---- Swift ----------------------------------------------------------------
@@ -991,6 +1029,18 @@ mod tests {
         // A plain `--` line comment is NOT swallowed as a block.
         let (_t2, s2) = h.highlight_line_stateful("z = 3 -- just a note", LineState::Normal);
         assert_eq!(s2, LineState::Normal);
+    }
+
+    #[test]
+    fn php_highlights_keyword_type_builtin_string_and_var() {
+        let h = SpecHighlighter::new(php_spec());
+        let toks = h.highlight_line("function f(int $n) { $s = \"hi\"; echo strlen($s); } // c");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // function/echo
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // int
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // strlen
+        assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "hi"
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Variable)); // $n / $s
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // // c
     }
 
     #[test]
