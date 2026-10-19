@@ -687,6 +687,7 @@ impl App {
                 };
                 ui::WindowView {
                     editor,
+                    buffer: &editor.buffer,
                     rect,
                     top_state,
                     focused: id == self.focused,
@@ -753,6 +754,7 @@ impl App {
                 ui::render(
                     &mut out,
                     &self.editor,
+                    &self.editor.buffer,
                     self.themes.current(),
                     &self.syntax,
                     &tabs,

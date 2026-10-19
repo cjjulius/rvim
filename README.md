@@ -665,7 +665,8 @@ layout.
 Still planned, not yet built:
 
 - Shared-buffer splits: two windows on the same file that mirror edits live
-  (today they are independent views).
+  (today they are independent views). In progress — the rendering layer has been
+  decoupled from buffer ownership as the first step.
 - Language-grammar folding beyond brace blocks (the current `foldmethod=syntax`
   folds `{` … `}` regions; languages without braces rely on indent folding).
 - More accessibility options: screen-reader hints and configurable cues.

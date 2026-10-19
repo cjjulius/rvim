@@ -2,7 +2,7 @@
 //! the command line. All drawing goes through crossterm's `queue!` for a single
 //! buffered flush per frame.
 
-use crate::buffer::Position;
+use crate::buffer::{Buffer, Position};
 use crate::editor::Editor;
 use crate::menu::{MenuAction, MenuItem, MenuState};
 use crate::mode::Mode;
@@ -173,6 +173,7 @@ fn mode_cursor_style(mode: Mode) -> SetCursorStyle {
 pub fn render(
     out: &mut impl Write,
     editor: &Editor,
+    buf: &Buffer,
     theme: &Theme,
     syntax: &Registry,
     tabs: &[TabEntry],
@@ -183,7 +184,7 @@ pub fn render(
     let layout = Layout::compute(
         cols,
         rows,
-        editor.buffer.line_count(),
+        buf.line_count(),
         editor.show_line_numbers,
         show_tabline,
     )
@@ -202,9 +203,9 @@ pub fn render(
 
     // Draw the gutter + text area (fold-aware); returns the cursor's screen row
     // offset within the area for positioning below.
-    let cursor_y = draw_text_area(out, editor, theme, syntax, &layout, 0, layout.top_offset, top_state)?;
+    let cursor_y = draw_text_area(out, editor, buf, theme, syntax, &layout, 0, layout.top_offset, top_state)?;
 
-    draw_status_line(out, editor, theme, &layout)?;
+    draw_status_line(out, editor, buf, theme, &layout)?;
     // While completing on the command line, the candidate wildmenu takes over
     // the status-line row (vim shows it just above the command line).
     draw_wildmenu(out, editor, theme, &layout)?;
@@ -256,6 +257,7 @@ pub fn render(
 fn draw_text_area(
     out: &mut impl Write,
     editor: &Editor,
+    buf: &Buffer,
     theme: &Theme,
     syntax: &Registry,
     layout: &Layout,
@@ -297,9 +299,9 @@ fn draw_text_area(
         // The gutter is painted for every row, including those past the end of the
         // buffer (where it draws blank cells), so the tilde always sits in the text
         // column and the gutter never shows stale content.
-        draw_gutter(out, editor, theme, layout, row)?;
+        draw_gutter(out, editor, buf, theme, layout, row)?;
 
-        if row >= editor.buffer.line_count() {
+        if row >= buf.line_count() {
             queue!(
                 out,
                 SetBackgroundColor(theme.bg),
@@ -318,10 +320,10 @@ fn draw_text_area(
 
         let header = if folding { editor.folds().header(row) } else { None };
         if let Some((_, end)) = header {
-            draw_fold_line(out, editor, theme, layout, row, end)?;
+            draw_fold_line(out, editor, buf, theme, layout, row, end)?;
             let mut l = row;
-            while l <= end && l < editor.buffer.line_count() {
-                if let Some(line) = editor.buffer.line(l) {
+            while l <= end && l < buf.line_count() {
+                if let Some(line) = buf.line(l) {
                     let (_t, next_state) =
                         syntax.highlight_stateful(editor.language, line, line_state);
                     line_state = next_state;
@@ -339,7 +341,7 @@ fn draw_text_area(
             theme.bg
         };
 
-        if let Some(line) = editor.buffer.line(row) {
+        if let Some(line) = buf.line(row) {
             let (tokens, next_state) =
                 syntax.highlight_stateful(editor.language, line, line_state);
             line_state = next_state;
@@ -390,6 +392,7 @@ fn draw_text_area(
 /// One window to draw in a split layout.
 pub struct WindowView<'a> {
     pub editor: &'a Editor,
+    pub buffer: &'a Buffer,
     pub rect: crate::window::Rect,
     pub top_state: LineState,
     pub focused: bool,
@@ -466,10 +469,11 @@ fn draw_window(
     syntax: &Registry,
 ) -> io::Result<Option<(u16, u16)>> {
     let editor = view.editor;
+    let buf = view.buffer;
     let rect = view.rect;
     let mut fold_width = editor.foldcolumn as u16;
     let mut gutter_width =
-        gutter_width(editor.buffer.line_count(), editor.show_line_numbers) + fold_width;
+        gutter_width(buf.line_count(), editor.show_line_numbers) + fold_width;
     // Keep the gutter within the pane so it can't spill into the neighbour.
     let max_gutter = rect.w.saturating_sub(1);
     if gutter_width > max_gutter {
@@ -489,8 +493,8 @@ fn draw_window(
         top_offset: 0,
         fold_width,
     };
-    let cursor_y = draw_text_area(out, editor, theme, syntax, &per, rect.x, rect.y, view.top_state)?;
-    draw_window_status(out, editor, theme, rect, view.focused)?;
+    let cursor_y = draw_text_area(out, editor, buf, theme, syntax, &per, rect.x, rect.y, view.top_state)?;
+    draw_window_status(out, editor, buf, theme, rect, view.focused)?;
 
     let pos = if view.focused {
         let cx = rect.x + gutter_width + (editor.cursor.col.saturating_sub(editor.left)) as u16;
@@ -510,18 +514,18 @@ fn draw_window(
 fn draw_window_status(
     out: &mut impl Write,
     editor: &Editor,
+    buf: &Buffer,
     theme: &Theme,
     rect: crate::window::Rect,
     focused: bool,
 ) -> io::Result<()> {
     let y = rect.y + rect.h.saturating_sub(1);
-    let file = editor
-        .buffer
+    let file = buf
         .path()
         .map(|p| p.display().to_string())
         .unwrap_or_else(|| "[No Name]".to_string());
-    let dirty = if editor.buffer.is_dirty() { " [+]" } else { "" };
-    let ff = match editor.buffer.fileformat() {
+    let dirty = if buf.is_dirty() { " [+]" } else { "" };
+    let ff = match buf.fileformat() {
         crate::buffer::LineEnding::Unix => "",
         crate::buffer::LineEnding::Dos => " [dos]",
     };
@@ -624,6 +628,7 @@ fn draw_tabline(
 fn draw_gutter(
     out: &mut impl Write,
     editor: &Editor,
+    buf: &Buffer,
     theme: &Theme,
     layout: &Layout,
     row: usize,
@@ -631,7 +636,7 @@ fn draw_gutter(
     if layout.gutter_width == 0 {
         return Ok(());
     }
-    let within = row < editor.buffer.line_count();
+    let within = row < buf.line_count();
     let fold_w = layout.fold_width as usize;
     let num_w = layout.gutter_width.saturating_sub(layout.fold_width) as usize;
 
@@ -690,13 +695,14 @@ pub fn fold_text(level: usize, start_line: &str, count: usize, width: usize) -> 
 fn draw_fold_line(
     out: &mut impl Write,
     editor: &Editor,
+    buf: &Buffer,
     theme: &Theme,
     layout: &Layout,
     start: usize,
     end: usize,
 ) -> io::Result<()> {
     let count = end - start + 1;
-    let first = editor.buffer.line(start).unwrap_or("");
+    let first = buf.line(start).unwrap_or("");
     let level = editor.folds().level(start);
     let text = fold_text(level, first, count, layout.text_cols as usize);
     queue!(
@@ -944,6 +950,7 @@ fn draw_edge_markers(
 fn draw_status_line(
     out: &mut impl Write,
     editor: &Editor,
+    buf: &Buffer,
     theme: &Theme,
     layout: &Layout,
 ) -> io::Result<()> {
@@ -951,14 +958,13 @@ fn draw_status_line(
     queue!(out, MoveTo(0, y))?;
 
     let mode = editor.mode.label();
-    let file = editor
-        .buffer
+    let file = buf
         .path()
         .map(|p| p.display().to_string())
         .unwrap_or_else(|| "[No Name]".to_string());
-    let dirty = if editor.buffer.is_dirty() { " [+]" } else { "" };
+    let dirty = if buf.is_dirty() { " [+]" } else { "" };
     // Flag non-Unix line endings (a common gotcha); Unix is the quiet default.
-    let ff = match editor.buffer.fileformat() {
+    let ff = match buf.fileformat() {
         crate::buffer::LineEnding::Unix => "",
         crate::buffer::LineEnding::Dos => " [dos]",
     };
@@ -1423,12 +1429,14 @@ mod tests {
         let views = vec![
             WindowView {
                 editor: &a,
+                buffer: &a.buffer,
                 rect: Rect::new(0, 0, 20, 10),
                 top_state: LineState::Normal,
                 focused: true,
             },
             WindowView {
                 editor: &b,
+                buffer: &b.buffer,
                 rect: Rect::new(21, 0, 20, 10),
                 top_state: LineState::Normal,
                 focused: false,
@@ -1461,8 +1469,8 @@ mod tests {
         b.cursor.col = 3;
         let rect_b = Rect::new(20, 0, 20, 8);
         let views = vec![
-            WindowView { editor: &a, rect: Rect::new(0, 0, 19, 8), top_state: LineState::Normal, focused: false },
-            WindowView { editor: &b, rect: rect_b, top_state: LineState::Normal, focused: true },
+            WindowView { editor: &a, buffer: &a.buffer, rect: Rect::new(0, 0, 19, 8), top_state: LineState::Normal, focused: false },
+            WindowView { editor: &b, buffer: &b.buffer, rect: rect_b, top_state: LineState::Normal, focused: true },
         ];
         let theme = crate::theme::matrix();
         let syntax = Registry::default();
@@ -1498,12 +1506,12 @@ mod tests {
         ed.buffer = Buffer::from_text("x");
         ed.set_viewport(10, 20);
         let mut buf: Vec<u8> = Vec::new();
-        render(&mut buf, &ed, &theme, &syntax, &[], LineState::Normal).unwrap();
+        render(&mut buf, &ed, &ed.buffer, &theme, &syntax, &[], LineState::Normal).unwrap();
         assert!(String::from_utf8_lossy(&buf).contains("\u{1b}[2 q"));
         // Insert mode -> steady bar (ESC [6 q).
         ed.mode = Mode::Insert;
         let mut buf2: Vec<u8> = Vec::new();
-        render(&mut buf2, &ed, &theme, &syntax, &[], LineState::Normal).unwrap();
+        render(&mut buf2, &ed, &ed.buffer, &theme, &syntax, &[], LineState::Normal).unwrap();
         assert!(String::from_utf8_lossy(&buf2).contains("\u{1b}[6 q"));
     }
 
@@ -1519,7 +1527,7 @@ mod tests {
         let theme = crate::theme::matrix();
         let syntax = Registry::default();
         let mut buf: Vec<u8> = Vec::new();
-        render(&mut buf, &ed, &theme, &syntax, &[], LineState::Normal).unwrap();
+        render(&mut buf, &ed, &ed.buffer, &theme, &syntax, &[], LineState::Normal).unwrap();
         let out = String::from_utf8_lossy(&buf);
         // Final cursor MoveTo before Show: x = foldcolumn(3) + col(4) = 7 -> col 8 (1-based).
         let re = regex::Regex::new("\u{1b}\\[(\\d+);(\\d+)H\u{1b}\\[\\?25h").unwrap();
@@ -1544,7 +1552,7 @@ mod tests {
         let theme = crate::theme::matrix();
         let syntax = Registry::default();
         let mut buf: Vec<u8> = Vec::new();
-        render(&mut buf, &ed, &theme, &syntax, &[], LineState::Normal).unwrap();
+        render(&mut buf, &ed, &ed.buffer, &theme, &syntax, &[], LineState::Normal).unwrap();
         let out = String::from_utf8_lossy(&buf);
         assert!(out.contains('|'), "fold-extent bar missing from foldcolumn");
     }
@@ -1559,7 +1567,7 @@ mod tests {
         let theme = crate::theme::matrix();
         let syntax = Registry::default();
         let mut buf: Vec<u8> = Vec::new();
-        render(&mut buf, &ed, &theme, &syntax, &[], LineState::Normal).unwrap();
+        render(&mut buf, &ed, &ed.buffer, &theme, &syntax, &[], LineState::Normal).unwrap();
         let out = String::from_utf8_lossy(&buf);
         // Strip ANSI escape sequences so we see the actual printed glyphs.
         let re = regex::Regex::new("\u{1b}\\[[0-9;?]*[A-Za-z]").unwrap();
@@ -1584,7 +1592,7 @@ mod tests {
         let theme = crate::theme::matrix();
         let syntax = Registry::default();
         let mut buf: Vec<u8> = Vec::new();
-        render(&mut buf, &ed, &theme, &syntax, &[], LineState::Normal).unwrap();
+        render(&mut buf, &ed, &ed.buffer, &theme, &syntax, &[], LineState::Normal).unwrap();
         let out = String::from_utf8_lossy(&buf);
         assert!(out.contains("3 lines: alpha")); // the fold header
         assert!(out.contains("delta")); // the line after the fold still shows
@@ -1614,7 +1622,7 @@ mod tests {
         let syntax = Registry::default();
         let render_to = |ed: &Editor| {
             let mut buf: Vec<u8> = Vec::new();
-            render(&mut buf, ed, &theme, &syntax, &[], LineState::Normal).unwrap();
+            render(&mut buf, ed, &ed.buffer, &theme, &syntax, &[], LineState::Normal).unwrap();
             String::from_utf8_lossy(&buf).into_owned()
         };
         let mut ed = Editor::new();
@@ -1640,7 +1648,7 @@ mod tests {
         let syntax = Registry::default();
         let render_to = |ed: &Editor| {
             let mut buf: Vec<u8> = Vec::new();
-            render(&mut buf, ed, &theme, &syntax, &[], LineState::Normal).unwrap();
+            render(&mut buf, ed, &ed.buffer, &theme, &syntax, &[], LineState::Normal).unwrap();
             String::from_utf8_lossy(&buf).into_owned()
         };
         let mut ed = Editor::new();
