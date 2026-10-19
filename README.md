@@ -36,7 +36,8 @@ cargo run --release -- src/main.rs src/editor.rs
 
 Open at a specific line with `+N` (bare `+` opens at the last line), or at the
 first match of a pattern with `+/PATTERN`. Run an ex command on startup with
-`-c <command>` (repeatable), e.g. `-c "set number"`:
+`-c <command>` (repeatable), e.g. `-c "set number"`. Open read-only with `-R`
+(or `--readonly`) so `:w` is refused unless you force it with `:w!`:
 
 ```bash
 cargo run --release -- +42 src/main.rs
@@ -686,7 +687,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **831 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **832 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

@@ -49,6 +49,8 @@ All notable changes to rvim are recorded here. Versions follow
 ### Command line
 - `-c <command>` runs an ex command on startup (repeatable), after the file and
   config load — e.g. `rvim -c "set number" file`.
+- `-R` / `--readonly` opens every loaded buffer read-only (`:w` refused unless
+  forced with `:w!`).
 
 ### Files
 - `:cd [dir]` changes the working directory (with `~` expansion; no argument goes
