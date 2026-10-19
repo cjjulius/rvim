@@ -1857,6 +1857,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          FOLDING\n\
          \tzf{{motion}} / zF   create fold (V_zf folds selection; <n>zF n lines)\n\
          \tzo / zc / za       open / close / toggle fold under cursor\n\
+         \tzO / zC / zA       recursive open / close / toggle (nested folds)\n\
          \tzR / zM            open all / close all folds\n\
          \tzd / zE            delete fold under cursor / all folds\n\
          \tzi                 toggle folding on / off\n\
@@ -1865,7 +1866,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set foldcolumn=N   show a fold-indicator column N wide\n\
          \t:set foldmethod=indent   build folds from indentation\n\
          \t:set foldmethod=marker   build folds from fold markers\n\
-         \t:set foldmethod=syntax   build folds from brace blocks (manual = default)\n\
+         \t:set foldmethod=syntax   folds from braces, or indent for brace-less langs\n\
          \n\
          WINDOWS\n\
          \t:split / :vsplit    split the window (horizontal / vertical)\n\
@@ -1938,6 +1939,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:delmarks a b / !  delete the named marks (! clears all a-z marks)\n\
          \t:history [:|/|all] list command-line / search history\n\
          \t:s/pat/rep/[ginc]  substitute (g all, i ignore-case, n count, c confirm)\n\
+         \t  rep: \\1-\\9 & groups; \\U \\L \\u \\l \\E case; pat: \\< \\> word bounds\n\
          \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///, normal)\n\
          \t:[range]norm {{keys}}  run Normal-mode keys (per line over a range)\n\
          \t:theme <name>      themes: {themes}\n\
@@ -1945,6 +1947,9 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set autoindent|noai   :set expandtab|noet\n\
          \t:set shiftwidth=N  :set tabstop=N  :set scrolloff=N  :set textwidth=N\n\
          \t:set shiftround|nosr   :set joinspaces|nojs   :set matchpairs=(:),<:>\n\
+         \t:set paste|nopaste     :set readonly|noro (:w! overrides)\n\
+         \t:set language=<code>   UI language (en, vi, fr)\n\
+         \t:cd [dir]  :pwd        change / show the working directory\n\
          \t:set sidescrolloff=N   horizontal context columns\n\
          \t:set {{option}}?        show an option's current value\n\
          \t:set / :set all        list modified / all options\n\
