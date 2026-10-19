@@ -72,6 +72,7 @@ impl ThemeRegistry {
                 gruvbox(),
                 nord(),
                 paper(),
+                dracula(),
             ],
             current: 0,
         }
@@ -399,6 +400,46 @@ pub fn paper() -> Theme {
     }
 }
 
+/// The popular Dracula palette: soft dark background with vivid pink/purple/green
+/// accents.
+pub fn dracula() -> Theme {
+    Theme {
+        name: "dracula".into(),
+        bg: rgb(40, 42, 54),
+        fg: rgb(248, 248, 242),
+        cursor_line_bg: rgb(54, 57, 72),
+        selection_bg: rgb(68, 71, 90),
+        search_bg: rgb(80, 72, 40),
+        cur_search_bg: rgb(241, 250, 140),
+        color_column_bg: rgb(54, 57, 72),
+        gutter_bg: rgb(40, 42, 54),
+        gutter_fg: rgb(98, 114, 164),
+        current_line_nr_fg: rgb(248, 248, 242),
+        status_bg: rgb(68, 71, 90),
+        status_fg: rgb(248, 248, 242),
+        mode_bg: rgb(189, 147, 249),
+        mode_fg: rgb(40, 42, 54),
+        message_fg: rgb(248, 248, 242),
+        error_fg: rgb(255, 85, 85),
+        tokens: token_map(&[
+            (TokenKind::Keyword, rgb(255, 121, 198)),     // pink
+            (TokenKind::Type, rgb(139, 233, 253)),        // cyan
+            (TokenKind::Function, rgb(80, 250, 123)),     // green
+            (TokenKind::Builtin, rgb(189, 147, 249)),     // purple
+            (TokenKind::String, rgb(241, 250, 140)),      // yellow
+            (TokenKind::Char, rgb(241, 250, 140)),
+            (TokenKind::Number, rgb(189, 147, 249)),      // purple
+            (TokenKind::Comment, rgb(98, 114, 164)),      // muted slate
+            (TokenKind::Operator, rgb(255, 121, 198)),
+            (TokenKind::Punctuation, rgb(248, 248, 242)),
+            (TokenKind::Preprocessor, rgb(255, 184, 108)), // orange
+            (TokenKind::Label, rgb(80, 250, 123)),
+            (TokenKind::Register, rgb(255, 184, 108)),
+            (TokenKind::Variable, rgb(248, 248, 242)),
+        ]),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -409,7 +450,7 @@ mod tests {
         assert_eq!(r.current().name, "matrix");
         assert_eq!(
             r.names(),
-            vec!["matrix", "retrowave", "cobalt", "high-contrast", "gruvbox", "nord", "paper"]
+            vec!["matrix", "retrowave", "cobalt", "high-contrast", "gruvbox", "nord", "paper", "dracula"]
         );
     }
 
@@ -451,6 +492,7 @@ mod tests {
         assert_eq!(r.cycle(), "gruvbox");
         assert_eq!(r.cycle(), "nord");
         assert_eq!(r.cycle(), "paper");
+        assert_eq!(r.cycle(), "dracula");
         assert_eq!(r.cycle(), "matrix");
     }
 
@@ -466,6 +508,14 @@ mod tests {
         let mut r = ThemeRegistry::with_builtins();
         assert!(r.set_current("nord"));
         assert_eq!(r.current().bg, rgb(46, 52, 64));
+    }
+
+    #[test]
+    fn dracula_is_selectable() {
+        let mut r = ThemeRegistry::with_builtins();
+        assert!(r.set_current("dracula"));
+        assert_eq!(r.current().bg, rgb(40, 42, 54));
+        assert_ne!(r.current().token_color(TokenKind::Keyword), r.current().fg);
     }
 
     #[test]
