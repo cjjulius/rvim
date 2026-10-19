@@ -2,7 +2,7 @@
 //! ex-commands (dispatching unknown ones to plugins).
 
 use crate::command::{self, ExCommand};
-use crate::editor::{Action, Editor};
+use crate::editor::{Action, BufferId, Editor};
 use crate::mode::Mode;
 use crate::plugin::{PluginDoc, PluginManager};
 use crate::syntax::{Language, LineState, Registry};
@@ -36,6 +36,8 @@ pub struct App {
     focused: WinId,
     /// Monotonic source of fresh window ids.
     next_win: usize,
+    /// Monotonic source of fresh buffer ids (window id 0's editor owns `BufferId(0)`).
+    next_buf: usize,
     /// Set when `Ctrl-w` was pressed and the next key is a window command.
     pending_ctrl_w: bool,
     /// Last left-click (time, column, row, consecutive-click count) for detecting
@@ -74,6 +76,7 @@ impl App {
             panes: Vec::new(),
             focused: WinId(0),
             next_win: 1,
+            next_buf: 1,
             pending_ctrl_w: false,
             last_click: None,
             themes: ThemeRegistry::with_builtins(),
@@ -140,6 +143,7 @@ impl App {
     pub fn open(path: &str) -> io::Result<Self> {
         let mut app = App::new();
         app.editor = Editor::from_file(path)?;
+        app.editor.buf_id = app.fresh_buf_id();
         app.editor.message = format!("\"{path}\" {} lines", app.editor.buffer.line_count());
         Ok(app)
     }
@@ -149,6 +153,7 @@ impl App {
     pub fn open_additional(&mut self, path: &str) -> io::Result<()> {
         let mut ed = Editor::from_file(path)?;
         self.inherit_prefs(&mut ed);
+        ed.buf_id = self.fresh_buf_id();
         self.others.push(ed);
         Ok(())
     }
@@ -221,6 +226,7 @@ impl App {
         match Editor::from_file(path) {
             Ok(mut ed) => {
                 self.inherit_prefs(&mut ed);
+                ed.buf_id = self.fresh_buf_id(); // newly opened file is a distinct buffer
                 let lines = ed.buffer.line_count();
                 self.remember_alternate();
                 let old = std::mem::replace(&mut self.editor, ed);
@@ -447,6 +453,13 @@ impl App {
 
     /// `:split` / `:vsplit` (and `Ctrl-w s` / `Ctrl-w v`). The new window takes
     /// focus and shows `file`, or a duplicate view of the current buffer.
+    /// Allocate a fresh buffer id for a newly opened file.
+    fn fresh_buf_id(&mut self) -> BufferId {
+        let id = BufferId(self.next_buf);
+        self.next_buf += 1;
+        id
+    }
+
     fn split_window(&mut self, vertical: bool, file: Option<&str>) {
         let new_id = WinId(self.next_win);
         let kind = if vertical {
@@ -468,6 +481,7 @@ impl App {
             Some(path) => match Editor::from_file(path) {
                 Ok(mut ed) => {
                     self.inherit_prefs(&mut ed);
+                    ed.buf_id = self.fresh_buf_id(); // a different file is a distinct buffer
                     ed
                 }
                 Err(e) => {

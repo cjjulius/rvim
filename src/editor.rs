@@ -184,9 +184,18 @@ enum LineKind {
     SearchBack,
 }
 
+/// Identifies which underlying buffer a window shows. Two windows with the same
+/// `BufferId` are views of the same buffer (e.g. a plain `:split`); distinct
+/// files get distinct ids. The id is the seam the shared-buffer work (#25) builds
+/// on: it lets the app route edits and rendering to one shared buffer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct BufferId(pub usize);
+
 /// The full editor state.
 pub struct Editor {
     pub buffer: Buffer,
+    /// Which buffer this window is a view of (see [`BufferId`]).
+    pub buf_id: BufferId,
     pub cursor: Position,
     pub mode: Mode,
     pub top: usize,
@@ -465,6 +474,7 @@ impl Editor {
     pub fn new() -> Self {
         Self {
             buffer: Buffer::new(),
+            buf_id: BufferId::default(),
             cursor: Position::default(),
             mode: Mode::Normal,
             top: 0,
@@ -1036,6 +1046,9 @@ impl Editor {
     pub fn duplicate_view(&self) -> Editor {
         let mut ed = Editor::new();
         ed.buffer = self.buffer.clone();
+        // A plain `:split` is another view of the *same* buffer, so it carries the
+        // same identity (see [`BufferId`] and issue #25).
+        ed.buf_id = self.buf_id;
         ed.language = self.language;
         ed.cursor = self.cursor;
         ed.top = self.top;
