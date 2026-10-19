@@ -52,6 +52,7 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(ruby_spec())),
         Box::new(SpecHighlighter::new(lua_spec())),
         Box::new(SpecHighlighter::new(csharp_spec())),
+        Box::new(SpecHighlighter::new(swift_spec())),
     ]
 }
 
@@ -153,6 +154,45 @@ const JAVA_TYPES: &[&str] = &[
 const JAVA_BUILTINS: &[&str] = &[
     "System", "Math", "Arrays", "Objects", "Collections", "Thread", "Exception",
     "RuntimeException", "Override", "Deprecated", "SuppressWarnings",
+];
+
+// ---- Swift ----------------------------------------------------------------
+
+fn swift_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Swift,
+        // Swift multi-line string literals (`"""…"""`).
+        multiline_strings: &["\"\"\""],
+        preprocessor: Some('#'), // #if / #available / #selector compilation directives
+        line_comments: &["//"],
+        block_comment: Some(("/*", "*/")),
+        keywords: SWIFT_KEYWORDS,
+        types: SWIFT_TYPES,
+        builtins: SWIFT_BUILTINS,
+        string_delims: &['"'],
+        case_insensitive: false,
+        var_sigils: &[],
+        detect_calls: true,
+    }
+}
+
+const SWIFT_KEYWORDS: &[&str] = &[
+    "func", "let", "var", "class", "struct", "enum", "protocol", "extension", "if", "else", "guard",
+    "switch", "case", "default", "for", "in", "while", "repeat", "return", "break", "continue",
+    "fallthrough", "do", "try", "catch", "throw", "throws", "rethrows", "defer", "import", "public",
+    "private", "internal", "fileprivate", "open", "static", "final", "lazy", "weak", "unowned",
+    "mutating", "nonmutating", "override", "convenience", "required", "init", "deinit", "self",
+    "super", "nil", "true", "false", "as", "is", "where", "associatedtype", "typealias", "inout",
+    "some", "any", "async", "await", "actor", "subscript", "operator", "indirect",
+];
+const SWIFT_TYPES: &[&str] = &[
+    "Int", "Int8", "Int16", "Int32", "Int64", "UInt", "Double", "Float", "Bool", "String",
+    "Character", "Array", "Dictionary", "Set", "Optional", "Any", "AnyObject", "Void", "Data",
+    "Date", "URL", "Result", "CGFloat", "CGRect", "CGPoint",
+];
+const SWIFT_BUILTINS: &[&str] = &[
+    "print", "map", "filter", "reduce", "compactMap", "flatMap", "append", "assert", "precondition",
+    "fatalError", "min", "max", "abs", "zip", "sorted", "contains",
 ];
 
 // ---- C# -------------------------------------------------------------------
@@ -951,6 +991,17 @@ mod tests {
         // A plain `--` line comment is NOT swallowed as a block.
         let (_t2, s2) = h.highlight_line_stateful("z = 3 -- just a note", LineState::Normal);
         assert_eq!(s2, LineState::Normal);
+    }
+
+    #[test]
+    fn swift_highlights_keyword_type_builtin_string() {
+        let h = SpecHighlighter::new(swift_spec());
+        let toks = h.highlight_line("func f() { let s: String = \"hi\"; print(s) } // c");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // func/let
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // String
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // print
+        assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "hi"
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // // c
     }
 
     #[test]
