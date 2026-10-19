@@ -654,7 +654,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **803 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **804 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
@@ -665,8 +665,8 @@ layout.
 Still planned, not yet built:
 
 - Shared-buffer splits: two windows on the same file that mirror edits live
-  (today they are independent views). In progress — the rendering layer has been
-  decoupled from buffer ownership as the first step.
+  (today they are independent views). In progress — rendering has been decoupled
+  from buffer ownership and each window now tracks a buffer identity.
 - Language-grammar folding beyond brace blocks (the current `foldmethod=syntax`
   folds `{` … `}` regions; languages without braces rely on indent folding).
 - More accessibility options: screen-reader hints and configurable cues.

@@ -615,6 +615,23 @@
     }
 
     #[test]
+    fn plain_split_shares_buffer_id_file_split_does_not() {
+        let mut app = App::new();
+        let base = app.editor.buf_id;
+        // A plain `:split` is another view of the same buffer: same id.
+        app.run_ex("split");
+        assert_eq!(app.editor.buf_id, base);
+        assert_eq!(app.panes[0].editor.buf_id, base);
+        // Splitting in a different file is a distinct buffer: fresh id.
+        let dir = std::env::temp_dir();
+        let path = dir.join("rvim_bufid_test.txt");
+        std::fs::write(&path, "one\ntwo\n").unwrap();
+        app.run_ex(&format!("split {}", path.display()));
+        assert_ne!(app.editor.buf_id, base, "a different file gets a new buffer id");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
     fn close_window_returns_to_single_and_refuses_last() {
         let mut app = App::new();
         app.run_ex("split");

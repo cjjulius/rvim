@@ -34,6 +34,9 @@ All notable changes to rvim are recorded here. Versions follow
 - Shared-buffer splits (#25), step 1: the rendering layer now takes the buffer as
   an explicit parameter instead of reaching through the editor, decoupling drawing
   from buffer ownership ahead of the buffer/view separation.
+- Shared-buffer splits (#25), step 2: each window now carries a `BufferId` — shared
+  when you `:split` the current file, distinct when a window opens another file —
+  the identity the shared-buffer wiring will route edits and rendering through.
 - Syntax carry-over state now skips full tokenization for lines that cannot open
   a block comment or multi-line string (the common case), so recomputing the
   highlight state above the viewport is cheaper on large files.
