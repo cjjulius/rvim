@@ -4502,7 +4502,7 @@
         assert_eq!(ed.listchars(), ('>', '-', '~', '#'));
         assert_eq!(
             ed.option_value("listchars"),
-            "listchars=tab:>-,trail:~,eol:#,precedes:<,extends:>"
+            "listchars=tab:>-,trail:~,eol:#,precedes:<,extends:>,space: ,nbsp:␣"
         );
     }
 

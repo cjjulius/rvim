@@ -497,9 +497,11 @@ even when scrolled.
   theme) even across lines, making nesting easy to follow.
 - **Whitespace view (`:set list`)** — show tabs (`▸···`) and trailing spaces (`·`)
   with an end-of-line `$` marker, so hidden whitespace is visible; `:set nolist`
-  hides them again. Markers are width-preserving, so columns stay exact. Customize
-  them with `:set listchars=tab:>-,trail:~,eol:#` (`tab:` takes two characters,
-  `trail:` and `eol:` one each).
+  hides them again. Non-breaking spaces (a frequent invisible-bug source) are
+  flagged with their own marker, and you can reveal every ordinary space too.
+  Markers are width-preserving, so columns stay exact. Customize them with
+  `:set listchars=tab:>-,trail:~,eol:#,nbsp:+,space:.` (`tab:` takes two
+  characters, the rest one each).
 - **Color columns (`:set colorcolumn=N`)** — highlight one or more columns as
   visual line-length guides (e.g. `:set cc=80,120`, and they work past the end of
   short lines too); `:set cc=0` turns them off. Pair with `:set textwidth` to see
@@ -656,7 +658,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **806 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **807 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
