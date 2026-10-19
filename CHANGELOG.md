@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### UI
+- The status line shows `[paste]` while paste mode is on, next to the existing
+  `[+]` / `[RO]` / `[dos]` flags (whose construction is now shared by the single
+  and split status lines).
+
 ### Search
 - Live substitute preview: typing `:s/pattern/...` or `:%s/...` highlights the
   pattern's matches as you type (like vim's `inccommand`), restoring the previous
