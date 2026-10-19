@@ -372,6 +372,11 @@
         assert!(text.contains("yaml"));
         assert!(text.contains("java"));
         assert!(text.contains("clipboard")); // the "+ / "* help line
+        // Recently added features are documented.
+        assert!(text.contains("readonly"));
+        assert!(text.contains("language=<code>"));
+        assert!(text.contains(":cd"));
+        assert!(text.contains("recursive")); // zO/zC/zA line
     }
 
     #[test]

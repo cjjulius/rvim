@@ -59,6 +59,11 @@ All notable changes to rvim are recorded here. Versions follow
   home) and `:pwd` prints it, so relative paths for `:e`/`:w`/`:r` resolve where
   you expect.
 
+### Help
+- The in-editor `:help` now documents the newer features: recursive folds
+  (`zO`/`zC`/`zA`), `:set readonly`/`paste`/`language`, `:cd`/`:pwd`, `:s` case
+  escapes and `\<`/`\>`, and syntax-fold indentation for brace-less languages.
+
 ### Folding
 - Recursive fold commands `zO` / `zC` / `zA` open, close, or toggle the fold under
   the cursor together with every fold nested inside it.
