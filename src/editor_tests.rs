@@ -3188,6 +3188,22 @@
         assert_eq!(ed.buffer.line(0), Some("item# and item#"));
     }
 
+    #[test]
+    fn substitute_uppercases_with_case_escape() {
+        let mut ed = ed_with("foo bar baz");
+        let spec = SubstituteSpec {
+            range: SubRange::CurrentLine,
+            pattern: r"\w+".into(),
+            replacement: r"\U&".into(), // uppercase each matched word
+            global: true,
+            ignorecase: false,
+            count_only: false,
+        };
+        let (subs, _) = ed.substitute(&spec);
+        assert_eq!(subs, 3);
+        assert_eq!(ed.buffer.line(0), Some("FOO BAR BAZ"));
+    }
+
     fn confirm_spec(pattern: &str, replacement: &str, global: bool) -> SubstituteSpec {
         SubstituteSpec {
             range: SubRange::WholeFile,

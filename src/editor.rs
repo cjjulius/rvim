@@ -1698,8 +1698,7 @@ impl Editor {
         // Remember for `&` (repeat last substitution); `resolve_substitute`
         // already made the pattern the current search pattern.
         self.last_subst = Some(spec.clone());
-        // vim-style replacement (`\1`, `&`) -> regex crate syntax.
-        let replacement = pattern::vim_replacement(&spec.replacement);
+        let repl = spec.replacement.clone();
 
         // First pass: compute new lines without mutating, so we only push an
         // undo checkpoint when something actually changes.
@@ -1715,9 +1714,19 @@ impl Editor {
                 continue;
             }
             let (new, c) = if spec.global {
-                (re.replace_all(line, replacement.as_str()).into_owned(), matches)
+                let out = re
+                    .replace_all(line, |caps: &regex::Captures| {
+                        pattern::expand_replacement(caps, &repl)
+                    })
+                    .into_owned();
+                (out, matches)
             } else {
-                (re.replace(line, replacement.as_str()).into_owned(), 1)
+                let out = re
+                    .replace(line, |caps: &regex::Captures| {
+                        pattern::expand_replacement(caps, &repl)
+                    })
+                    .into_owned();
+                (out, 1)
             };
             subs += c;
             edits.push((row, new));
@@ -1754,7 +1763,7 @@ impl Editor {
         self.hlsearch = true;
         self.subst_confirm = Some(SubstConfirm {
             re,
-            repl: pattern::vim_replacement(&spec.replacement),
+            repl: spec.replacement.clone(),
             display: spec.replacement.clone(),
             global: spec.global,
             end_row: end,
@@ -1825,8 +1834,7 @@ impl Editor {
             let row = st.row;
             let line = self.buffer.line(row).unwrap_or("").to_string();
             if let Some(caps) = st.re.captures_at(&line, s) {
-                let mut expansion = String::new();
-                caps.expand(&st.repl, &mut expansion);
+                let expansion = pattern::expand_replacement(&caps, &st.repl);
                 let new_line = format!("{}{}{}", &line[..s], expansion, &line[e..]);
                 if !st.checkpointed {
                     self.checkpoint();
