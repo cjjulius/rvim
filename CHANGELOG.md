@@ -77,6 +77,9 @@ All notable changes to rvim are recorded here. Versions follow
   (all on by default).
 
 ### Internal
+- Rendering a closed fold no longer re-tokenizes its hidden lines each frame to
+  advance syntax state; it uses the cheap `fast_block_state` short-circuit instead,
+  so large folds in brace/multi-line languages are cheaper to scroll past.
 - Shared-buffer splits (#25), step 1: the rendering layer now takes the buffer as
   an explicit parameter instead of reaching through the editor, decoupling drawing
   from buffer ownership ahead of the buffer/view separation.
