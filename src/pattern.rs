@@ -21,6 +21,9 @@ pub fn build_opts(pattern: &str, ignorecase: bool) -> Option<Regex> {
     let force_sensitive = pattern.contains("\\C");
     let force_insensitive = pattern.contains("\\c");
     let cleaned = pattern.replace("\\c", "").replace("\\C", "");
+    // vim's word-boundary atoms `\<` / `\>` map to the regex crate's `\b` (which
+    // the crate would otherwise reject, dropping the pattern to a literal match).
+    let cleaned = cleaned.replace("\\<", "\\b").replace("\\>", "\\b");
     if cleaned.is_empty() {
         return None;
     }
@@ -97,6 +100,14 @@ mod tests {
     #[test]
     fn empty_pattern_is_none() {
         assert!(build("").is_none());
+    }
+
+    #[test]
+    fn vim_word_boundaries_translate_to_b() {
+        // `\<cat\>` matches "cat" as a whole word, not inside "category".
+        let re = build(r"\<cat\>").unwrap();
+        assert!(re.is_match("the cat sat"));
+        assert!(!re.is_match("category"));
     }
 
     #[test]
