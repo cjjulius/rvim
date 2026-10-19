@@ -23,6 +23,9 @@ All notable changes to rvim are recorded here. Versions follow
   (including triple-quoted raw strings across lines), and `//` / `/* */` comments.
 
 ### Editing
+- `:set readonly` (`ro`) guards a file from accidental overwrite: `:w` is refused
+  with `E45` until forced with `:w!`, and the status line shows `[RO]`. `:w!` and
+  `:wq!` / `:x!` now parse as forced writes.
 - `:set paste` / `:set nopaste`: paste mode suppresses autoindent, smartindent,
   abbreviation expansion and auto-wrap while inserting, so pasted text keeps its
   own layout instead of cascading indentation.

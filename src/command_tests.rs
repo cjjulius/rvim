@@ -7,9 +7,10 @@
 
     #[test]
     fn write_variants() {
-        assert_eq!(parse("w"), ExCommand::Write(None));
-        assert_eq!(parse("w out.rs"), ExCommand::Write(Some("out.rs".into())));
-        assert_eq!(parse("write foo"), ExCommand::Write(Some("foo".into())));
+        assert_eq!(parse("w"), ExCommand::Write { path: None, force: false });
+        assert_eq!(parse("w out.rs"), ExCommand::Write { path: Some("out.rs".into()), force: false });
+        assert_eq!(parse("write foo"), ExCommand::Write { path: Some("foo".into()), force: false });
+        assert_eq!(parse("w!"), ExCommand::Write { path: None, force: true });
     }
 
     #[test]
@@ -123,9 +124,10 @@
 
     #[test]
     fn writequit_variants() {
-        assert_eq!(parse("wq"), ExCommand::WriteQuit(None));
-        assert_eq!(parse("x"), ExCommand::WriteQuit(None));
-        assert_eq!(parse("wq file.txt"), ExCommand::WriteQuit(Some("file.txt".into())));
+        assert_eq!(parse("wq"), ExCommand::WriteQuit { path: None, force: false });
+        assert_eq!(parse("x"), ExCommand::WriteQuit { path: None, force: false });
+        assert_eq!(parse("wq file.txt"), ExCommand::WriteQuit { path: Some("file.txt".into()), force: false });
+        assert_eq!(parse("wq!"), ExCommand::WriteQuit { path: None, force: true });
     }
 
     #[test]
@@ -272,7 +274,7 @@
             ExCommand::WriteRange { range: SubRange::WholeFile, file: Some("out.txt".into()) }
         );
         // A bare :w and :wq are NOT range writes.
-        assert_eq!(parse("w out.txt"), ExCommand::Write(Some("out.txt".into())));
+        assert_eq!(parse("w out.txt"), ExCommand::Write { path: Some("out.txt".into()), force: false });
         assert!(!matches!(parse("1,5wq"), ExCommand::WriteRange { .. }));
     }
 

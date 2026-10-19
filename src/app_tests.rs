@@ -658,6 +658,21 @@
     }
 
     #[test]
+    fn readonly_blocks_write_until_forced() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("rvim_ro_test.txt");
+        std::fs::write(&path, "x\n").unwrap();
+        let mut app = App::open(path.to_str().unwrap()).unwrap();
+        app.run_ex("set readonly");
+        assert!(app.editor.readonly);
+        app.run_ex("w");
+        assert!(app.editor.message.contains("E45"), "readonly :w is refused");
+        app.run_ex("w!");
+        assert!(!app.editor.message.contains("E45"), ":w! overrides readonly");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
     fn close_window_returns_to_single_and_refuses_last() {
         let mut app = App::new();
         app.run_ex("split");
