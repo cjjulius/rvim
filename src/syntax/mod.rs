@@ -69,6 +69,7 @@ pub enum Language {
     TypeScript,
     Kotlin,
     Ruby,
+    Lua,
 }
 
 /// One language's metadata, driving `name`, `from_name`, `line_comment_token`,
@@ -108,6 +109,7 @@ const LANG_TABLE: &[LangInfo] = &[
     LangInfo { lang: Language::TypeScript, name: "typescript", aliases: &["ts", "tsx"], extensions: &["ts", "tsx", "mts", "cts"], comment: Some("//") },
     LangInfo { lang: Language::Kotlin, name: "kotlin", aliases: &["kt", "kts"], extensions: &["kt", "kts"], comment: Some("//") },
     LangInfo { lang: Language::Ruby, name: "ruby", aliases: &["rb"], extensions: &["rb"], comment: Some("#") },
+    LangInfo { lang: Language::Lua, name: "lua", aliases: &[], extensions: &["lua"], comment: Some("--") },
 ];
 
 impl Language {
@@ -492,21 +494,13 @@ impl Highlighter for SpecHighlighter {
                 }
             }
 
-            // Line comments.
             let rest = &line[start_b..];
-            if let Some(lc) = self
-                .spec
-                .line_comments
-                .iter()
-                .find(|lc| rest.starts_with(**lc))
-            {
-                let _ = lc;
-                tokens.push(Token::new(start_b, end_byte, TokenKind::Comment));
-                break;
-            }
 
-            // Block comment. If the closer is missing, the comment runs to EOL
-            // and the next line begins inside the block.
+            // Block comment first: its opener can share a prefix with a line
+            // comment (e.g. Lua's `--[[` vs `--`), so it must win when both match.
+            // For every language whose block/line tokens don't overlap the order is
+            // irrelevant. If the closer is missing, the comment runs to EOL and the
+            // next line begins inside the block.
             if let Some((open, close)) = self.spec.block_comment {
                 if let Some(after_open) = rest.strip_prefix(open) {
                     match after_open.find(close) {
@@ -524,6 +518,17 @@ impl Highlighter for SpecHighlighter {
                         }
                     }
                 }
+            }
+
+            // Line comments.
+            if self
+                .spec
+                .line_comments
+                .iter()
+                .any(|lc| rest.starts_with(*lc))
+            {
+                tokens.push(Token::new(start_b, end_byte, TokenKind::Comment));
+                break;
             }
 
             // Multi-line strings (e.g. Python triple quotes, JS template literals).
@@ -802,7 +807,7 @@ mod tests {
             Language::PgSql, Language::TrinoSql, Language::SnowflakeSql, Language::Z80,
             Language::Json, Language::Python, Language::Toml, Language::JavaScript,
             Language::Go, Language::Shell, Language::C, Language::Java, Language::Yaml,
-            Language::TypeScript, Language::Kotlin, Language::Ruby,
+            Language::TypeScript, Language::Kotlin, Language::Ruby, Language::Lua,
         ];
         for lang in all {
             match lang {
@@ -810,7 +815,8 @@ mod tests {
                 | Language::PgSql | Language::TrinoSql | Language::SnowflakeSql | Language::Z80
                 | Language::Json | Language::Python | Language::Toml | Language::JavaScript
                 | Language::Go | Language::Shell | Language::C | Language::Java
-                | Language::Yaml | Language::TypeScript | Language::Kotlin | Language::Ruby => {}
+                | Language::Yaml | Language::TypeScript | Language::Kotlin | Language::Ruby
+                | Language::Lua => {}
             }
             assert!(
                 LANG_TABLE.iter().any(|e| e.lang == lang),

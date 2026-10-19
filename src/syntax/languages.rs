@@ -50,6 +50,7 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(typescript_spec())),
         Box::new(SpecHighlighter::new(kotlin_spec())),
         Box::new(SpecHighlighter::new(ruby_spec())),
+        Box::new(SpecHighlighter::new(lua_spec())),
     ]
 }
 
@@ -230,6 +231,37 @@ const RUBY_TYPES: &[&str] = &[
 const RUBY_BUILTINS: &[&str] = &[
     "puts", "print", "p", "pp", "gets", "attr_accessor", "attr_reader", "attr_writer", "new",
     "freeze", "loop", "format", "sprintf", "require", "catch", "throw", "fail",
+];
+
+// ---- Lua ------------------------------------------------------------------
+
+fn lua_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Lua,
+        multiline_strings: &[],
+        preprocessor: None,
+        line_comments: &["--"],
+        // Lua's `--[[ ... ]]` long comments; the block opener is matched before the
+        // `--` line comment (see the tokenizer) so it wins when both could apply.
+        block_comment: Some(("--[[", "]]")),
+        keywords: LUA_KEYWORDS,
+        types: &[],
+        builtins: LUA_BUILTINS,
+        string_delims: &['"', '\''],
+        case_insensitive: false,
+        var_sigils: &[],
+        detect_calls: true,
+    }
+}
+
+const LUA_KEYWORDS: &[&str] = &[
+    "and", "break", "do", "else", "elseif", "end", "false", "for", "function", "goto", "if", "in",
+    "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while",
+];
+const LUA_BUILTINS: &[&str] = &[
+    "print", "require", "pairs", "ipairs", "type", "tostring", "tonumber", "setmetatable",
+    "getmetatable", "rawget", "rawset", "pcall", "xpcall", "error", "assert", "select", "next",
+    "table", "string", "math", "io", "os", "coroutine", "unpack",
 ];
 
 // ---- C / C++ -------------------------------------------------------------
@@ -854,6 +886,30 @@ mod tests {
         assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "x"
         assert!(toks.iter().any(|t| t.kind == TokenKind::Variable)); // @a
         assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // # c
+    }
+
+    #[test]
+    fn lua_highlights_keyword_builtin_string_and_line_comment() {
+        let h = SpecHighlighter::new(lua_spec());
+        let toks = h.highlight_line("local function f() print(\"hi\") end -- note");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // local/function/end
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // print
+        assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "hi"
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // -- note
+    }
+
+    #[test]
+    fn lua_long_comment_spans_lines_and_line_comment_still_works() {
+        let h = SpecHighlighter::new(lua_spec());
+        // `--[[` opens a block that runs until `]]`, across lines.
+        let (t0, s0) = h.highlight_line_stateful("x = 1 --[[ open", LineState::Normal);
+        assert_eq!(s0, LineState::Block);
+        assert!(t0.iter().any(|t| t.kind == TokenKind::Comment));
+        let (_t1, s1) = h.highlight_line_stateful("still comment ]] y = 2", s0);
+        assert_eq!(s1, LineState::Normal); // closed on this line
+        // A plain `--` line comment is NOT swallowed as a block.
+        let (_t2, s2) = h.highlight_line_stateful("z = 3 -- just a note", LineState::Normal);
+        assert_eq!(s2, LineState::Normal);
     }
 
     #[test]

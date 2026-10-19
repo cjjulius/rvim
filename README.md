@@ -8,7 +8,7 @@ languages.
 
 > Status: **v0.2** — a mature, deeply vim-compatible editor. Modal editing, the
 > full operator/motion/text-object grammar, incremental search, line-range ex
-> commands, `:normal`, visual-mode operators, six themes, nineteen language
+> commands, `:normal`, visual-mode operators, six themes, twenty language
 > highlighters, a plugin system, and mouse support are all working. See
 > [CHANGELOG.md](CHANGELOG.md) for what landed in 0.2.
 
@@ -478,6 +478,7 @@ then tokenized and color-coded:
 | Java                  | `.java`                             |
 | Kotlin                | `.kt`, `.kts`                        |
 | Ruby                  | `.rb`                               |
+| Lua                   | `.lua`                              |
 | YAML                  | `.yaml`, `.yml`                     |
 
 A generic `.sql` file can be pinned to a dialect with a first-line hint such as
@@ -660,7 +661,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **809 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **811 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
