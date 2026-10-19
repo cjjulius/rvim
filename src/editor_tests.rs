@@ -5961,3 +5961,48 @@
         assert_eq!(ed.buffer.line(1), Some("rld"));
         assert_eq!(ed.buffer.line(2), Some("cde"));
     }
+
+    #[test]
+    fn modeline_set_form_extracts_options() {
+        let ed = ed_with("/* vim: set ts=4 sw=4 noet: */\ncode\n");
+        assert_eq!(ed.modeline_options(), vec!["ts=4", "sw=4", "noet"]);
+    }
+
+    #[test]
+    fn modeline_bare_form_splits_on_colon_and_space() {
+        let ed = ed_with("# vim: noai:ts=2 sw=2\ncode\n");
+        assert_eq!(ed.modeline_options(), vec!["noai", "ts=2", "sw=2"]);
+    }
+
+    #[test]
+    fn modeline_found_in_last_lines() {
+        let ed = ed_with("line1\nline2\nline3\n// vim: ts=8\n");
+        assert_eq!(ed.modeline_options(), vec!["ts=8"]);
+    }
+
+    #[test]
+    fn modeline_requires_whitespace_before_marker() {
+        // `http://` must not be mistaken for a modeline marker.
+        let ed = ed_with("see http://example.com for details\n");
+        assert!(ed.modeline_options().is_empty());
+    }
+
+    #[test]
+    fn modeline_escaped_colon_stays_in_value() {
+        let ed = ed_with("// vim: set path=a\\:b ts=4: trailing\n");
+        assert_eq!(ed.modeline_options(), vec!["path=a:b", "ts=4"]);
+    }
+
+    #[test]
+    fn modeline_disabled_returns_nothing() {
+        let mut ed = ed_with("// vim: ts=4\n");
+        ed.modeline = false;
+        assert!(ed.modeline_options().is_empty());
+    }
+
+    #[test]
+    fn modeline_outside_scan_window_is_ignored() {
+        let mut ed = ed_with("a\nb\nc\nd\n// vim: ts=4\ne\nf\ng\nh\n");
+        ed.modelines = 2; // the modeline is on row 4, outside the first/last 2
+        assert!(ed.modeline_options().is_empty());
+    }

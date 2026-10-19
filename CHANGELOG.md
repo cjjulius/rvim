@@ -54,6 +54,13 @@ All notable changes to rvim are recorded here. Versions follow
 - `-R` / `--readonly` opens every loaded buffer read-only (`:w` refused unless
   forced with `:w!`).
 
+### Configuration
+- Modelines: rvim now reads a `vim:` options comment in a file's first/last lines
+  on load and applies it (e.g. `# vim: set ts=2 sw=2 et ft=yaml:`), so per-project
+  indentation travels with the file. Both the `set ... :` and bare `vi:opt:opt`
+  forms are supported; only `:set` options are applied, never commands. Controlled
+  by `:set modeline` / `:set nomodeline` (on by default) and `:set modelines=N`.
+
 ### Files
 - `:enew` opens a new empty, unnamed buffer in the current window; the previous
   buffer stays in the list (`:bn`/`:bp`) when it has a name or unsaved changes.

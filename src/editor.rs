@@ -176,6 +176,53 @@ fn is_word_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
 }
 
+/// Extract `:set` option tokens from a single line if it is a vim-style
+/// modeline. Returns an empty vec when the line carries no modeline. The marker
+/// (`vi`/`vim`/`ex`/`rvim` followed by `:`) must start the line or follow
+/// whitespace, so ordinary text like `http://` or `lex:` is not mistaken for one.
+fn parse_modeline(line: &str) -> Vec<String> {
+    const MARKERS: &[&str] = &["vim:", "vi:", "ex:", "rvim:"];
+    for (i, _) in line.char_indices() {
+        let preceded_ok = i == 0 || line[..i].ends_with(char::is_whitespace);
+        if !preceded_ok {
+            continue;
+        }
+        let rest = &line[i..];
+        if let Some(m) = MARKERS.iter().find(|m| rest.starts_with(**m)) {
+            return parse_modeline_opts(&rest[m.len()..]);
+        }
+    }
+    Vec::new()
+}
+
+/// Split the text after a modeline marker into `:set` option tokens. Two forms:
+/// `set opt opt:` (space-separated, ends at the first unescaped `:`, `\:` is a
+/// literal colon) and the bare form `opt:opt opt` (separated by `:` or spaces).
+fn parse_modeline_opts(after: &str) -> Vec<String> {
+    let s = after.trim_start();
+    if let Some(rest) = s.strip_prefix("set ").or_else(|| s.strip_prefix("se ")) {
+        let mut body = String::new();
+        let mut chars = rest.chars();
+        while let Some(c) = chars.next() {
+            match c {
+                '\\' => {
+                    if let Some(next) = chars.next() {
+                        body.push(next);
+                    }
+                }
+                ':' => break,
+                _ => body.push(c),
+            }
+        }
+        body.split_whitespace().map(str::to_string).collect()
+    } else {
+        s.split(|c: char| c == ':' || c.is_whitespace())
+            .filter(|t| !t.is_empty())
+            .map(str::to_string)
+            .collect()
+    }
+}
+
 /// The kind of text being entered on the command line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LineKind {
@@ -272,6 +319,11 @@ pub struct Editor {
     pub scrolloff: usize,
     /// `:set sidescrolloff` — minimum columns of context kept left/right.
     pub sidescrolloff: usize,
+    /// `:set modeline` — scan a file's first/last lines for a `vim:` options
+    /// comment and apply it on load.
+    pub modeline: bool,
+    /// `:set modelines` — how many lines at each end of the file to scan.
+    pub modelines: usize,
 
     line_kind: LineKind,
     /// Ex-command and search history for Up/Down recall on the command line.
@@ -526,6 +578,8 @@ impl Editor {
             view_cols: 80,
             scrolloff: 0,
             sidescrolloff: 0,
+            modeline: true,
+            modelines: 5,
             line_kind: LineKind::Ex,
             cmd_history: Vec::new(),
             search_history: Vec::new(),
@@ -1350,6 +1404,8 @@ impl Editor {
             "tabstop" | "ts" => format!("tabstop={}", self.tabstop),
             "scrolloff" | "so" => format!("scrolloff={}", self.scrolloff),
             "sidescrolloff" | "siso" => format!("sidescrolloff={}", self.sidescrolloff),
+            "modeline" | "ml" => flag(self.modeline, "modeline"),
+            "modelines" | "mls" => format!("modelines={}", self.modelines),
             "textwidth" | "tw" => format!("textwidth={}", self.textwidth),
             "colorcolumn" | "cc" => format!(
                 "colorcolumn={}",
@@ -1519,7 +1575,7 @@ impl Editor {
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
         "matchpairs", "filetype", "fileformat", "foldmethod", "foldcolumn", "language",
-        "splitbelow", "splitright",
+        "splitbelow", "splitright", "modeline", "modelines",
     ];
 
     /// A `:set` / `:set all` listing: one option per line with its current value.
@@ -1550,6 +1606,34 @@ impl Editor {
             LineKind::SearchFwd => '/',
             LineKind::SearchBack => '?',
         }
+    }
+
+    /// Scan the first and last [`modelines`](Editor::modelines) lines for a
+    /// vim-style modeline and return the `:set` option tokens it requests, in
+    /// file order. A modeline is a comment of the form `... vim: opt:opt` or
+    /// `... vim: set opt opt:` (markers `vi`, `vim`, `ex`, `rvim`), where the
+    /// marker starts the line or follows whitespace. Only option tokens are
+    /// returned — never commands — so applying them through `:set` is safe.
+    pub fn modeline_options(&self) -> Vec<String> {
+        if !self.modeline || self.modelines == 0 {
+            return Vec::new();
+        }
+        let n = self.buffer.line_count();
+        let k = self.modelines;
+        // First k lines, then the last k (dedup the overlap on short files).
+        let mut rows: Vec<usize> = (0..k.min(n)).collect();
+        for r in n.saturating_sub(k)..n {
+            if !rows.contains(&r) {
+                rows.push(r);
+            }
+        }
+        let mut opts = Vec::new();
+        for r in rows {
+            if let Some(line) = self.buffer.line(r) {
+                opts.extend(parse_modeline(line));
+            }
+        }
+        opts
     }
 
     /// Re-detect the language from the current path + first line.

@@ -111,6 +111,11 @@ fn main() -> ExitCode {
     if readonly {
         app.set_readonly_all();
     }
+    // Modelines apply after the config (so an in-file `vim:` comment wins over
+    // rvimrc) but before `-c` commands (which the user gives explicitly).
+    if !files.is_empty() {
+        app.apply_modelines();
+    }
 
     // `+N` / `+/pat` position the cursor once the file is loaded (the first frame
     // scrolls it into view). Ignored when no file was given.

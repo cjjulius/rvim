@@ -1259,3 +1259,28 @@
         app.run_ex("set showmode");
         assert!(app.editor.showmode);
     }
+
+    #[test]
+    fn apply_modelines_sets_buffer_options() {
+        let mut app = App::new();
+        app.editor.buffer =
+            crate::buffer::Buffer::from_text("// vim: set ts=4 sw=2 et ft=rust:\ncode\n");
+        app.editor.message = "loaded".into();
+        app.apply_modelines();
+        assert_eq!(app.editor.tabstop, 4);
+        assert_eq!(app.editor.shiftwidth, 2);
+        assert!(app.editor.expandtab);
+        assert_eq!(app.editor.language, Language::Rust);
+        // The pre-existing (file-load) message survives modeline application.
+        assert_eq!(app.editor.message, "loaded");
+    }
+
+    #[test]
+    fn apply_modelines_respects_nomodeline() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("// vim: ts=4\ncode\n");
+        app.editor.modeline = false;
+        let before = app.editor.tabstop;
+        app.apply_modelines();
+        assert_eq!(app.editor.tabstop, before);
+    }

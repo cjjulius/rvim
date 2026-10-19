@@ -117,6 +117,10 @@ pub enum ExCommand {
     SetScrollOff(usize),
     /// `:set sidescrolloff=N` — minimum columns of context kept left/right.
     SetSideScrollOff(usize),
+    /// `:set modeline` / `:set nomodeline` — honor in-file option comments.
+    ToggleModeline(bool),
+    /// `:set modelines=N` — lines scanned at each end of the file for a modeline.
+    SetModelines(usize),
     /// `:set textwidth=N` — wrap column for `gq` reflow (0 disables).
     SetTextWidth(usize),
     /// `:set ft=<lang>`
@@ -1009,6 +1013,8 @@ fn parse_set(rest: &str) -> ExCommand {
         "nosplitbelow" | "nosb" => ExCommand::ToggleSplitBelow(false),
         "splitright" | "spr" => ExCommand::ToggleSplitRight(true),
         "nosplitright" | "nospr" => ExCommand::ToggleSplitRight(false),
+        "modeline" | "ml" => ExCommand::ToggleModeline(true),
+        "nomodeline" | "noml" => ExCommand::ToggleModeline(false),
         _ => {
             if let Some(v) = opt
                 .strip_prefix("listchars=")
@@ -1079,6 +1085,14 @@ fn parse_set(rest: &str) -> ExCommand {
             {
                 match v.trim().parse::<usize>() {
                     Ok(n) => ExCommand::SetScrollOff(n),
+                    _ => unknown_set(opt),
+                }
+            } else if let Some(v) = opt
+                .strip_prefix("modelines=")
+                .or_else(|| opt.strip_prefix("mls="))
+            {
+                match v.trim().parse::<usize>() {
+                    Ok(n) => ExCommand::SetModelines(n),
                     _ => unknown_set(opt),
                 }
             } else if let Some(v) = opt
