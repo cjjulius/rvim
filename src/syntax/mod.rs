@@ -73,6 +73,9 @@ pub enum Language {
     CSharp,
     Swift,
     Php,
+    Scala,
+    Dart,
+    R,
 }
 
 /// One language's metadata, driving `name`, `from_name`, `line_comment_token`,
@@ -116,6 +119,9 @@ const LANG_TABLE: &[LangInfo] = &[
     LangInfo { lang: Language::CSharp, name: "csharp", aliases: &["cs", "c#"], extensions: &["cs"], comment: Some("//") },
     LangInfo { lang: Language::Swift, name: "swift", aliases: &[], extensions: &["swift"], comment: Some("//") },
     LangInfo { lang: Language::Php, name: "php", aliases: &[], extensions: &["php", "phtml"], comment: Some("//") },
+    LangInfo { lang: Language::Scala, name: "scala", aliases: &["sc"], extensions: &["scala", "sc"], comment: Some("//") },
+    LangInfo { lang: Language::Dart, name: "dart", aliases: &[], extensions: &["dart"], comment: Some("//") },
+    LangInfo { lang: Language::R, name: "r", aliases: &["rlang"], extensions: &["r"], comment: Some("#") },
 ];
 
 impl Language {
@@ -838,7 +844,8 @@ mod tests {
             Language::Json, Language::Python, Language::Toml, Language::JavaScript,
             Language::Go, Language::Shell, Language::C, Language::Java, Language::Yaml,
             Language::TypeScript, Language::Kotlin, Language::Ruby, Language::Lua,
-            Language::CSharp, Language::Swift, Language::Php,
+            Language::CSharp, Language::Swift, Language::Php, Language::Scala,
+            Language::Dart, Language::R,
         ];
         for lang in all {
             match lang {
@@ -847,7 +854,8 @@ mod tests {
                 | Language::Json | Language::Python | Language::Toml | Language::JavaScript
                 | Language::Go | Language::Shell | Language::C | Language::Java
                 | Language::Yaml | Language::TypeScript | Language::Kotlin | Language::Ruby
-                | Language::Lua | Language::CSharp | Language::Swift | Language::Php => {}
+                | Language::Lua | Language::CSharp | Language::Swift | Language::Php
+                | Language::Scala | Language::Dart | Language::R => {}
             }
             assert!(
                 LANG_TABLE.iter().any(|e| e.lang == lang),

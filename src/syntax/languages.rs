@@ -54,6 +54,9 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(csharp_spec())),
         Box::new(SpecHighlighter::new(swift_spec())),
         Box::new(SpecHighlighter::new(php_spec())),
+        Box::new(SpecHighlighter::new(scala_spec())),
+        Box::new(SpecHighlighter::new(dart_spec())),
+        Box::new(SpecHighlighter::new(r_spec())),
     ]
 }
 
@@ -923,6 +926,114 @@ impl Z80Highlighter {
     }
 }
 
+// ---- Scala ---------------------------------------------------------------
+
+fn scala_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Scala,
+        // Scala triple-quoted multi-line strings (`"""…"""`).
+        multiline_strings: &["\"\"\""],
+        preprocessor: None,
+        line_comments: &["//"],
+        block_comment: Some(("/*", "*/")),
+        keywords: SCALA_KEYWORDS,
+        types: SCALA_TYPES,
+        builtins: SCALA_BUILTINS,
+        string_delims: &['"'],
+        case_insensitive: false,
+        var_sigils: &[],
+        detect_calls: true,
+    }
+}
+
+const SCALA_KEYWORDS: &[&str] = &[
+    "abstract", "case", "catch", "class", "def", "do", "else", "extends", "final", "finally",
+    "for", "forSome", "given", "if", "implicit", "import", "lazy", "match", "new", "object",
+    "override", "package", "private", "protected", "return", "sealed", "super", "this", "throw",
+    "trait", "try", "type", "val", "var", "while", "with", "yield", "enum", "export", "inline",
+    "then", "using", "end", "null", "true", "false",
+];
+const SCALA_TYPES: &[&str] = &[
+    "Int", "Long", "Short", "Byte", "Float", "Double", "Boolean", "Char", "String", "Unit",
+    "Any", "AnyRef", "AnyVal", "Nothing", "Null", "Option", "Some", "None", "List", "Seq",
+    "Vector", "Map", "Set", "Array", "Tuple", "Either", "Left", "Right", "Future", "Try",
+];
+const SCALA_BUILTINS: &[&str] = &[
+    "println", "print", "map", "filter", "flatMap", "foreach", "fold", "foldLeft", "foldRight",
+    "reduce", "collect", "require", "assert", "implicitly", "apply", "zip", "to", "until",
+];
+
+// ---- Dart ----------------------------------------------------------------
+
+fn dart_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Dart,
+        // Dart triple-quoted multi-line strings (`'''…'''` and `"""…"""`).
+        multiline_strings: &["\"\"\"", "'''"],
+        preprocessor: None,
+        line_comments: &["//"],
+        block_comment: Some(("/*", "*/")),
+        keywords: DART_KEYWORDS,
+        types: DART_TYPES,
+        builtins: DART_BUILTINS,
+        string_delims: &['"', '\''],
+        case_insensitive: false,
+        var_sigils: &[],
+        detect_calls: true,
+    }
+}
+
+const DART_KEYWORDS: &[&str] = &[
+    "abstract", "as", "assert", "async", "await", "break", "case", "catch", "class", "const",
+    "continue", "covariant", "default", "deferred", "do", "dynamic", "else", "enum", "export",
+    "extends", "extension", "external", "factory", "final", "finally", "for", "get", "hide", "if",
+    "implements", "import", "in", "is", "late", "library", "mixin", "new", "on", "operator", "part",
+    "required", "rethrow", "return", "sealed", "set", "show", "static", "super", "switch", "sync",
+    "this", "throw", "try", "typedef", "var", "while", "with", "yield", "null", "true", "false",
+];
+const DART_TYPES: &[&str] = &[
+    "int", "double", "num", "bool", "String", "List", "Map", "Set", "Iterable", "Future",
+    "Stream", "Object", "void", "Function", "Symbol", "Runes", "Duration", "DateTime", "Uri",
+    "Null", "Never", "Record",
+];
+const DART_BUILTINS: &[&str] = &[
+    "print", "map", "where", "forEach", "toList", "add", "remove", "contains", "length",
+    "fold", "reduce", "expand", "firstWhere", "identical", "assert",
+];
+
+// ---- R -------------------------------------------------------------------
+
+fn r_spec() -> LangSpec {
+    LangSpec {
+        language: Language::R,
+        multiline_strings: &[],
+        preprocessor: None,
+        line_comments: &["#"],
+        block_comment: None,
+        keywords: R_KEYWORDS,
+        types: R_TYPES,
+        builtins: R_BUILTINS,
+        string_delims: &['"', '\''],
+        case_insensitive: false,
+        var_sigils: &[],
+        detect_calls: true,
+    }
+}
+
+const R_KEYWORDS: &[&str] = &[
+    "if", "else", "for", "while", "repeat", "function", "return", "break", "next", "in",
+    "TRUE", "FALSE", "NULL", "NA", "Inf", "NaN", "T", "F", "library", "require",
+];
+const R_TYPES: &[&str] = &[
+    "numeric", "integer", "double", "character", "logical", "complex", "raw", "factor",
+    "list", "vector", "matrix", "array", "data.frame", "data_frame", "tibble",
+];
+const R_BUILTINS: &[&str] = &[
+    "c", "print", "cat", "paste", "paste0", "length", "nrow", "ncol", "dim", "names", "sum",
+    "mean", "median", "sd", "var", "min", "max", "seq", "rep", "sapply", "lapply", "vapply",
+    "apply", "mapply", "which", "head", "tail", "str", "summary", "plot", "read.csv", "rnorm",
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1052,6 +1163,37 @@ mod tests {
         assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // print
         assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "hi"
         assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // // c
+    }
+
+    #[test]
+    fn scala_highlights_keyword_type_builtin_string() {
+        let h = SpecHighlighter::new(scala_spec());
+        let toks = h.highlight_line("def f(): Unit = { val s: String = \"hi\"; println(s) } // c");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // def/val
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // String/Unit
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // println
+        assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "hi"
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // // c
+    }
+
+    #[test]
+    fn dart_highlights_keyword_type_builtin_string() {
+        let h = SpecHighlighter::new(dart_spec());
+        let toks = h.highlight_line("void main() { final List<int> x = []; print(x); } // c");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // final/void
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // List/int
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // print
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // // c
+    }
+
+    #[test]
+    fn r_highlights_keyword_builtin_string_comment() {
+        let h = SpecHighlighter::new(r_spec());
+        let toks = h.highlight_line("f <- function(x) { print(c(1, 2)) } # a comment");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // function
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // print/c
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Number)); // 1, 2
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // # ...
     }
 
     #[test]
