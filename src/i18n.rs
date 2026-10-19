@@ -156,6 +156,11 @@ fn vi(s: &str) -> Option<&'static str> {
         "E45: 'readonly' option is set (add ! to override)" => {
             "E45: tùy chọn 'readonly' đang bật (thêm ! để ghi đè)"
         }
+        // Templated messages (`{...}` placeholders are filled after translation).
+        "\"{path}\" {lines} lines" => "\"{path}\" {lines} dòng",
+        "\"{path}\" {lines} lines --reloaded--" => "\"{path}\" {lines} dòng --đã tải lại--",
+        "\"{name}\" {bytes}B written" => "đã ghi \"{name}\" {bytes}B",
+        "{count} buffer(s) done" => "{count} bộ đệm đã xong",
         // Mode indicators.
         "-- INSERT --" => "-- CHÈN --",
         "-- REPLACE --" => "-- THAY THẾ --",
@@ -259,6 +264,11 @@ fn fr(s: &str) -> Option<&'static str> {
         "E45: 'readonly' option is set (add ! to override)" => {
             "E45 : l'option 'readonly' est activée (ajouter ! pour forcer)"
         }
+        // Templated messages (`{...}` placeholders are filled after translation).
+        "\"{path}\" {lines} lines" => "\"{path}\" {lines} lignes",
+        "\"{path}\" {lines} lines --reloaded--" => "\"{path}\" {lines} lignes --rechargé--",
+        "\"{name}\" {bytes}B written" => "\"{name}\" {bytes} B écrit",
+        "{count} buffer(s) done" => "{count} tampon(s) traité(s)",
         // Mode indicators.
         "-- INSERT --" => "-- INSERTION --",
         "-- REPLACE --" => "-- REMPLACEMENT --",

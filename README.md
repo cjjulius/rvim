@@ -424,7 +424,8 @@ rvim supports (e.g. `Write & Quit  wq`).
 
 ### Interface language
 The interface can be shown in your own language — menus, mode indicators, the
-status-line position marker and common messages. `:set language=vi` switches to
+status-line position marker and common messages (including file open/write and
+buffer notices). `:set language=vi` switches to
 Vietnamese, `:set language=fr` to French, and `:set language=en` back to English
 (put any of them in `~/.rvimrc` to make it the default). The commands themselves
 never change — only the labels you read. Translations fall back to English for
@@ -676,7 +677,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **821 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **822 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

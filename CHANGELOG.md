@@ -16,6 +16,8 @@ All notable changes to rvim are recorded here. Versions follow
   highlight on Esc. Honors `ignorecase`/`smartcase` and `\c`/`\C`.
 
 ### Interface language
+- Templated messages (file open/write, reload, `:bufdo`/`:windo` done) now localize
+  too, via placeholders filled after translation.
 - The UI can be localized: `:set language=vi` (Vietnamese), `:set language=fr`
   (French), `:set language=en` (English). Covers menus, mode indicators, the
   status-line scroll indicator (`Top`/`Bot`/`All`) and common messages. The English

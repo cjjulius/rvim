@@ -680,6 +680,20 @@
     }
 
     #[test]
+    fn templated_messages_localize_and_fill_placeholders() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("rvim_i18n_msg.txt");
+        std::fs::write(&path, "x\n").unwrap();
+        let mut app = App::open(path.to_str().unwrap()).unwrap();
+        app.run_ex("set language=vi");
+        app.run_ex("w");
+        // Vietnamese write message ("đã ghi \"{name}\" {bytes}B") with placeholders filled.
+        assert!(app.editor.message.contains("đã ghi"), "localized: {}", app.editor.message);
+        assert!(app.editor.message.contains('B'), "byte count kept");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
     fn readonly_blocks_write_until_forced() {
         let dir = std::env::temp_dir();
         let path = dir.join("rvim_ro_test.txt");
