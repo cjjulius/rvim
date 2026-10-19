@@ -699,6 +699,25 @@
     }
 
     #[test]
+    fn enew_opens_empty_buffer_keeping_the_old() {
+        use crate::buffer::Buffer;
+        let mut app = App::new();
+        app.editor.buffer = Buffer::from_text("important");
+        app.editor.buffer.set_path("keep.txt");
+        app.run_ex("enew");
+        // The new buffer is empty and unnamed.
+        assert!(app.editor.buffer.path().is_none());
+        assert_eq!(app.editor.buffer.line(0), Some(""));
+        // The old named buffer is preserved in the buffer list.
+        assert!(app.others.iter().any(|e| e
+            .buffer
+            .path()
+            .map(|p| p.display().to_string())
+            .as_deref()
+            == Some("keep.txt")));
+    }
+
+    #[test]
     fn set_readonly_all_marks_every_buffer() {
         let dir = std::env::temp_dir();
         let extra = dir.join("rvim_ro_all.txt");
