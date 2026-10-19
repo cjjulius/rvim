@@ -245,7 +245,9 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   handling follows `:set ignorecase` and `:set smartcase` (an uppercase letter in
   the pattern forces a case-sensitive search), with per-pattern `\c`/`\C` overrides.
   With `:set incsearch` (on by default) the first match is previewed as you type;
-  `Enter` jumps to it, `Esc` returns to where you started. After a search (and on
+  `Enter` jumps to it, `Esc` returns to where you started. Typing a substitute
+  (`:s/pattern/...` or `:%s/...`) highlights the matches live too, so you can see
+  what you are about to replace before pressing `Enter`. After a search (and on
   `n`/`N`) a `[index/total]` count shows where you are among the matches. Searches
   wrap around the file by default; `:set nowrapscan` stops at the last/first match.
   Search offsets are supported and reused by `n`/`N`: `/pat/e[±N]` (end of match),
@@ -672,7 +674,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **817 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **819 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

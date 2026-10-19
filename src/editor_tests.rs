@@ -2667,6 +2667,34 @@
     }
 
     #[test]
+    fn substitute_preview_pattern_extracts_pattern() {
+        use crate::editor::substitute_preview_pattern as sp;
+        assert_eq!(sp("%s/foo"), Some("foo".to_string()));
+        assert_eq!(sp("s/foo/bar/g"), Some("foo".to_string()));
+        assert_eq!(sp("1,5s#foo#bar#"), Some("foo".to_string()));
+        assert_eq!(sp("substitute/foo/bar/"), Some("foo".to_string()));
+        assert_eq!(sp("s/foo\\/x"), Some("foo\\/x".to_string())); // escaped delimiter kept
+        assert_eq!(sp("sort"), None);
+        assert_eq!(sp("set number"), None);
+        assert_eq!(sp("%s/"), None); // no pattern yet
+        assert_eq!(sp("w"), None);
+    }
+
+    #[test]
+    fn incsearch_previews_substitute_matches() {
+        let mut ed = ed_with("foo bar foo");
+        ed.handle_key(key(':'));
+        for c in "%s/foo".chars() {
+            ed.handle_key(key(c));
+        }
+        let re = ed.search_regex().expect("substitute preview highlights the pattern");
+        assert!(re.is_match("foo"));
+        // Esc leaves no leftover highlight (there was none before the command).
+        ed.handle_key(special(KeyCode::Esc));
+        assert!(ed.search_regex().is_none());
+    }
+
+    #[test]
     fn insert_ctrl_w_deletes_word_before() {
         let mut ed = ed_with("foo bar");
         ed.handle_key(key('A')); // insert at end
