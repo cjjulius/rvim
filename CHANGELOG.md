@@ -5,6 +5,12 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Windows
+- Shared-buffer splits (#25): a plain `:split` / `:vsplit` now gives two windows
+  on one shared buffer — edits in either appear in both instantly and undo is
+  shared, while each window keeps its own cursor and scroll. Opening a different
+  file in a split stays independent.
+
 ### Syntax
 - Kotlin highlighting (`.kt`, `.kts`): keywords, types, stdlib builtins, strings
   (including triple-quoted raw strings across lines), and `//` / `/* */` comments.

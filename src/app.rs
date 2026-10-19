@@ -2,6 +2,7 @@
 //! ex-commands (dispatching unknown ones to plugins).
 
 use crate::command::{self, ExCommand};
+use crate::buffer::Buffer;
 use crate::editor::{Action, BufferId, Editor};
 use crate::mode::Mode;
 use crate::plugin::{PluginDoc, PluginManager};
@@ -448,6 +449,9 @@ impl App {
             let old = std::mem::replace(&mut self.editor, pane.editor);
             self.panes.push(WinPane { id: self.focused, editor: old });
             self.focused = target;
+            // The newly focused window may share a buffer with another; make sure
+            // it holds the authoritative copy so edits land on the current text.
+            self.normalize_focus_buffer();
         }
     }
 
@@ -517,7 +521,15 @@ impl App {
         self.layout.close(self.focused);
         if let Some(pos) = self.panes.iter().position(|p| p.id == next) {
             let pane = self.panes.remove(pos);
-            self.editor = pane.editor;
+            let old = std::mem::replace(&mut self.editor, pane.editor);
+            // If the closed window shared its buffer with the one now focused, keep
+            // the more-recently-edited content rather than the surviving view's
+            // possibly stale copy.
+            if self.editor.buf_id == old.buf_id
+                && old.buffer.revision() > self.editor.buffer.revision()
+            {
+                self.editor.buffer = old.buffer;
+            }
             self.focused = next;
         }
         true
@@ -561,6 +573,8 @@ impl App {
         if let Some(p) = self.panes.iter_mut().find(|p| p.id == next) {
             std::mem::swap(&mut self.editor, &mut p.editor);
         }
+        // Keep the authoritative copy with the focused window after the exchange.
+        self.normalize_focus_buffer();
     }
 
     /// `Ctrl-w r` — rotate every window's content one slot along the layout order
@@ -589,6 +603,9 @@ impl App {
                 self.panes.push(WinPane { id, editor: ed });
             }
         }
+        // Rotation can move the authoritative copy of a shared buffer off the
+        // focused window; pull it back so edits still land on the current text.
+        self.normalize_focus_buffer();
     }
 
     /// `Ctrl-w +`/`-` (height) and `Ctrl-w >`/`<` (width) — resize the focused
@@ -651,6 +668,48 @@ impl App {
         }
     }
 
+    /// The single authoritative buffer for `bid`. Windows that share a `BufferId`
+    /// (e.g. after a plain `:split`) are views of one buffer, so they all resolve
+    /// here. Only one view is edited at a time (the focused one), so the edited
+    /// copy is the one with the highest `revision()`; picking it keeps every shared
+    /// view showing the same, current text (#25), no matter how windows were moved.
+    fn authoritative_buffer(&self, bid: BufferId) -> &Buffer {
+        let mut best = &self.editor.buffer;
+        let mut best_key = (self.editor.buf_id == bid, self.editor.buffer.revision());
+        for p in &self.panes {
+            let key = (p.editor.buf_id == bid, p.editor.buffer.revision());
+            // Prefer windows that actually show `bid`, then the highest revision.
+            if key > best_key {
+                best = &p.editor.buffer;
+                best_key = key;
+            }
+        }
+        best
+    }
+
+    /// The buffer that window `id` displays (resolved through shared identity).
+    fn buffer_for(&self, id: WinId) -> &Buffer {
+        self.authoritative_buffer(self.editor_ref(id).buf_id)
+    }
+
+    /// Ensure the focused editor holds the authoritative (most-recently edited)
+    /// copy of its buffer, so edits land on the current text even after windows
+    /// were reordered. Call after any op that moves which editor is focused.
+    fn normalize_focus_buffer(&mut self) {
+        let bid = self.editor.buf_id;
+        let focus_rev = self.editor.buffer.revision();
+        if let Some(p) = self
+            .panes
+            .iter_mut()
+            .filter(|p| p.editor.buf_id == bid)
+            .max_by_key(|p| p.editor.buffer.revision())
+        {
+            if p.editor.buffer.revision() > focus_rev {
+                std::mem::swap(&mut self.editor.buffer, &mut p.editor.buffer);
+            }
+        }
+    }
+
     /// Refresh each window's first-visible-line syntax state into the memo,
     /// recomputing only when its (revision, language, top) changed — the costly
     /// part is re-folding from the top of the buffer for multiline languages.
@@ -661,7 +720,7 @@ impl App {
         for (id, _) in &rects {
             let (rev, lang, top) = {
                 let ed = self.editor_ref(*id);
-                (ed.buffer.revision(), ed.language, ed.top)
+                (self.buffer_for(*id).revision(), ed.language, ed.top)
             };
             let fresh = matches!(
                 self.win_block_memo.get(id),
@@ -670,7 +729,7 @@ impl App {
             if !fresh {
                 let state =
                     self.syntax
-                        .block_state_at(lang, self.editor_ref(*id).buffer.lines(), top);
+                        .block_state_at(lang, self.buffer_for(*id).lines(), top);
                 self.win_block_memo.insert(*id, (rev, lang, top, state));
             }
         }
@@ -685,11 +744,12 @@ impl App {
             .into_iter()
             .map(|(id, rect)| {
                 let editor = self.editor_ref(id);
+                let buffer = self.buffer_for(id);
                 // Use the memoized state when present; otherwise compute it (so the
                 // view is correct even if called without a prior refresh).
                 let top_state = match self.win_block_memo.get(&id) {
                     Some((r, l, t, s))
-                        if *r == editor.buffer.revision()
+                        if *r == buffer.revision()
                             && *l == editor.language
                             && *t == editor.top =>
                     {
@@ -697,11 +757,11 @@ impl App {
                     }
                     _ => self
                         .syntax
-                        .block_state_at(editor.language, editor.buffer.lines(), editor.top),
+                        .block_state_at(editor.language, buffer.lines(), editor.top),
                 };
                 ui::WindowView {
                     editor,
-                    buffer: &editor.buffer,
+                    buffer,
                     rect,
                     top_state,
                     focused: id == self.focused,
