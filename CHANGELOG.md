@@ -74,6 +74,12 @@ All notable changes to rvim are recorded here. Versions follow
   unchanged.
 
 ### Syntax
+- Scala highlighting (`.scala`, `.sc`): keywords, core types, common builtins,
+  strings (including `"""` multi-line strings), and `//` / `/* */` comments.
+- Dart highlighting (`.dart`): keywords, core types, common builtins, strings
+  (including `'''` / `"""` multi-line strings), and `//` / `/* */` comments.
+- R highlighting (`.r`): keywords, core types, common builtins, strings, numbers,
+  and `#` comments.
 - PHP highlighting (`.php`, `.phtml`): keywords, type hints, common builtins,
   strings, `$` variables, and `//` / `#` / `/* */` comments.
 - Swift highlighting (`.swift`): keywords, core types, common builtins, strings
