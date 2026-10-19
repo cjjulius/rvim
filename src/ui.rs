@@ -1767,7 +1767,7 @@ mod tests {
     #[test]
     fn draw_menu_renders_bar_and_dropdown() {
         use crate::menu::{build_menus, MenuState};
-        let mut state = MenuState::new(build_menus(&["matrix"], &["rust"], &["wordcount"]));
+        let mut state = MenuState::new(build_menus(&["matrix"], &["rust"], &["wordcount"], crate::i18n::Locale::English));
         state.stack = vec![0]; // open the File dropdown
         let layout = Layout::compute(80, 24, 10, true, false);
         let theme = crate::theme::matrix();
@@ -1782,7 +1782,7 @@ mod tests {
     #[test]
     fn menu_geometry_and_hit_test() {
         use crate::menu::{build_menus, MenuState};
-        let mut state = MenuState::new(build_menus(&["matrix"], &["rust"], &["wordcount"]));
+        let mut state = MenuState::new(build_menus(&["matrix"], &["rust"], &["wordcount"], crate::i18n::Locale::English));
         state.stack = vec![0]; // File dropdown open
         let geom = menu_geometry(&state, 80, 24);
         assert_eq!(geom.len(), 1);

@@ -241,6 +241,9 @@ pub struct Editor {
     /// `:set readonly` — guard the file against accidental overwrite: `:w` refuses
     /// unless forced with `:w!`. Shown as `[RO]` in the status line (default off).
     pub readonly: bool,
+    /// `:set language=<code>` — the user-interface language for menus and mode
+    /// indicators (default English). See [`crate::i18n`].
+    pub locale: crate::i18n::Locale,
     /// `:set title` — set the terminal window title to the current file name.
     pub title: bool,
     /// `:set backup` — before overwriting a file, copy it to `{name}~`.
@@ -507,6 +510,7 @@ impl Editor {
             smartindent: false,
             paste: false,
             readonly: false,
+            locale: crate::i18n::Locale::English,
             title: false,
             backup: false,
             showmode: true,
@@ -1088,6 +1092,7 @@ impl Editor {
         ed.matchpairs = self.matchpairs.clone();
         ed.splitbelow = self.splitbelow;
         ed.splitright = self.splitright;
+        ed.locale = self.locale;
         ed
     }
 
@@ -1290,6 +1295,7 @@ impl Editor {
             "smartindent" | "si" => flag(self.smartindent, "smartindent"),
             "paste" => flag(self.paste, "paste"),
             "readonly" | "ro" => flag(self.readonly, "readonly"),
+            "language" | "lang" => format!("language={}", self.locale.code()),
             "title" => flag(self.title, "title"),
             "backup" | "bk" => flag(self.backup, "backup"),
             "showmode" | "smd" => flag(self.showmode, "showmode"),
@@ -1430,14 +1436,15 @@ impl Editor {
     /// etc. `None` in Normal and Command mode, where the message / command line
     /// takes the space instead.
     pub fn mode_indicator(&self) -> Option<&'static str> {
-        match self.mode {
-            Mode::Insert => Some("-- INSERT --"),
-            Mode::Replace => Some("-- REPLACE --"),
-            Mode::Visual => Some("-- VISUAL --"),
-            Mode::VisualLine => Some("-- VISUAL LINE --"),
-            Mode::VisualBlock => Some("-- VISUAL BLOCK --"),
-            Mode::Normal | Mode::Command => None,
-        }
+        let en = match self.mode {
+            Mode::Insert => "-- INSERT --",
+            Mode::Replace => "-- REPLACE --",
+            Mode::Visual => "-- VISUAL --",
+            Mode::VisualLine => "-- VISUAL LINE --",
+            Mode::VisualBlock => "-- VISUAL BLOCK --",
+            Mode::Normal | Mode::Command => return None,
+        };
+        Some(crate::i18n::tr(self.locale, en))
     }
 
     /// vim's ruler scroll-position indicator: `All` when the whole buffer fits on
@@ -1474,7 +1481,7 @@ impl Editor {
         "showcmd", "ruler", "expandtab", "list", "wrapscan", "cursorline",
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
-        "matchpairs", "filetype", "fileformat", "foldmethod", "foldcolumn",
+        "matchpairs", "filetype", "fileformat", "foldmethod", "foldcolumn", "language",
         "splitbelow", "splitright",
     ];
 

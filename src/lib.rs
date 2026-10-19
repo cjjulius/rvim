@@ -26,6 +26,7 @@ pub mod command;
 pub mod config;
 pub mod editor;
 pub mod fold;
+pub mod i18n;
 pub mod menu;
 pub mod mode;
 pub mod pattern;

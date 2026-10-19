@@ -419,6 +419,14 @@ Menus are grouped logically — **File**, **Buffers**, **Edit**, **View**,
 **Language**, **Tools**, **Help** — and together list every command-line command
 rvim supports (e.g. `Write & Quit  wq`).
 
+### Interface language
+The menus and mode indicators can be shown in your own language. `:set language=vi`
+switches the interface to Vietnamese; `:set language=en` returns to English (put
+either in `~/.rvimrc` to make it the default). The commands themselves never
+change — only the labels you read. Translations fall back to English for anything
+a language has not covered yet, and adding a new language is a small, self-contained
+addition, so more can follow.
+
 ### Configuration (`~/.rvimrc`)
 On startup rvim runs the ex-commands in `~/.rvimrc` (or `$RVIMRC`, or
 `%USERPROFILE%\.rvimrc` on Windows). Comments start with `"` or `#`:
@@ -614,6 +622,7 @@ src/
 ├── command.rs     ex-command parser (`:...`)
 ├── command_tests.rs  ex-command parser unit tests (kept separate)
 ├── config.rs      ~/.rvimrc loading + parsing
+├── i18n.rs        UI localization: locales + English-keyed translation lookup
 ├── menu.rs        Alt-activated menu bar: data tree + navigation state
 ├── pattern.rs     regex compilation (literal fallback) for search & :s
 ├── terminal.rs    raw-mode / alt-screen RAII guard (cross-platform)
@@ -662,7 +671,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **812 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **816 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

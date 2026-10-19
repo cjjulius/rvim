@@ -6,6 +6,8 @@
 //! blindly). Menus are a plain data tree so navigation is pure and testable;
 //! rendering lives in [`crate::ui`].
 
+use crate::i18n::{tr, Locale};
+
 /// What activating a menu item does.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MenuAction {
@@ -72,104 +74,113 @@ fn capitalize(s: &str) -> String {
 }
 
 /// Build the full menu tree. `themes` and `plugin_cmds` make the View/Tools
-/// menus reflect what's actually registered.
-pub fn build_menus(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> Vec<Menu> {
+/// menus reflect what's actually registered. Display labels are localized to
+/// `locale` (see [`crate::i18n`]); the ex-commands they run stay unchanged.
+pub fn build_menus(
+    themes: &[&str],
+    langs: &[&str],
+    plugin_cmds: &[&str],
+    locale: Locale,
+) -> Vec<Menu> {
+    // Translate a static UI label for the active locale.
+    let t = |s: &'static str| tr(locale, s);
+
     let file = Menu {
-        title: "File".into(),
+        title: t("File").into(),
         items: vec![
-            MenuItem::command("Write", "w"),
-            MenuItem::command_hint("Write As…", "w", "w "),
-            MenuItem::command("Write & Quit", "wq"),
-            MenuItem::command("Save & Quit", "x"),
-            MenuItem::command("Quit", "q"),
-            MenuItem::command("Quit Without Saving", "q!"),
-            MenuItem::command_hint("Open File…", "e", "e "),
-            MenuItem::command_hint("Read File…", "r", "r "),
-            MenuItem::command_hint("Source Script…", "source", "source "),
+            MenuItem::command(t("Write"), "w"),
+            MenuItem::command_hint(t("Write As…"), "w", "w "),
+            MenuItem::command(t("Write & Quit"), "wq"),
+            MenuItem::command(t("Save & Quit"), "x"),
+            MenuItem::command(t("Quit"), "q"),
+            MenuItem::command(t("Quit Without Saving"), "q!"),
+            MenuItem::command_hint(t("Open File…"), "e", "e "),
+            MenuItem::command_hint(t("Read File…"), "r", "r "),
+            MenuItem::command_hint(t("Source Script…"), "source", "source "),
         ],
     };
 
     let buffers = Menu {
-        title: "Buffers".into(),
+        title: t("Buffers").into(),
         items: vec![
-            MenuItem::command("List Buffers", "ls"),
-            MenuItem::command("Next Buffer", "bn"),
-            MenuItem::command("Previous Buffer", "bp"),
-            MenuItem::command_hint("Go To Buffer…", "b", "b "),
-            MenuItem::command("Close Buffer", "bd"),
+            MenuItem::command(t("List Buffers"), "ls"),
+            MenuItem::command(t("Next Buffer"), "bn"),
+            MenuItem::command(t("Previous Buffer"), "bp"),
+            MenuItem::command_hint(t("Go To Buffer…"), "b", "b "),
+            MenuItem::command(t("Close Buffer"), "bd"),
         ],
     };
 
     let edit = Menu {
-        title: "Edit".into(),
+        title: t("Edit").into(),
         items: vec![
-            MenuItem::command_hint("Substitute (line)…", "s///", "s///"),
-            MenuItem::command_hint("Substitute (file)…", "%s///g", "%s///g"),
-            MenuItem::command("Sort Lines", "sort"),
-            MenuItem::command("Sort Descending", "sort!"),
-            MenuItem::command("Sort Unique", "sort u"),
-            MenuItem::command_hint("Go To Line…", ":{n}", ""),
-            MenuItem::command("Clear Search Highlight", "noh"),
+            MenuItem::command_hint(t("Substitute (line)…"), "s///", "s///"),
+            MenuItem::command_hint(t("Substitute (file)…"), "%s///g", "%s///g"),
+            MenuItem::command(t("Sort Lines"), "sort"),
+            MenuItem::command(t("Sort Descending"), "sort!"),
+            MenuItem::command(t("Sort Unique"), "sort u"),
+            MenuItem::command_hint(t("Go To Line…"), ":{n}", ""),
+            MenuItem::command(t("Clear Search Highlight"), "noh"),
         ],
     };
 
     let theme_items: Vec<MenuItem> = themes
         .iter()
-        .map(|t| MenuItem::command(&capitalize(t), &format!("theme {t}")))
+        .map(|th| MenuItem::command(&capitalize(th), &format!("theme {th}")))
         .collect();
 
     let view = Menu {
-        title: "View".into(),
+        title: t("View").into(),
         items: vec![
-            MenuItem::submenu("Theme", theme_items),
+            MenuItem::submenu(t("Theme"), theme_items),
             MenuItem::submenu(
-                "Line Numbers",
+                t("Line Numbers"),
                 vec![
-                    MenuItem::command("Absolute On", "set number"),
-                    MenuItem::command("Absolute Off", "set nonumber"),
-                    MenuItem::command("Relative On", "set relativenumber"),
-                    MenuItem::command("Relative Off", "set norelativenumber"),
+                    MenuItem::command(t("Absolute On"), "set number"),
+                    MenuItem::command(t("Absolute Off"), "set nonumber"),
+                    MenuItem::command(t("Relative On"), "set relativenumber"),
+                    MenuItem::command(t("Relative Off"), "set norelativenumber"),
                 ],
             ),
             MenuItem::submenu(
-                "Folding",
+                t("Folding"),
                 vec![
-                    MenuItem::command("Method: Manual", "set foldmethod=manual"),
-                    MenuItem::command("Method: Indent", "set foldmethod=indent"),
-                    MenuItem::command("Method: Marker", "set foldmethod=marker"),
-                    MenuItem::command("Method: Syntax", "set foldmethod=syntax"),
-                    MenuItem::command("Fold Column On", "set foldcolumn=4"),
-                    MenuItem::command("Fold Column Off", "set foldcolumn=0"),
+                    MenuItem::command(t("Method: Manual"), "set foldmethod=manual"),
+                    MenuItem::command(t("Method: Indent"), "set foldmethod=indent"),
+                    MenuItem::command(t("Method: Marker"), "set foldmethod=marker"),
+                    MenuItem::command(t("Method: Syntax"), "set foldmethod=syntax"),
+                    MenuItem::command(t("Fold Column On"), "set foldcolumn=4"),
+                    MenuItem::command(t("Fold Column Off"), "set foldcolumn=0"),
                 ],
             ),
             MenuItem::submenu(
-                "Options",
+                t("Options"),
                 vec![
-                    MenuItem::command("Mouse On", "set mouse"),
-                    MenuItem::command("Mouse Off", "set nomouse"),
-                    MenuItem::command("Search Highlight On", "set hlsearch"),
-                    MenuItem::command("Search Highlight Off", "set nohlsearch"),
-                    MenuItem::command("Auto-indent On", "set autoindent"),
-                    MenuItem::command("Auto-indent Off", "set noautoindent"),
-                    MenuItem::command("Smart-indent On", "set smartindent"),
-                    MenuItem::command("Smart-indent Off", "set nosmartindent"),
-                    MenuItem::command("Show Whitespace On", "set list"),
-                    MenuItem::command("Show Whitespace Off", "set nolist"),
-                    MenuItem::command("Cursor Line On", "set cursorline"),
-                    MenuItem::command("Cursor Line Off", "set nocursorline"),
+                    MenuItem::command(t("Mouse On"), "set mouse"),
+                    MenuItem::command(t("Mouse Off"), "set nomouse"),
+                    MenuItem::command(t("Search Highlight On"), "set hlsearch"),
+                    MenuItem::command(t("Search Highlight Off"), "set nohlsearch"),
+                    MenuItem::command(t("Auto-indent On"), "set autoindent"),
+                    MenuItem::command(t("Auto-indent Off"), "set noautoindent"),
+                    MenuItem::command(t("Smart-indent On"), "set smartindent"),
+                    MenuItem::command(t("Smart-indent Off"), "set nosmartindent"),
+                    MenuItem::command(t("Show Whitespace On"), "set list"),
+                    MenuItem::command(t("Show Whitespace Off"), "set nolist"),
+                    MenuItem::command(t("Cursor Line On"), "set cursorline"),
+                    MenuItem::command(t("Cursor Line Off"), "set nocursorline"),
                 ],
             ),
         ],
     };
 
     let window = Menu {
-        title: "Window".into(),
+        title: t("Window").into(),
         items: vec![
-            MenuItem::command("Split", "split"),
-            MenuItem::command("Vertical Split", "vsplit"),
-            MenuItem::command_hint("Split File…", "split", "split "),
-            MenuItem::command("Close Window", "close"),
-            MenuItem::command("Only This Window", "only"),
+            MenuItem::command(t("Split"), "split"),
+            MenuItem::command(t("Vertical Split"), "vsplit"),
+            MenuItem::command_hint(t("Split File…"), "split", "split "),
+            MenuItem::command(t("Close Window"), "close"),
+            MenuItem::command(t("Only This Window"), "only"),
         ],
     };
 
@@ -178,14 +189,14 @@ pub fn build_menus(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> Vec
         .iter()
         .map(|l| MenuItem::command(&capitalize(l), &format!("set ft={l}")))
         .collect();
-    ft_items.push(MenuItem::command("Plain Text", "set ft=text"));
+    ft_items.push(MenuItem::command(t("Plain Text"), "set ft=text"));
     let language = Menu {
-        title: "Language".into(),
-        items: vec![MenuItem::submenu("Set Filetype", ft_items)],
+        title: t("Language").into(),
+        items: vec![MenuItem::submenu(t("Set Filetype"), ft_items)],
     };
 
     let tools = Menu {
-        title: "Tools".into(),
+        title: t("Tools").into(),
         items: plugin_cmds
             .iter()
             .map(|c| MenuItem::command(&capitalize(c), c))
@@ -193,10 +204,10 @@ pub fn build_menus(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> Vec
     };
 
     let help = Menu {
-        title: "Help".into(),
+        title: t("Help").into(),
         items: vec![
-            MenuItem::command("Help", "help"),
-            MenuItem::command("Version", "version"),
+            MenuItem::command(t("Help"), "help"),
+            MenuItem::command(t("Version"), "version"),
         ],
     };
 
@@ -370,17 +381,31 @@ mod tests {
     use super::*;
 
     fn state() -> MenuState {
-        MenuState::new(build_menus(&["matrix", "cobalt"], &["rust"], &["wordcount"]))
+        MenuState::new(build_menus(&["matrix", "cobalt"], &["rust"], &["wordcount"], Locale::English))
     }
 
     #[test]
     fn menus_cover_core_commands() {
-        let menus = build_menus(&["matrix"], &["rust"], &["wordcount"]);
+        let menus = build_menus(&["matrix"], &["rust"], &["wordcount"], Locale::English);
         let titles: Vec<&str> = menus.iter().map(|m| m.title.as_str()).collect();
         assert_eq!(
             titles,
             vec!["File", "Buffers", "Edit", "View", "Window", "Language", "Tools", "Help"]
         );
+    }
+
+    #[test]
+    fn menu_titles_localize_to_vietnamese() {
+        let menus = build_menus(&["matrix"], &["rust"], &[], Locale::Vietnamese);
+        let titles: Vec<&str> = menus.iter().map(|m| m.title.as_str()).collect();
+        assert_eq!(titles[0], "Tệp"); // File
+        assert_eq!(titles[2], "Sửa"); // Edit
+        // The ex-commands the items run stay in English.
+        if let MenuAction::Command(c) = &menus[0].items[0].action {
+            assert_eq!(c, "w");
+        } else {
+            panic!("expected a command item");
+        }
     }
 
     #[test]
@@ -393,7 +418,7 @@ mod tests {
                 }
             }
         }
-        let menus = build_menus(&["matrix"], &["typescript", "go"], &[]);
+        let menus = build_menus(&["matrix"], &["typescript", "go"], &[], Locale::English);
         let mut cmds = Vec::new();
         for m in &menus {
             walk(&m.items, &mut cmds);

@@ -3394,7 +3394,7 @@
 
     fn menu_ed() -> Editor {
         let mut ed = ed_with("hello");
-        ed.open_menu(crate::menu::build_menus(&["matrix"], &["rust"], &["wordcount"]));
+        ed.open_menu(crate::menu::build_menus(&["matrix"], &["rust"], &["wordcount"], crate::i18n::Locale::English));
         ed
     }
 
