@@ -575,9 +575,11 @@ with `Ctrl-w +` / `Ctrl-w -` (taller/shorter) and `Ctrl-w >` / `Ctrl-w <`
 (wider/narrower), and `Ctrl-w =` makes them equal again. Each window keeps its own
 cursor and scroll position. `:windo {cmd}` runs a command in every window.
 
-Note: two windows opened on the same file are independent views, so edits in one
-are not mirrored live in the other yet. Different files side by side work exactly
-as expected.
+Splitting the current file (a plain `:split` or `:vsplit`) gives you two windows
+on one shared buffer: type in either and the change shows in both instantly, and
+undo is shared. Each window still keeps its own cursor and scroll, so you can work
+on two parts of the same file at once. Opening a different file in the split keeps
+it fully independent, as you would expect.
 
 ### Mouse support
 `:set mouse` enables click-to-position, drag-to-select (dragging starts a visual
@@ -654,7 +656,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **804 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **806 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
@@ -664,9 +666,6 @@ layout.
 
 Still planned, not yet built:
 
-- Shared-buffer splits: two windows on the same file that mirror edits live
-  (today they are independent views). In progress — rendering has been decoupled
-  from buffer ownership and each window now tracks a buffer identity.
 - Language-grammar folding beyond brace blocks (the current `foldmethod=syntax`
   folds `{` … `}` regions; languages without braces rely on indent folding).
 - More accessibility options: screen-reader hints and configurable cues.

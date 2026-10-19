@@ -632,6 +632,32 @@
     }
 
     #[test]
+    fn split_mirrors_edits_live_across_windows() {
+        use crate::buffer::{Buffer, Position};
+        let mut app = App::new();
+        app.editor.buffer = Buffer::from_text("alpha\nbeta");
+        app.run_ex("split"); // two windows, one shared buffer
+        let other = app.panes[0].id;
+        assert_eq!(app.buffer_for(other).line(0), Some("alpha"));
+        // Edit in the focused window; the other window sees it immediately.
+        app.editor.buffer.insert_str(Position::new(0, 0), "X");
+        assert_eq!(app.buffer_for(other).line(0), Some("Xalpha"));
+    }
+
+    #[test]
+    fn shared_edits_follow_focus_switch() {
+        use crate::buffer::{Buffer, Position};
+        let mut app = App::new();
+        app.editor.buffer = Buffer::from_text("alpha");
+        app.run_ex("split");
+        let other = app.panes[0].id;
+        app.editor.buffer.insert_str(Position::new(0, 0), "X"); // focused edit
+        app.activate_window(other); // focus the other view of the same buffer
+        // The authoritative (edited) content follows focus, so edits aren't lost.
+        assert_eq!(app.editor.buffer.line(0), Some("Xalpha"));
+    }
+
+    #[test]
     fn close_window_returns_to_single_and_refuses_last() {
         let mut app = App::new();
         app.run_ex("split");
@@ -1065,10 +1091,12 @@
     fn windo_runs_command_in_every_window() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("a");
-        app.run_ex("vsplit"); // two windows over copies of "a"
+        app.run_ex("vsplit"); // two windows sharing one buffer
         app.run_ex("windo %s/a/b/");
         assert_eq!(app.editor.buffer.line(0), Some("b"));
-        assert_eq!(app.panes[0].editor.buffer.line(0), Some("b"));
+        // Both windows are views of the same buffer, so each resolves to "b".
+        let other = app.panes[0].id;
+        assert_eq!(app.buffer_for(other).line(0), Some("b"));
     }
 
     #[test]
