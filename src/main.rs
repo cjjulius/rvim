@@ -13,6 +13,7 @@ OPTIONS:
     +N               open FILE at line N (bare + opens at the last line)
     +/PATTERN        open FILE at the first line matching PATTERN
     -c <command>     run an ex command after loading (repeatable)
+    -R, --readonly   open read-only (:w is refused unless forced with :w!)
     --theme <name>   start with a color theme (see :theme for the full list)
     --no-config      skip loading ~/.rvimrc
     --version        print version and exit
@@ -27,6 +28,7 @@ fn main() -> ExitCode {
     let mut start_line: Option<usize> = None;
     let mut start_search: Option<String> = None;
     let mut commands: Vec<String> = Vec::new();
+    let mut readonly = false;
 
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -54,6 +56,7 @@ fn main() -> ExitCode {
                 return ExitCode::SUCCESS;
             }
             "--no-config" => no_config = true,
+            "-R" | "--readonly" => readonly = true,
             "-c" => match args.next() {
                 Some(c) => commands.push(c),
                 None => {
@@ -104,6 +107,9 @@ fn main() -> ExitCode {
     }
     if let Some(t) = theme {
         app.set_theme(&t);
+    }
+    if readonly {
+        app.set_readonly_all();
     }
 
     // `+N` / `+/pat` position the cursor once the file is loaded (the first frame

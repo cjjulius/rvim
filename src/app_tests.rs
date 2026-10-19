@@ -694,6 +694,19 @@
     }
 
     #[test]
+    fn set_readonly_all_marks_every_buffer() {
+        let dir = std::env::temp_dir();
+        let extra = dir.join("rvim_ro_all.txt");
+        std::fs::write(&extra, "x\n").unwrap();
+        let mut app = App::new();
+        app.open_additional(extra.to_str().unwrap()).unwrap();
+        app.set_readonly_all();
+        assert!(app.editor.readonly);
+        assert!(app.others.iter().all(|e| e.readonly));
+        let _ = std::fs::remove_file(&extra);
+    }
+
+    #[test]
     fn pwd_reports_cwd_and_bad_cd_errors_without_changing_it() {
         // Deliberately avoids a successful `:cd`, which would change the
         // process-wide working directory and race other tests.

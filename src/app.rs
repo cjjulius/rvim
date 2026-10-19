@@ -160,6 +160,18 @@ impl App {
         Ok(())
     }
 
+    /// Mark every loaded buffer read-only (the `-R` command-line flag): `:w` is then
+    /// refused unless forced with `:w!`.
+    pub fn set_readonly_all(&mut self) {
+        self.editor.readonly = true;
+        for e in &mut self.others {
+            e.readonly = true;
+        }
+        for p in &mut self.panes {
+            p.editor.readonly = true;
+        }
+    }
+
     /// Pick a starting theme by name (falls back to the default silently).
     pub fn set_theme(&mut self, name: &str) {
         self.themes.set_current(name);
