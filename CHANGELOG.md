@@ -17,6 +17,10 @@ All notable changes to rvim are recorded here. Versions follow
   ordinary space — making invisible characters visible.
 
 ### Syntax
+- Lua highlighting (`.lua`): keywords, stdlib builtins, strings, `--` line comments
+  and `--[[ ... ]]` long comments that span lines. (Block-comment detection now
+  runs before line comments so overlapping prefixes like `--[[`/`--` resolve
+  correctly; unaffected for every other language.)
 - Ruby highlighting (`.rb`): keywords, core-class types, common builtins, strings,
   `#` comments, and `@`/`@@`/`$` variables.
 - Kotlin highlighting (`.kt`, `.kts`): keywords, types, stdlib builtins, strings
