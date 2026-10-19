@@ -324,6 +324,9 @@ pub struct Editor {
     pub modeline: bool,
     /// `:set modelines` — how many lines at each end of the file to scan.
     pub modelines: usize,
+    /// Whether this buffer's modeline has already been applied, so switching to
+    /// it again does not re-run it (and override later manual `:set`s).
+    pub modeline_done: bool,
 
     line_kind: LineKind,
     /// Ex-command and search history for Up/Down recall on the command line.
@@ -580,6 +583,7 @@ impl Editor {
             sidescrolloff: 0,
             modeline: true,
             modelines: 5,
+            modeline_done: false,
             line_kind: LineKind::Ex,
             cmd_history: Vec::new(),
             search_history: Vec::new(),

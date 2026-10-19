@@ -1284,3 +1284,28 @@
         app.apply_modelines();
         assert_eq!(app.editor.tabstop, before);
     }
+
+    #[test]
+    fn modeline_applies_on_switch_to_background_buffer() {
+        let mut app = App::new();
+        app.editor.modeline_done = true; // focused buffer already handled
+        // A background buffer (as an extra CLI file would be) with an unapplied modeline.
+        let mut other = Editor::new();
+        other.buffer = crate::buffer::Buffer::from_text("// vim: set ts=4 sw=4:\ncode\n");
+        app.others.push(other);
+        app.run_ex("bn");
+        assert_eq!(app.editor.tabstop, 4);
+        assert_eq!(app.editor.shiftwidth, 4);
+        assert!(app.editor.modeline_done);
+    }
+
+    #[test]
+    fn modeline_not_reapplied_over_manual_set() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("// vim: set ts=4:\ncode\n");
+        app.apply_modelines();
+        assert_eq!(app.editor.tabstop, 4);
+        app.run_ex("set ts=2"); // manual override after load
+        app.apply_modelines_if_needed(); // must not clobber the manual value
+        assert_eq!(app.editor.tabstop, 2);
+    }
