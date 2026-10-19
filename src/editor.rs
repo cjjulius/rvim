@@ -238,6 +238,9 @@ pub struct Editor {
     /// and auto-wrap while inserting, so pasted text keeps its own layout instead
     /// of cascading indentation (default off).
     pub paste: bool,
+    /// `:set readonly` — guard the file against accidental overwrite: `:w` refuses
+    /// unless forced with `:w!`. Shown as `[RO]` in the status line (default off).
+    pub readonly: bool,
     /// `:set title` — set the terminal window title to the current file name.
     pub title: bool,
     /// `:set backup` — before overwriting a file, copy it to `{name}~`.
@@ -503,6 +506,7 @@ impl Editor {
             autoindent: true,
             smartindent: false,
             paste: false,
+            readonly: false,
             title: false,
             backup: false,
             showmode: true,
@@ -1285,6 +1289,7 @@ impl Editor {
             "autoindent" | "ai" => flag(self.autoindent, "autoindent"),
             "smartindent" | "si" => flag(self.smartindent, "smartindent"),
             "paste" => flag(self.paste, "paste"),
+            "readonly" | "ro" => flag(self.readonly, "readonly"),
             "title" => flag(self.title, "title"),
             "backup" | "bk" => flag(self.backup, "backup"),
             "showmode" | "smd" => flag(self.showmode, "showmode"),
@@ -1465,7 +1470,7 @@ impl Editor {
     /// Canonical option names shown by `:set` / `:set all`, in display order.
     const OPTION_NAMES: &'static [&'static str] = &[
         "number", "relativenumber", "hlsearch", "ignorecase", "smartcase",
-        "incsearch", "autoindent", "smartindent", "paste", "title", "backup", "showmode",
+        "incsearch", "autoindent", "smartindent", "paste", "readonly", "title", "backup", "showmode",
         "showcmd", "ruler", "expandtab", "list", "wrapscan", "cursorline",
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
@@ -2800,9 +2805,10 @@ impl Editor {
         "all", "autoindent", "colorcolumn", "cursorcolumn", "cursorline", "expandtab",
         "filetype", "hlsearch", "ignorecase", "incsearch", "list", "listchars", "noautoindent",
         "nocursorcolumn", "nocursorline", "noexpandtab", "nohlsearch",
-        "noignorecase", "noincsearch", "nolist", "nonumber", "nopaste", "norelativenumber",
-        "joinspaces", "matchpairs", "nojoinspaces", "noshiftround", "nosmartcase", "nowrapscan",
-        "number", "paste", "relativenumber", "scrolloff", "shiftround", "shiftwidth",
+        "noignorecase", "noincsearch", "nolist", "nonumber", "nopaste", "noreadonly",
+        "norelativenumber", "joinspaces", "matchpairs", "nojoinspaces", "noshiftround",
+        "nosmartcase", "nowrapscan", "number", "paste", "readonly", "relativenumber",
+        "scrolloff", "shiftround", "shiftwidth",
         "sidescrolloff", "smartcase", "tabstop", "textwidth", "wrapscan",
     ];
 

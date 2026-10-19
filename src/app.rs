@@ -1098,8 +1098,8 @@ impl App {
         }
         match command::parse(input) {
             ExCommand::Empty => {}
-            ExCommand::Write(arg) => {
-                self.do_write(arg);
+            ExCommand::Write { path, force } => {
+                self.do_write(path, force);
             }
             ExCommand::Quit { force } => {
                 // With splits, `:q` closes the focused window (vim). Only the last
@@ -1117,8 +1117,8 @@ impl App {
                     }
                 }
             }
-            ExCommand::WriteQuit(arg) => {
-                if self.do_write(arg) {
+            ExCommand::WriteQuit { path, force } => {
+                if self.do_write(path, force) {
                     self.quit = true;
                 }
             }
@@ -1249,6 +1249,10 @@ impl App {
             ExCommand::TogglePaste(on) => {
                 self.editor.paste = on;
                 self.editor.message = if on { "paste" } else { "nopaste" }.into();
+            }
+            ExCommand::ToggleReadonly(on) => {
+                self.editor.readonly = on;
+                self.editor.message = if on { "readonly" } else { "noreadonly" }.into();
             }
             ExCommand::ToggleTitle(on) => {
                 self.editor.title = on;
@@ -1516,7 +1520,13 @@ impl App {
         }
     }
 
-    fn do_write(&mut self, arg: Option<String>) -> bool {
+    fn do_write(&mut self, arg: Option<String>, force: bool) -> bool {
+        // `:set readonly` guards against accidental overwrite; `:w!` overrides.
+        if self.editor.readonly && !force {
+            self.editor.message =
+                "E45: 'readonly' option is set (add ! to override)".into();
+            return false;
+        }
         if let Some(path) = arg {
             self.editor.buffer.set_path(&path);
         }

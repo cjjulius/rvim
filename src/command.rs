@@ -65,14 +65,14 @@ pub struct SubstituteSpec {
 /// A parsed ex-command.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExCommand {
-    /// `:w [file]`
-    Write(Option<String>),
+    /// `:w [file]` / `:w! [file]` (force overrides `:set readonly`)
+    Write { path: Option<String>, force: bool },
     /// `:[range]w[rite][!] file` — write a line range to a file.
     WriteRange { range: SubRange, file: Option<String> },
     /// `:q` / `:q!`
     Quit { force: bool },
-    /// `:wq [file]` / `:x`
-    WriteQuit(Option<String>),
+    /// `:wq [file]` / `:x` (and `:wq!` / `:x!`, which force past `:set readonly`)
+    WriteQuit { path: Option<String>, force: bool },
     /// `:qa` / `:qall` / `:qa!` — quit all buffers.
     QuitAll { force: bool },
     /// `:wa` / `:wall` — write every modified buffer.
@@ -97,6 +97,8 @@ pub enum ExCommand {
     ToggleSmartIndent(bool),
     /// `:set paste` / `:set nopaste`
     TogglePaste(bool),
+    /// `:set readonly` / `:set noreadonly`
+    ToggleReadonly(bool),
     /// `:set title` / `:set notitle` — show the file name in the window title.
     ToggleTitle(bool),
     /// `:set backup` / `:set nobackup` — keep a `~` backup on overwrite.
@@ -359,10 +361,12 @@ pub fn parse(input: &str) -> ExCommand {
     };
 
     match word {
-        "w" | "write" => ExCommand::Write(arg),
+        "w" | "write" => ExCommand::Write { path: arg, force: false },
+        "w!" | "write!" => ExCommand::Write { path: arg, force: true },
         "q" | "quit" => ExCommand::Quit { force: false },
         "q!" | "quit!" => ExCommand::Quit { force: true },
-        "wq" | "x" | "wq!" | "x!" => ExCommand::WriteQuit(arg),
+        "wq" | "x" => ExCommand::WriteQuit { path: arg, force: false },
+        "wq!" | "x!" => ExCommand::WriteQuit { path: arg, force: true },
         "qa" | "qall" | "quita" | "quitall" => ExCommand::QuitAll { force: false },
         "qa!" | "qall!" | "quita!" | "quitall!" => ExCommand::QuitAll { force: true },
         "wa" | "wall" => ExCommand::WriteAll,
@@ -978,6 +982,8 @@ fn parse_set(rest: &str) -> ExCommand {
         "nosmartindent" | "nosi" => ExCommand::ToggleSmartIndent(false),
         "paste" => ExCommand::TogglePaste(true),
         "nopaste" => ExCommand::TogglePaste(false),
+        "readonly" | "ro" => ExCommand::ToggleReadonly(true),
+        "noreadonly" | "noro" => ExCommand::ToggleReadonly(false),
         "title" => ExCommand::ToggleTitle(true),
         "notitle" => ExCommand::ToggleTitle(false),
         "backup" | "bk" => ExCommand::ToggleBackup(true),

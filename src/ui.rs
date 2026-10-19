@@ -527,12 +527,13 @@ fn draw_window_status(
         .map(|p| p.display().to_string())
         .unwrap_or_else(|| "[No Name]".to_string());
     let dirty = if buf.is_dirty() { " [+]" } else { "" };
+    let ro = if editor.readonly { " [RO]" } else { "" };
     let ff = match buf.fileformat() {
         crate::buffer::LineEnding::Unix => "",
         crate::buffer::LineEnding::Dos => " [dos]",
     };
     let pos = format!("{}:{}", editor.cursor.row + 1, editor.cursor.col + 1);
-    let text = format!(" {file}{dirty}{ff} ");
+    let text = format!(" {file}{dirty}{ro}{ff} ");
     let w = rect.w as usize;
     let left: String = text.chars().take(w).collect();
     let right = format!(" {pos} ");
@@ -981,6 +982,7 @@ fn draw_status_line(
         .map(|p| p.display().to_string())
         .unwrap_or_else(|| "[No Name]".to_string());
     let dirty = if buf.is_dirty() { " [+]" } else { "" };
+    let ro = if editor.readonly { " [RO]" } else { "" };
     // Flag non-Unix line endings (a common gotcha); Unix is the quiet default.
     let ff = match buf.fileformat() {
         crate::buffer::LineEnding::Unix => "",
@@ -995,7 +997,7 @@ fn draw_status_line(
         Some(r) => format!("recording @{r}  "),
         None => String::new(),
     };
-    let mid = format!(" {file}{dirty}{ff} ");
+    let mid = format!(" {file}{dirty}{ro}{ff} ");
     // `:set ruler` controls the cursor position + scroll indicator.
     let right = if editor.ruler {
         format!(" {rec}{lang} | {pos} | {scroll} ")
