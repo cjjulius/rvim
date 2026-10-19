@@ -248,7 +248,7 @@ impl App {
     /// where possible.
     fn reload_file(&mut self, force: bool) {
         let Some(path) = self.editor.buffer.path().map(|p| p.display().to_string()) else {
-            self.editor.message = "E32: No file name".into();
+            self.notify("E32: No file name");
             return;
         };
         if self.editor.buffer.is_dirty() && !force {
@@ -309,7 +309,7 @@ impl App {
 
     fn buffer_next(&mut self) {
         if self.others.is_empty() {
-            self.editor.message = "only one buffer".into();
+            self.notify("only one buffer");
             return;
         }
         self.remember_alternate();
@@ -327,7 +327,7 @@ impl App {
             self.others.insert(0, old);
             self.editor.message = format!("\"{}\"", Self::buffer_name(&self.editor));
         } else {
-            self.editor.message = "only one buffer".into();
+            self.notify("only one buffer");
         }
     }
 
@@ -457,6 +457,11 @@ impl App {
 
     /// `:split` / `:vsplit` (and `Ctrl-w s` / `Ctrl-w v`). The new window takes
     /// focus and shows `file`, or a duplicate view of the current buffer.
+    /// Set the status message, localized to the current UI language.
+    fn notify(&mut self, msg: &'static str) {
+        self.editor.message = crate::i18n::tr(self.editor.locale, msg).into();
+    }
+
     /// Allocate a fresh buffer id for a newly opened file.
     fn fresh_buf_id(&mut self) -> BufferId {
         let id = BufferId(self.next_buf);
@@ -509,12 +514,11 @@ impl App {
     /// last window, or an unsaved one without `force`. Returns whether it closed.
     fn close_window(&mut self, force: bool) -> bool {
         if self.window_count() == 1 {
-            self.editor.message = "E444: Cannot close last window".into();
+            self.notify("E444: Cannot close last window");
             return false;
         }
         if self.editor.buffer.is_dirty() && !force {
-            self.editor.message =
-                "E37: No write since last change (add ! to override)".into();
+            self.notify("E37: No write since last change (add ! to override)");
             return false;
         }
         let next = self.layout.prev(self.focused).unwrap_or(self.focused);
@@ -1249,11 +1253,11 @@ impl App {
             }
             ExCommand::TogglePaste(on) => {
                 self.editor.paste = on;
-                self.editor.message = if on { "paste" } else { "nopaste" }.into();
+                self.notify(if on { "paste" } else { "nopaste" });
             }
             ExCommand::ToggleReadonly(on) => {
                 self.editor.readonly = on;
-                self.editor.message = if on { "readonly" } else { "noreadonly" }.into();
+                self.notify(if on { "readonly" } else { "noreadonly" });
             }
             ExCommand::ToggleTitle(on) => {
                 self.editor.title = on;
@@ -1531,8 +1535,7 @@ impl App {
     fn do_write(&mut self, arg: Option<String>, force: bool) -> bool {
         // `:set readonly` guards against accidental overwrite; `:w!` overrides.
         if self.editor.readonly && !force {
-            self.editor.message =
-                "E45: 'readonly' option is set (add ! to override)".into();
+            self.notify("E45: 'readonly' option is set (add ! to override)");
             return false;
         }
         if let Some(path) = arg {

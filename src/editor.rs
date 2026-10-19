@@ -1461,14 +1461,15 @@ impl Editor {
         } else {
             total.saturating_sub(self.top + self.view_rows)
         };
+        let t = |s: &'static str| crate::i18n::tr(self.locale, s);
         if below == 0 {
             if above == 0 {
-                "All".into()
+                t("All").into()
             } else {
-                "Bot".into()
+                t("Bot").into()
             }
         } else if above == 0 {
-            "Top".into()
+            t("Top").into()
         } else {
             format!("{}%", (above * 100 / total.max(1)).min(99))
         }
