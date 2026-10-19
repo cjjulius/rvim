@@ -45,6 +45,9 @@ All notable changes to rvim are recorded here. Versions follow
   unchanged.
 
 ### Syntax
+- Swift highlighting (`.swift`): keywords, core types, common builtins, strings
+  (including `"""` multi-line strings), `#` compilation directives, and `//` /
+  `/* */` comments.
 - C# highlighting (`.cs`): keywords, types, common library builtins, strings
   (including `"""` raw strings across lines), `#` preprocessor directives, and
   `//` / `/* */` comments.
