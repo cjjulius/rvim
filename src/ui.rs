@@ -526,14 +526,9 @@ fn draw_window_status(
         .path()
         .map(|p| p.display().to_string())
         .unwrap_or_else(|| "[No Name]".to_string());
-    let dirty = if buf.is_dirty() { " [+]" } else { "" };
-    let ro = if editor.readonly { " [RO]" } else { "" };
-    let ff = match buf.fileformat() {
-        crate::buffer::LineEnding::Unix => "",
-        crate::buffer::LineEnding::Dos => " [dos]",
-    };
+    let flags = buffer_flags(editor, buf);
     let pos = format!("{}:{}", editor.cursor.row + 1, editor.cursor.col + 1);
-    let text = format!(" {file}{dirty}{ro}{ff} ");
+    let text = format!(" {file}{flags} ");
     let w = rect.w as usize;
     let left: String = text.chars().take(w).collect();
     let right = format!(" {pos} ");
@@ -966,6 +961,26 @@ fn draw_edge_markers(
     Ok(())
 }
 
+/// The status-line flags shown after the file name: modified `[+]`, read-only
+/// `[RO]`, paste mode `[paste]`, and non-Unix line endings `[dos]`. Each is shown
+/// only when active, so the common case stays clean. Shared by both status lines.
+fn buffer_flags(editor: &Editor, buf: &Buffer) -> String {
+    let mut s = String::new();
+    if buf.is_dirty() {
+        s.push_str(" [+]");
+    }
+    if editor.readonly {
+        s.push_str(" [RO]");
+    }
+    if editor.paste {
+        s.push_str(" [paste]");
+    }
+    if matches!(buf.fileformat(), crate::buffer::LineEnding::Dos) {
+        s.push_str(" [dos]");
+    }
+    s
+}
+
 fn draw_status_line(
     out: &mut impl Write,
     editor: &Editor,
@@ -981,13 +996,7 @@ fn draw_status_line(
         .path()
         .map(|p| p.display().to_string())
         .unwrap_or_else(|| "[No Name]".to_string());
-    let dirty = if buf.is_dirty() { " [+]" } else { "" };
-    let ro = if editor.readonly { " [RO]" } else { "" };
-    // Flag non-Unix line endings (a common gotcha); Unix is the quiet default.
-    let ff = match buf.fileformat() {
-        crate::buffer::LineEnding::Unix => "",
-        crate::buffer::LineEnding::Dos => " [dos]",
-    };
+    let flags = buffer_flags(editor, buf);
     let lang = editor.language.name();
     let pos = format!("{}:{}", editor.cursor.row + 1, editor.cursor.col + 1);
     let scroll = editor.scroll_indicator();
@@ -997,7 +1006,7 @@ fn draw_status_line(
         Some(r) => format!("recording @{r}  "),
         None => String::new(),
     };
-    let mid = format!(" {file}{dirty}{ro}{ff} ");
+    let mid = format!(" {file}{flags} ");
     // `:set ruler` controls the cursor position + scroll indicator.
     let right = if editor.ruler {
         format!(" {rec}{lang} | {pos} | {scroll} ")
@@ -1701,6 +1710,28 @@ mod tests {
         // DOS line endings are flagged.
         ed.buffer.set_fileformat(LineEnding::Dos);
         assert!(render_to(&ed).contains("[dos]"));
+    }
+
+    #[test]
+    fn status_line_flags_paste_and_readonly() {
+        use crate::buffer::Buffer;
+        let theme = crate::theme::matrix();
+        let syntax = Registry::default();
+        let render_to = |ed: &Editor| {
+            let mut buf: Vec<u8> = Vec::new();
+            render(&mut buf, ed, &ed.buffer, &theme, &syntax, &[], LineState::Normal).unwrap();
+            String::from_utf8_lossy(&buf).into_owned()
+        };
+        let mut ed = Editor::new();
+        ed.buffer = Buffer::from_text("hello");
+        ed.set_viewport(10, 40);
+        assert!(!render_to(&ed).contains("[paste]"));
+        assert!(!render_to(&ed).contains("[RO]"));
+        ed.paste = true;
+        ed.readonly = true;
+        let out = render_to(&ed);
+        assert!(out.contains("[paste]"));
+        assert!(out.contains("[RO]"));
     }
 
     #[test]
