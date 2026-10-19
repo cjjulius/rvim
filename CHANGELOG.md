@@ -17,6 +17,8 @@ All notable changes to rvim are recorded here. Versions follow
   ordinary space — making invisible characters visible.
 
 ### Syntax
+- Ruby highlighting (`.rb`): keywords, core-class types, common builtins, strings,
+  `#` comments, and `@`/`@@`/`$` variables.
 - Kotlin highlighting (`.kt`, `.kts`): keywords, types, stdlib builtins, strings
   (including triple-quoted raw strings across lines), and `//` / `/* */` comments.
 
