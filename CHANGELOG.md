@@ -5,6 +5,10 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Themes
+- Added the Dracula theme (`:theme dracula`): soft dark background with vivid
+  pink, purple and green accents.
+
 ### Windows
 - Shared-buffer splits (#25): a plain `:split` / `:vsplit` now gives two windows
   on one shared buffer — edits in either appear in both instantly and undo is
