@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Search
+- Live substitute preview: typing `:s/pattern/...` or `:%s/...` highlights the
+  pattern's matches as you type (like vim's `inccommand`), restoring the previous
+  highlight on Esc. Honors `ignorecase`/`smartcase` and `\c`/`\C`.
+
 ### Interface language
 - The UI can be localized: `:set language=vi` (Vietnamese), `:set language=fr`
   (French), `:set language=en` (English). Covers menus, mode indicators, the

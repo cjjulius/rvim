@@ -967,9 +967,7 @@ impl Editor {
         match outcome {
             MenuOutcome::Run(cmd) => {
                 self.menu = None;
-                self.mode = Mode::Command;
-                self.line_kind = LineKind::Ex;
-                self.cmdline = cmd;
+                self.begin_ex(cmd);
             }
             MenuOutcome::Close => self.menu = None,
             MenuOutcome::None => {}
@@ -1007,9 +1005,7 @@ impl Editor {
         match outcome {
             MenuOutcome::Run(cmd) => {
                 self.menu = None;
-                self.mode = Mode::Command;
-                self.line_kind = LineKind::Ex;
-                self.cmdline = cmd;
+                self.begin_ex(cmd);
             }
             MenuOutcome::Close => self.menu = None,
             MenuOutcome::None => {}
@@ -1139,6 +1135,19 @@ impl Editor {
         self.saved_search_re = self.search_re.clone();
         self.saved_last_search = self.last_search.clone();
         self.saved_hlsearch = self.hlsearch;
+    }
+
+    /// Enter the `:` command line with `prefill`, snapshotting search-highlight
+    /// state so a substitute preview can be undone (and Esc restores it).
+    fn begin_ex(&mut self, prefill: String) {
+        self.mode = Mode::Command;
+        self.line_kind = LineKind::Ex;
+        self.cmdline = prefill;
+        self.hist_idx = None;
+        self.saved_search_re = self.search_re.clone();
+        self.saved_last_search = self.last_search.clone();
+        self.saved_hlsearch = self.hlsearch;
+        self.update_incsearch(); // preview immediately for a prefilled `:s`
     }
 
     /// Set the search pattern and (re)compile its regex, enabling highlight.
@@ -4646,10 +4655,7 @@ impl Editor {
                 } else {
                     None
                 };
-                self.mode = Mode::Command;
-                self.line_kind = LineKind::Ex;
-                self.cmdline = prefill.unwrap_or_default();
-                self.hist_idx = None;
+                self.begin_ex(prefill.unwrap_or_default());
             }
             KeyCode::Char('/') => self.enter_search(true),
             KeyCode::Char('?') => self.enter_search(false),
@@ -7244,10 +7250,7 @@ impl Editor {
     /// Enter the command line prefilled with `{a+1},{b+1}!` so the user can type a
     /// shell command to filter those lines (the `!{motion}` / `!!` / visual `!`).
     fn start_filter_cmdline(&mut self, a: usize, b: usize) {
-        self.mode = Mode::Command;
-        self.line_kind = LineKind::Ex;
-        self.cmdline = format!("{},{}!", a + 1, b + 1);
-        self.hist_idx = None;
+        self.begin_ex(format!("{},{}!", a + 1, b + 1));
     }
 
     /// `:[range]!cmd` — replace the range's lines with the output of piping them
@@ -8202,6 +8205,8 @@ impl Editor {
     /// cursor to where the search began and the highlight state to what it was.
     fn cancel_search_preview(&mut self) {
         if self.line_kind == LineKind::Ex {
+            // No cursor move for an Ex preview; just undo any substitute highlight.
+            self.restore_search_from_snapshot();
             return;
         }
         self.cursor = self.search_origin;
@@ -8209,6 +8214,14 @@ impl Editor {
         self.last_search = std::mem::take(&mut self.saved_last_search);
         self.hlsearch = self.saved_hlsearch;
         self.scroll_into_view();
+    }
+
+    /// Restore search highlight to the snapshot taken when the command line opened
+    /// (non-destructive, so it can be called repeatedly while typing).
+    fn restore_search_from_snapshot(&mut self) {
+        self.search_re = self.saved_search_re.clone();
+        self.last_search = self.saved_last_search.clone();
+        self.hlsearch = self.saved_hlsearch;
     }
 
     /// Preview the first match of the in-progress `/`/`?` pattern (incsearch).
@@ -8221,7 +8234,25 @@ impl Editor {
         let forward = match self.line_kind {
             LineKind::SearchFwd => true,
             LineKind::SearchBack => false,
-            LineKind::Ex => return,
+            // On the `:` command line, preview a substitute's matches live (like
+            // vim's inccommand): highlight the pattern as it is typed, restoring the
+            // prior highlight for anything that is not a substitute.
+            LineKind::Ex => {
+                match substitute_preview_pattern(&self.cmdline) {
+                    Some(pat) => {
+                        let ic = self.effective_ignorecase(&pat);
+                        match pattern::build_opts(&pat, ic) {
+                            Some(re) => {
+                                self.search_re = Some(re);
+                                self.hlsearch = true;
+                            }
+                            None => self.restore_search_from_snapshot(),
+                        }
+                    }
+                    None => self.restore_search_from_snapshot(),
+                }
+                return;
+            }
         };
         if self.cmdline.is_empty() {
             // Nothing typed: show no preview, restore the pre-search view.
@@ -8522,6 +8553,61 @@ enum SearchOffset {
 /// when the suffix is a valid offset spec. Otherwise the whole string is the
 /// pattern (so ordinary patterns containing `/` still work when the tail is not
 /// an offset).
+/// Skip a leading ex line-range so the command word can be examined. Handles the
+/// common forms (`%`, numbers, `.`, `$`, `,`, `;`, `+`/`-` offsets, `'m` marks);
+/// anything else stops the scan.
+fn skip_ex_range(s: &str) -> &str {
+    let b = s.as_bytes();
+    let mut i = 0;
+    while i < b.len() {
+        match b[i] {
+            b'%' | b'.' | b'$' | b',' | b';' | b'+' | b'-' | b' ' | b'\t' => i += 1,
+            b'0'..=b'9' => i += 1,
+            b'\'' => i += 2, // a mark: the quote plus its letter
+            _ => break,
+        }
+    }
+    s.get(i..).unwrap_or("")
+}
+
+/// Extract the search pattern typed so far in an in-progress `:substitute` command
+/// (`[range]s/pattern/...`), for live match highlighting. Returns `None` when the
+/// command line is not a substitute or no pattern has been typed yet. Any valid
+/// delimiter is accepted, and `\`-escapes (including an escaped delimiter) are
+/// preserved so the pattern compiles the same way the real substitute would.
+pub fn substitute_preview_pattern(cmd: &str) -> Option<String> {
+    let rest = skip_ex_range(cmd);
+    let rest = rest
+        .strip_prefix("substitute")
+        .or_else(|| rest.strip_prefix('s'))?;
+    let delim = rest.chars().next()?;
+    // The delimiter is punctuation; reject so other `s…` commands (set, sort) and
+    // `\`/`"`/`|` (never substitute delimiters in vim) don't masquerade as one.
+    if delim.is_alphanumeric() || delim.is_whitespace() || matches!(delim, '\\' | '"' | '|') {
+        return None;
+    }
+    let mut pat = String::new();
+    let mut it = rest[delim.len_utf8()..].chars();
+    while let Some(c) = it.next() {
+        if c == '\\' {
+            pat.push('\\');
+            if let Some(n) = it.next() {
+                pat.push(n);
+            }
+            continue;
+        }
+        if c == delim {
+            break;
+        }
+        pat.push(c);
+    }
+    if pat.is_empty() {
+        None
+    } else {
+        Some(pat)
+    }
+}
+
 fn split_search_offset(text: &str) -> (String, Option<SearchOffset>) {
     // Find the last `/` not preceded by a backslash.
     let bytes = text.as_bytes();
