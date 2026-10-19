@@ -11,6 +11,8 @@ All notable changes to rvim are recorded here. Versions follow
   and split status lines).
 
 ### Search
+- `:s` replacements support vim case escapes: `\u` / `\l` (upper/lower the next
+  character) and `\U` / `\L` … `\E` (case a run), e.g. `:%s/\w+/\U&/g`.
 - vim's word-boundary atoms `\<` / `\>` now work in search and substitute patterns
   (translated to the regex engine's `\b`); previously they dropped the pattern to a
   literal match.

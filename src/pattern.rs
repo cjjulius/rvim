@@ -34,31 +34,64 @@ pub fn build_opts(pattern: &str, ignorecase: bool) -> Option<Regex> {
         .or_else(|| Regex::new(&format!("{prefix}{}", regex::escape(&cleaned))).ok())
 }
 
-/// Translate a vim-style `:s` replacement into the `regex` crate's syntax.
+/// Expand a vim-style `:s` replacement against a match's captures.
 ///
-/// vim uses `\1`–`\9` for captures, `\0`/`&` for the whole match, `\&` for a
-/// literal `&`, `\\` for a literal backslash, and treats `$` literally. The
-/// regex crate uses `${1}` and `$$` for a literal `$`.
-pub fn vim_replacement(src: &str) -> String {
+/// Supports `\1`–`\9` (captures), `\0` / `&` (whole match), `\&` (literal `&`),
+/// `\\` (literal backslash), `\n` / `\t` / `\r`, and the case escapes `\u` / `\l`
+/// (upper/lower the next character), `\U` / `\L` (…until `\E` / `\e`). `$` is
+/// literal. Done as a closure expander (rather than a `${1}` template) precisely
+/// so the case escapes can be applied, which the regex crate's templates cannot.
+pub fn expand_replacement(caps: &regex::Captures, src: &str) -> String {
+    /// Append `text`, applying the pending one-shot (`case_next`) or running
+    /// (`case_run`) case transform. `Some(true)` = upper, `Some(false)` = lower.
+    fn emit(
+        text: &str,
+        out: &mut String,
+        case_next: &mut Option<bool>,
+        case_run: &mut Option<bool>,
+    ) {
+        for ch in text.chars() {
+            let how = case_next.take().or(*case_run);
+            match how {
+                Some(true) => out.extend(ch.to_uppercase()),
+                Some(false) => out.extend(ch.to_lowercase()),
+                None => out.push(ch),
+            }
+        }
+    }
+
+    let group = |i: usize| caps.get(i).map(|m| m.as_str()).unwrap_or("");
     let mut out = String::new();
-    let mut chars = src.chars().peekable();
-    while let Some(c) = chars.next() {
+    let mut case_next: Option<bool> = None;
+    let mut case_run: Option<bool> = None;
+    let mut it = src.chars();
+    while let Some(c) = it.next() {
         match c {
-            '\\' => match chars.next() {
+            '\\' => match it.next() {
                 Some(d) if d.is_ascii_digit() => {
-                    out.push_str(&format!("${{{d}}}"));
+                    emit(group(d as usize - '0' as usize), &mut out, &mut case_next, &mut case_run)
                 }
-                Some('&') => out.push('&'),
-                Some('\\') => out.push('\\'),
+                Some('&') => emit("&", &mut out, &mut case_next, &mut case_run),
+                Some('\\') => emit("\\", &mut out, &mut case_next, &mut case_run),
                 Some('n') => out.push('\n'),
                 Some('t') => out.push('\t'),
-                Some(other) => out.push(other),
+                Some('r') => out.push('\r'),
+                Some('u') => case_next = Some(true),
+                Some('l') => case_next = Some(false),
+                Some('U') => case_run = Some(true),
+                Some('L') => case_run = Some(false),
+                Some('e') | Some('E') => case_run = None,
+                Some(other) => {
+                    let mut buf = [0u8; 4];
+                    emit(other.encode_utf8(&mut buf), &mut out, &mut case_next, &mut case_run)
+                }
                 None => out.push('\\'),
             },
-            '&' => out.push_str("${0}"),
-            // `$` is literal in vim replacements; escape it for the regex crate.
-            '$' => out.push_str("$$"),
-            other => out.push(other),
+            '&' => emit(group(0), &mut out, &mut case_next, &mut case_run),
+            other => {
+                let mut buf = [0u8; 4];
+                emit(other.encode_utf8(&mut buf), &mut out, &mut case_next, &mut case_run)
+            }
         }
     }
     out
@@ -120,12 +153,17 @@ mod tests {
     }
 
     #[test]
-    fn vim_replacement_translates_backrefs() {
-        assert_eq!(vim_replacement(r"\1-\2"), "${1}-${2}");
-        assert_eq!(vim_replacement("&!"), "${0}!");
-        assert_eq!(vim_replacement(r"\&"), "&"); // literal ampersand
-        assert_eq!(vim_replacement("$5.00"), "$$5.00"); // literal dollar
-        assert_eq!(vim_replacement(r"a\\b"), r"a\b"); // literal backslash
+    fn expand_replacement_backrefs_and_case() {
+        let re = Regex::new(r"(\w+)\s+(\w+)").unwrap();
+        let caps = re.captures("foo bar").unwrap();
+        assert_eq!(expand_replacement(&caps, r"\2-\1"), "bar-foo"); // backrefs
+        assert_eq!(expand_replacement(&caps, "&!"), "foo bar!"); // whole match
+        assert_eq!(expand_replacement(&caps, r"\&"), "&"); // literal ampersand
+        assert_eq!(expand_replacement(&caps, "$5.00"), "$5.00"); // $ is literal
+        assert_eq!(expand_replacement(&caps, r"a\\b"), r"a\b"); // literal backslash
+        // Case escapes.
+        assert_eq!(expand_replacement(&caps, r"\u\1"), "Foo"); // upper next char
+        assert_eq!(expand_replacement(&caps, r"\U\1\E\2"), "FOObar"); // upper run to \E
     }
 
     #[test]

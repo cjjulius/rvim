@@ -389,7 +389,9 @@ pattern, so a following `n` jumps to the next occurrence.
 
 Patterns are **regular expressions**, and the replacement uses **vim-style
 backreferences** — `\1`–`\9` for groups and `&` for the whole match — e.g.
-`:%s/(\w+)=(\w+)/\2=\1/g`. An invalid regex falls back to a literal match.
+`:%s/(\w+)=(\w+)/\2=\1/g`. Case escapes work too: `\u`/`\l` upper/lower-case the
+next character and `\U`/`\L` run until `\E` (so `:%s/\w+/\U&/g` shouts every word).
+An invalid regex falls back to a literal match.
 `&` (normal mode) repeats the last substitution on the current line, and `g&`
 repeats it across the whole file. The `i`
 flag makes matching case-insensitive (`:%s/foo/bar/gi`), and `\c`/`\C` in a
@@ -687,7 +689,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **832 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **833 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
