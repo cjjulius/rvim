@@ -420,12 +420,13 @@ Menus are grouped logically — **File**, **Buffers**, **Edit**, **View**,
 rvim supports (e.g. `Write & Quit  wq`).
 
 ### Interface language
-The menus and mode indicators can be shown in your own language. `:set language=vi`
-switches the interface to Vietnamese; `:set language=en` returns to English (put
-either in `~/.rvimrc` to make it the default). The commands themselves never
-change — only the labels you read. Translations fall back to English for anything
-a language has not covered yet, and adding a new language is a small, self-contained
-addition, so more can follow.
+The interface can be shown in your own language — menus, mode indicators, the
+status-line position marker and common messages. `:set language=vi` switches to
+Vietnamese; `:set language=en` returns to English (put either in `~/.rvimrc` to
+make it the default). The commands themselves never change — only the labels you
+read. Translations fall back to English for anything a language has not covered
+yet, and adding a new language is a small, self-contained addition, so more can
+follow.
 
 ### Configuration (`~/.rvimrc`)
 On startup rvim runs the ex-commands in `~/.rvimrc` (or `$RVIMRC`, or

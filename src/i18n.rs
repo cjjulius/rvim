@@ -133,6 +133,24 @@ fn vi(s: &str) -> Option<&'static str> {
         "Plain Text" => "Văn bản thường",
         // Help menu.
         "Version" => "Phiên bản",
+        // Status-line scroll indicator.
+        "Top" => "Đầu",
+        "Bot" => "Cuối",
+        "All" => "Tất cả",
+        // Common status / error messages.
+        "paste" => "dán",
+        "nopaste" => "không dán",
+        "readonly" => "chỉ đọc",
+        "noreadonly" => "không chỉ đọc",
+        "only one buffer" => "chỉ có một bộ đệm",
+        "E32: No file name" => "E32: Không có tên tệp",
+        "E444: Cannot close last window" => "E444: Không thể đóng cửa sổ cuối",
+        "E37: No write since last change (add ! to override)" => {
+            "E37: Chưa ghi từ lần sửa trước (thêm ! để ghi đè)"
+        }
+        "E45: 'readonly' option is set (add ! to override)" => {
+            "E45: tùy chọn 'readonly' đang bật (thêm ! để ghi đè)"
+        }
         // Mode indicators.
         "-- INSERT --" => "-- CHÈN --",
         "-- REPLACE --" => "-- THAY THẾ --",
@@ -164,5 +182,11 @@ mod tests {
         assert_eq!(tr(Locale::Vietnamese, "-- INSERT --"), "-- CHÈN --");
         // …and falls back to English for anything untranslated.
         assert_eq!(tr(Locale::Vietnamese, "Not translated yet"), "Not translated yet");
+        // Status words and messages are covered too.
+        assert_eq!(tr(Locale::Vietnamese, "Top"), "Đầu");
+        assert_eq!(
+            tr(Locale::Vietnamese, "E444: Cannot close last window"),
+            "E444: Không thể đóng cửa sổ cuối"
+        );
     }
 }

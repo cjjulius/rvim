@@ -668,6 +668,11 @@
         // Mode indicators now localize.
         app.editor.mode = Mode::Insert;
         assert_eq!(app.editor.mode_indicator(), Some("-- CHÈN --"));
+        // The scroll indicator and common messages localize too.
+        app.editor.set_viewport(24, 80); // whole buffer fits on screen
+        assert_eq!(app.editor.scroll_indicator(), "Tất cả"); // "All"
+        app.run_ex("close"); // only one window -> localized E444
+        assert!(app.editor.message.contains("cửa sổ cuối"));
         // An unknown code is reported, locale unchanged.
         app.run_ex("set language=xx");
         assert!(app.editor.message.contains("E474"));
