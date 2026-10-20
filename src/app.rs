@@ -1536,6 +1536,10 @@ impl App {
                 self.editor.wrapscan = on;
                 self.editor.message = format!("wrapscan {}", if on { "on" } else { "off" });
             }
+            ExCommand::ToggleGdefault(on) => {
+                self.editor.gdefault = on;
+                self.editor.message = format!("gdefault {}", if on { "on" } else { "off" });
+            }
             ExCommand::ToggleCursorLine(on) => {
                 self.editor.cursorline = on;
                 self.editor.message = format!("cursorline {}", if on { "on" } else { "off" });
@@ -2132,6 +2136,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:retab [N]             normalise tabs/spaces to tabstop (set to N)\n\
          \t!{{motion}} / :range!cmd  filter lines through a shell command\n\
          \t:set ignorecase|noic   :set smartcase|noscs   (search case)\n\
+         \t:set gdefault|nogd     :s substitutes all matches on a line by default\n\
          \t:set incsearch|nois    preview match while typing /?\n\
          \t:set list|nolist       show tabs / trailing whitespace\n\
          \t:set listchars=tab:xy,trail:z   customise list markers\n\

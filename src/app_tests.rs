@@ -1323,6 +1323,32 @@
     }
 
     #[test]
+    fn gdefault_makes_substitute_global_by_default() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("a a a");
+        app.editor.gdefault = true;
+        app.run_ex("s/a/b/");
+        assert_eq!(app.editor.buffer.line(0), Some("b b b"));
+    }
+
+    #[test]
+    fn gdefault_g_flag_restricts_to_first() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("a a a");
+        app.editor.gdefault = true;
+        app.run_ex("s/a/b/g"); // with gdefault on, an explicit g means "first only"
+        assert_eq!(app.editor.buffer.line(0), Some("b a a"));
+    }
+
+    #[test]
+    fn without_gdefault_substitute_hits_first_only() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("a a a");
+        app.run_ex("s/a/b/");
+        assert_eq!(app.editor.buffer.line(0), Some("b a a"));
+    }
+
+    #[test]
     fn autowrite_saves_on_buffer_switch() {
         let path = std::env::temp_dir().join(format!("rvim_aw_{}.txt", std::process::id()));
         std::fs::write(&path, "old\n").unwrap();
