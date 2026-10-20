@@ -223,33 +223,54 @@ fn parse_modeline_opts(after: &str) -> Vec<String> {
     }
 }
 
-/// Net bracket-nesting change across one line, for the `=` reindenter: `+1` per
-/// opening `([{`, `-1` per closing `)]}`, skipping brackets inside string or
-/// character literals and after a `//` line comment. Block comments and other
-/// comment leaders are out of scope — `=` is best-effort for brace languages.
-fn net_brackets(line: &str) -> isize {
+/// Scan one line for the `=` reindenter, carrying `/* */` block-comment state
+/// across lines. Returns the net bracket-nesting change (`+1` per opening
+/// `([{`, `-1` per closing `)]}`) and whether a block comment is still open at
+/// end of line. Brackets inside string / char literals, after a `//` line
+/// comment, and within `/* */` do not count. Best-effort for brace languages.
+fn scan_brackets(line: &str, mut in_block: bool) -> (isize, bool) {
     let mut depth = 0isize;
+    let chars: Vec<char> = line.chars().collect();
     let mut quote: Option<char> = None;
-    let mut chars = line.chars().peekable();
-    while let Some(c) = chars.next() {
-        match quote {
-            Some(q) => {
-                if c == '\\' {
-                    chars.next(); // skip the escaped character
-                } else if c == q {
-                    quote = None;
-                }
+    let mut i = 0;
+    while i < chars.len() {
+        let c = chars[i];
+        if in_block {
+            // Inside a block comment: look only for its `*/` terminator.
+            if c == '*' && chars.get(i + 1) == Some(&'/') {
+                in_block = false;
+                i += 2;
+                continue;
             }
-            None => match c {
-                '"' | '\'' | '`' => quote = Some(c),
-                '/' if chars.peek() == Some(&'/') => break, // line comment
-                '(' | '[' | '{' => depth += 1,
-                ')' | ']' | '}' => depth -= 1,
-                _ => {}
-            },
+            i += 1;
+            continue;
         }
+        if let Some(q) = quote {
+            if c == '\\' {
+                i += 2; // skip the escaped character
+                continue;
+            }
+            if c == q {
+                quote = None;
+            }
+            i += 1;
+            continue;
+        }
+        match c {
+            '"' | '\'' | '`' => quote = Some(c),
+            '/' if chars.get(i + 1) == Some(&'/') => break, // line comment to EOL
+            '/' if chars.get(i + 1) == Some(&'*') => {
+                in_block = true;
+                i += 2;
+                continue;
+            }
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth -= 1,
+            _ => {}
+        }
+        i += 1;
     }
-    depth
+    (depth, in_block)
 }
 
 /// Whether the first non-blank character of `line` is a closing bracket, so the
@@ -6673,14 +6694,17 @@ impl Editor {
         self.move_first_nonblank();
     }
 
-    /// Running brace depth at the start of `row` (net unclosed `([{` in lines
-    /// before it), so reindenting a sub-range keeps its surrounding context.
-    fn brace_depth_before(&self, row: usize) -> usize {
+    /// Running brace depth and block-comment state at the start of `row` (from
+    /// the lines before it), so reindenting a sub-range keeps its context.
+    fn brace_state_before(&self, row: usize) -> (usize, bool) {
         let mut depth = 0isize;
+        let mut in_block = false;
         for r in 0..row.min(self.buffer.line_count()) {
-            depth = (depth + net_brackets(self.buffer.line(r).unwrap_or(""))).max(0);
+            let (d, b) = scan_brackets(self.buffer.line(r).unwrap_or(""), in_block);
+            depth = (depth + d).max(0);
+            in_block = b;
         }
-        depth as usize
+        (depth as usize, in_block)
     }
 
     /// `=` operator — reindent the inclusive row range to brace depth ×
@@ -6699,9 +6723,19 @@ impl Editor {
         let (a, b) = (a.min(last), b.min(last));
         let sw = self.shiftwidth.max(1);
         self.checkpoint();
-        let mut depth = self.brace_depth_before(a) as isize;
+        let (depth0, block0) = self.brace_state_before(a);
+        let mut depth = depth0 as isize;
+        let mut in_block = block0;
         for r in a..=b {
             let line = self.buffer.line(r).unwrap_or("").to_string();
+            // A line that begins inside a block comment is comment body — leave
+            // its indentation alone (reindenting would wreck aligned `*` columns).
+            if in_block {
+                let (d, nb) = scan_brackets(&line, in_block);
+                depth = (depth + d).max(0);
+                in_block = nb;
+                continue;
+            }
             if line.trim().is_empty() {
                 if !line.is_empty() {
                     self.buffer.set_line(r, String::new());
@@ -6714,7 +6748,9 @@ impl Editor {
                 depth
             };
             self.set_indent_columns(r, this as usize * sw);
-            depth = (depth + net_brackets(&line)).max(0);
+            let (d, nb) = scan_brackets(&line, in_block);
+            depth = (depth + d).max(0);
+            in_block = nb;
         }
         self.cursor.row = a;
         self.move_first_nonblank();
