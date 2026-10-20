@@ -1830,16 +1830,47 @@ impl App {
         }
     }
 
-    /// `:set autoread` — if the focused file changed on disk and the buffer has no
-    /// unsaved edits, reload it. Cheap no-op unless `autoread` is on. Called once
-    /// per event in the main loop.
+    /// `:set autoread` — pick up external changes to open files. A clean buffer
+    /// whose file changed on disk is reloaded; a modified one is kept and a `W12`
+    /// warning is shown once (the focused buffer only). Background buffers are
+    /// reloaded silently when clean. Cheap no-op unless `autoread` is on; called
+    /// once per event in the main loop.
     fn check_autoread(&mut self) {
-        if !self.editor.autoread
-            || self.editor.buffer.is_dirty()
-            || !self.editor.file_changed_on_disk()
-        {
+        if !self.editor.autoread {
             return;
         }
+        // Focused buffer: reload when clean, warn (once) when it has local edits.
+        if self.editor.file_changed_on_disk() {
+            if self.editor.buffer.is_dirty() {
+                // Don't clobber edits; bump the known mtime so we warn only once
+                // per external change.
+                self.editor.refresh_file_mtime();
+                self.notify("W12: file changed on disk since editing started");
+            } else {
+                self.reload_focused_from_disk();
+            }
+        }
+        // Background buffers: silently reload the clean ones that changed.
+        for i in 0..self.others.len() {
+            if self.others[i].buffer.is_dirty() || !self.others[i].file_changed_on_disk() {
+                continue;
+            }
+            let Some(path) = self.others[i].buffer.path().map(|p| p.display().to_string()) else {
+                continue;
+            };
+            let row = self.others[i].cursor.row;
+            if let Ok(mut ed) = Editor::from_file(&path) {
+                self.inherit_prefs(&mut ed);
+                ed.buf_id = self.others[i].buf_id;
+                ed.cursor.row = row.min(ed.buffer.line_count().saturating_sub(1));
+                self.others[i] = ed;
+            }
+        }
+    }
+
+    /// Reload the focused buffer from disk in place (keeping its id and cursor row),
+    /// used by `autoread`. The caller has already checked it is safe to do so.
+    fn reload_focused_from_disk(&mut self) {
         let Some(path) = self.editor.buffer.path().map(|p| p.display().to_string()) else {
             return;
         };

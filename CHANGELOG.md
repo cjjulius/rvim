@@ -9,9 +9,10 @@ All notable changes to rvim are recorded here. Versions follow
 - `:set autowrite` writes a modified, named, non-readonly buffer automatically
   when switching away from it (`:bn`/`:bp`/`:b N`/`:e`/`Ctrl-^`), so moving
   between files no longer needs a manual `:w` each time. Default off.
-- `:set autoread` reloads the current file when it changes on disk and the buffer
-  has no unsaved edits — useful when a build step or another program rewrites it.
-  Default off.
+- `:set autoread` reloads a file when it changes on disk and the buffer has no
+  unsaved edits — useful when a build step or another program rewrites it. Open
+  background buffers are refreshed too, and a modified buffer whose file changed is
+  kept with a `W12` warning rather than clobbered. Default off.
 
 ### Navigation
 - `gx` opens the web URL under the cursor with the system browser (http, https,
