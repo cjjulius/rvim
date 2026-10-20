@@ -213,6 +213,14 @@
     }
 
     #[test]
+    fn set_autowrite() {
+        assert_eq!(parse("set autowrite"), ExCommand::ToggleAutowrite(true));
+        assert_eq!(parse("set aw"), ExCommand::ToggleAutowrite(true));
+        assert_eq!(parse("set noautowrite"), ExCommand::ToggleAutowrite(false));
+        assert_eq!(parse("set noaw"), ExCommand::ToggleAutowrite(false));
+    }
+
+    #[test]
     fn set_equalprg() {
         assert_eq!(
             parse("set equalprg=clang-format"),

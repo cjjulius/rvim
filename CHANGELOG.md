@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Buffers
+- `:set autowrite` writes a modified, named, non-readonly buffer automatically
+  when switching away from it (`:bn`/`:bp`/`:b N`/`:e`/`Ctrl-^`), so moving
+  between files no longer needs a manual `:w` each time. Default off.
+
 ### Navigation
 - `gx` opens the web URL under the cursor with the system browser (http, https,
   ftp, and bare `www.` links, opened over https). The URL is extracted without its

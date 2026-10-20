@@ -1323,6 +1323,33 @@
     }
 
     #[test]
+    fn autowrite_saves_on_buffer_switch() {
+        let path = std::env::temp_dir().join(format!("rvim_aw_{}.txt", std::process::id()));
+        std::fs::write(&path, "old\n").unwrap();
+        let mut app = App::new();
+        app.editor = Editor::from_file(path.to_str().unwrap()).unwrap();
+        app.editor.autowrite = true;
+        app.editor.buffer.set_line(0, "new");
+        assert!(app.editor.buffer.is_dirty());
+        app.others.push(Editor::new()); // a buffer to switch to
+        app.run_ex("bn");
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content, "new\n");
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn no_autowrite_leaves_buffer_dirty_on_switch() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("x");
+        app.editor.buffer.set_line(0, "y"); // dirty; no path and autowrite off
+        app.others.push(Editor::new());
+        app.run_ex("bn");
+        // The modified buffer (now in the list) was not written.
+        assert!(app.others.last().unwrap().buffer.is_dirty());
+    }
+
+    #[test]
     fn messages_log_captures_and_dedups() {
         let mut app = App::new();
         app.editor.message = "first".into();

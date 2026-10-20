@@ -407,6 +407,9 @@ pub struct Editor {
     /// `:set readonly` — guard the file against accidental overwrite: `:w` refuses
     /// unless forced with `:w!`. Shown as `[RO]` in the status line (default off).
     pub readonly: bool,
+    /// `:set autowrite` — write a modified, named buffer automatically when
+    /// switching away from it (`:bn`/`:bp`/`:b`/`:e`/`Ctrl-^`). Default off.
+    pub autowrite: bool,
     /// `:set language=<code>` — the user-interface language for menus and mode
     /// indicators (default English). See [`crate::i18n`].
     pub locale: crate::i18n::Locale,
@@ -687,6 +690,7 @@ impl Editor {
             smartindent: false,
             paste: false,
             readonly: false,
+            autowrite: false,
             locale: crate::i18n::Locale::English,
             title: false,
             backup: false,
@@ -1512,6 +1516,7 @@ impl Editor {
             "smartindent" | "si" => flag(self.smartindent, "smartindent"),
             "paste" => flag(self.paste, "paste"),
             "readonly" | "ro" => flag(self.readonly, "readonly"),
+            "autowrite" | "aw" => flag(self.autowrite, "autowrite"),
             "language" | "lang" => format!("language={}", self.locale.code()),
             "title" => flag(self.title, "title"),
             "backup" | "bk" => flag(self.backup, "backup"),
@@ -1698,7 +1703,7 @@ impl Editor {
     /// Canonical option names shown by `:set` / `:set all`, in display order.
     const OPTION_NAMES: &'static [&'static str] = &[
         "number", "relativenumber", "hlsearch", "ignorecase", "smartcase",
-        "incsearch", "autoindent", "smartindent", "paste", "readonly", "title", "backup", "showmode",
+        "incsearch", "autoindent", "smartindent", "paste", "readonly", "autowrite", "title", "backup", "showmode",
         "showcmd", "ruler", "expandtab", "list", "wrapscan", "cursorline",
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
