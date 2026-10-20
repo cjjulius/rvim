@@ -1300,6 +1300,29 @@
     }
 
     #[test]
+    fn split_set_options_escape_and_split() {
+        assert_eq!(split_set_options("ts=4 sw=4"), vec!["ts=4", "sw=4"]);
+        assert_eq!(split_set_options(r"equalprg=a\ b"), vec!["equalprg=a b"]);
+        assert_eq!(split_set_options(r"x=\\"), vec![r"x=\"]);
+        assert!(split_set_options("   ").is_empty());
+    }
+
+    #[test]
+    fn set_value_with_escaped_space() {
+        let mut app = App::new();
+        app.run_ex(r"set equalprg=clang-format\ --style=Google");
+        assert_eq!(app.editor.equalprg, "clang-format --style=Google");
+    }
+
+    #[test]
+    fn set_multiple_options_still_split() {
+        let mut app = App::new();
+        app.run_ex("set ts=2 sw=2");
+        assert_eq!(app.editor.tabstop, 2);
+        assert_eq!(app.editor.shiftwidth, 2);
+    }
+
+    #[test]
     fn messages_log_captures_and_dedups() {
         let mut app = App::new();
         app.editor.message = "first".into();
