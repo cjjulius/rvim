@@ -6062,6 +6062,32 @@
     }
 
     #[test]
+    fn reindent_ignores_braces_in_block_comments() {
+        let mut ed = ed_with("{\n/* a } brace\nand } another */\nx;\n}");
+        let last = ed.buffer.line_count() - 1;
+        ed.reindent_range(0, last);
+        assert_eq!(ed.buffer.line(0), Some("{"));
+        // The line opening the comment is code -> reindented to depth 1.
+        assert_eq!(ed.buffer.line(1), Some("    /* a } brace"));
+        // The comment body line is left untouched (no column mangling).
+        assert_eq!(ed.buffer.line(2), Some("and } another */"));
+        // Code after the comment is back at depth 1, unaffected by the `}` inside.
+        assert_eq!(ed.buffer.line(3), Some("    x;"));
+        assert_eq!(ed.buffer.line(4), Some("}"));
+    }
+
+    #[test]
+    fn reindent_seeds_block_state_from_above_range() {
+        // Range starts inside an open block comment begun earlier.
+        let mut ed = ed_with("{\n/* open\n} still comment */\nbody;\n}");
+        // Reindent only from row 2 onward; row 2 must be recognized as comment body.
+        ed.reindent_range(2, 4);
+        assert_eq!(ed.buffer.line(2), Some("} still comment */")); // untouched
+        assert_eq!(ed.buffer.line(3), Some("    body;"));
+        assert_eq!(ed.buffer.line(4), Some("}"));
+    }
+
+    #[test]
     fn reindent_noop_for_indentation_languages() {
         let mut ed = ed_with("def f():\n    pass\n");
         ed.language = crate::syntax::Language::Python;
