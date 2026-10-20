@@ -5,6 +5,12 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Navigation
+- `gx` opens the web URL under the cursor with the system browser (http, https,
+  ftp, and bare `www.` links, opened over https). The URL is extracted without its
+  surrounding markdown/prose brackets and launched without a shell, so characters
+  like `&` in a query string are safe; other schemes are declined.
+
 ### Editing
 - `=` reindent operator: `==`, `=G`, `=ip`, `=i{`, and visual-mode `=` re-space
   lines to their brace nesting (honoring `shiftwidth`/`expandtab`), so `gg=G`

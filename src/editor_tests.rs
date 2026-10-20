@@ -6088,6 +6088,58 @@
     }
 
     #[test]
+    fn url_under_cursor_extracts_http() {
+        assert_eq!(
+            url_under_cursor("see https://example.com/x for more", 12),
+            Some("https://example.com/x".to_string())
+        );
+    }
+
+    #[test]
+    fn url_under_cursor_trims_trailing_punctuation() {
+        assert_eq!(
+            url_under_cursor("visit http://a.io.", 10),
+            Some("http://a.io".to_string())
+        );
+    }
+
+    #[test]
+    fn url_under_cursor_handles_www_and_markdown_parens() {
+        assert_eq!(
+            url_under_cursor("www.example.com", 2),
+            Some("www.example.com".to_string())
+        );
+        // A markdown link's wrapping brackets are not pulled into the URL.
+        assert_eq!(
+            url_under_cursor("[t](http://a.io)", 6),
+            Some("http://a.io".to_string())
+        );
+    }
+
+    #[test]
+    fn url_under_cursor_none_on_plain_word() {
+        assert_eq!(url_under_cursor("just some text", 6), None);
+    }
+
+    #[test]
+    fn gx_reports_when_no_url() {
+        let mut ed = ed_with("plain words only");
+        ed.cursor = Position::new(0, 2);
+        ed.handle_key(key('g'));
+        ed.handle_key(key('x'));
+        assert!(ed.message.contains("no URL"));
+    }
+
+    #[test]
+    fn gx_rejects_non_web_scheme() {
+        let mut ed = ed_with("file:///etc/passwd");
+        ed.cursor = Position::new(0, 2);
+        ed.handle_key(key('g'));
+        ed.handle_key(key('x'));
+        assert!(ed.message.contains("http/https/ftp"));
+    }
+
+    #[test]
     fn reindent_uses_equalprg_when_set() {
         // With equalprg set, `=` filters the range through it (here, `sort`).
         let mut ed = ed_with("banana\napple\ncherry");

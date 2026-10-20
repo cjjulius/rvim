@@ -279,6 +279,69 @@ fn starts_with_closer(line: &str) -> bool {
     matches!(line.trim_start().chars().next(), Some(')' | ']' | '}'))
 }
 
+/// The URL under column `col` of `line`, for `gx`. Expands over URL-legal
+/// characters around the cursor, trims trailing sentence punctuation, and
+/// returns the token only when it looks like a web URL (`scheme://…` or `www.`).
+fn url_under_cursor(line: &str, col: usize) -> Option<String> {
+    let chars: Vec<char> = line.chars().collect();
+    if chars.is_empty() {
+        return None;
+    }
+    // Deliberately excludes the bracketing characters `()[]<>{}"'` so a URL
+    // wrapped in markdown (`[t](url)`) or prose is extracted without them.
+    let is_url = |c: char| c.is_ascii_alphanumeric() || "-._~:/?#@!$&*+,;=%".contains(c);
+    let n = chars.len();
+    let i = col.min(n - 1);
+    if !is_url(chars[i]) {
+        return None;
+    }
+    let mut start = i;
+    while start > 0 && is_url(chars[start - 1]) {
+        start -= 1;
+    }
+    let mut end = i;
+    while end + 1 < n && is_url(chars[end + 1]) {
+        end += 1;
+    }
+    let mut token: String = chars[start..=end].iter().collect();
+    // Trailing sentence punctuation is almost never part of the URL.
+    while token.ends_with(['.', ',', ';', ':', '!', '?']) {
+        token.pop();
+    }
+    if token.contains("://") || token.starts_with("www.") {
+        Some(token)
+    } else {
+        None
+    }
+}
+
+/// Launch the OS default handler for `url`, without a shell (so URL characters
+/// like `&` can't be reinterpreted). Best-effort; the child is not awaited.
+fn open_in_browser(url: &str) -> std::io::Result<()> {
+    use std::process::{Command, Stdio};
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        // rundll32 opens the URL with the default browser and takes the URL as a
+        // direct argument, avoiding cmd.exe's `&` command-separator parsing.
+        let mut c = Command::new("rundll32");
+        c.args(["url.dll,FileProtocolHandler", url]);
+        c
+    };
+    #[cfg(target_os = "macos")]
+    let mut cmd = {
+        let mut c = Command::new("open");
+        c.arg(url);
+        c
+    };
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let mut cmd = {
+        let mut c = Command::new("xdg-open");
+        c.arg(url);
+        c
+    };
+    cmd.stdout(Stdio::null()).stderr(Stdio::null()).spawn().map(|_| ())
+}
+
 /// The kind of text being entered on the command line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LineKind {
@@ -4926,6 +4989,7 @@ impl Editor {
                 KeyCode::Char(';') => self.change_jump(true),
                 KeyCode::Char(',') => self.change_jump(false),
                 KeyCode::Char('a') => self.show_char_info(),
+                KeyCode::Char('x') => self.open_under_cursor(),
                 KeyCode::Char('I') => {
                     // gI — insert at the very first column (before any indent).
                     self.cursor.col = 0;
@@ -6795,6 +6859,31 @@ impl Editor {
         self.clamp_cursor(false);
         self.scroll_into_view();
         self.message = format!("reindented {produced} line(s) via {cmd}");
+    }
+
+    /// `gx` — open the web URL under the cursor with the OS default handler.
+    /// Only `http`/`https`/`ftp` URLs (and `www.`, opened over https) are
+    /// launched, so other schemes in a file can't trigger arbitrary handlers.
+    fn open_under_cursor(&mut self) {
+        let line = self.buffer.line(self.cursor.row).unwrap_or("");
+        let Some(mut url) = url_under_cursor(line, self.cursor.col) else {
+            self.message = "no URL under cursor".into();
+            return;
+        };
+        if url.starts_with("www.") {
+            url = format!("https://{url}");
+        }
+        let allowed = ["http://", "https://", "ftp://"]
+            .iter()
+            .any(|p| url.starts_with(p));
+        if !allowed {
+            self.message = "gx: only http/https/ftp URLs are opened".into();
+            return;
+        }
+        match open_in_browser(&url) {
+            Ok(()) => self.message = format!("opening {url}"),
+            Err(e) => self.message = format!("E474: can't open URL: {e}"),
+        }
     }
 
     fn shift_selection(&mut self, indent: bool) {
