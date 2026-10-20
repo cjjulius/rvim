@@ -361,6 +361,9 @@ pub struct Editor {
     pub expandtab: bool,
     /// Columns inserted/removed by `>>`/`<<` and `=` (`:set shiftwidth`).
     pub shiftwidth: usize,
+    /// `:set equalprg` — external program the `=` operator filters lines through;
+    /// empty means use the built-in brace indenter.
+    pub equalprg: String,
     /// `:set shiftround` — round `>`/`<` indent to a multiple of `shiftwidth`.
     pub shiftround: bool,
     /// `:set joinspaces` — `J` inserts two spaces after sentence punctuation.
@@ -629,6 +632,7 @@ impl Editor {
             ruler: true,
             expandtab: true,
             shiftwidth: 4,
+            equalprg: String::new(),
             shiftround: false,
             joinspaces: false,
             matchpairs: vec![('(', ')'), ('[', ']'), ('{', '}')],
@@ -1458,6 +1462,7 @@ impl Editor {
             "cursorline" | "cul" => flag(self.cursorline, "cursorline"),
             "cursorcolumn" | "cuc" => flag(self.cursorcolumn, "cursorcolumn"),
             "shiftwidth" | "sw" => format!("shiftwidth={}", self.shiftwidth),
+            "equalprg" | "ep" => format!("equalprg={}", self.equalprg),
             "shiftround" | "sr" => flag(self.shiftround, "shiftround"),
             "joinspaces" | "js" => flag(self.joinspaces, "joinspaces"),
             "matchpairs" | "mps" => self.matchpairs_summary(),
@@ -1635,7 +1640,7 @@ impl Editor {
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
         "matchpairs", "filetype", "fileformat", "foldmethod", "foldcolumn", "language",
-        "splitbelow", "splitright", "modeline", "modelines",
+        "splitbelow", "splitright", "modeline", "modelines", "equalprg",
     ];
 
     /// A `:set` / `:set all` listing: one option per line with its current value.
@@ -6707,20 +6712,25 @@ impl Editor {
         (depth as usize, in_block)
     }
 
-    /// `=` operator — reindent the inclusive row range to brace depth ×
-    /// shiftwidth. A language-agnostic indenter: depth rises after a line with
-    /// more openers than closers and a line beginning with a closer sits one
-    /// level out. Blank lines are emptied. It is a no-op for indentation-
-    /// structured languages (Python, YAML, Ruby, Lua, Shell), where a brace rule
-    /// would corrupt the layout.
+    /// `=` operator — reindent the inclusive row range. With `:set equalprg` set,
+    /// the lines are filtered through that external program; otherwise the
+    /// built-in indenter re-spaces them to brace depth × shiftwidth (depth rises
+    /// after a line with more openers than closers, a line beginning with a closer
+    /// sits one level out, blank lines are emptied). The built-in path is a no-op
+    /// for indentation-structured languages (Python, YAML, Ruby, Lua, Shell),
+    /// where a brace rule would corrupt the layout.
     fn reindent_range(&mut self, a: usize, b: usize) {
         self.mode = Mode::Normal;
+        let last = self.buffer.line_count().saturating_sub(1);
+        let (a, b) = (a.min(last), b.min(last));
+        if !self.equalprg.is_empty() {
+            self.reindent_via_equalprg(a, b);
+            return;
+        }
         if crate::syntax::prefers_indent_folds(self.language) {
             self.message = format!("= reindent not available for {}", self.language.name());
             return;
         }
-        let last = self.buffer.line_count().saturating_sub(1);
-        let (a, b) = (a.min(last), b.min(last));
         let sw = self.shiftwidth.max(1);
         self.checkpoint();
         let (depth0, block0) = self.brace_state_before(a);
@@ -6754,6 +6764,37 @@ impl Editor {
         }
         self.cursor.row = a;
         self.move_first_nonblank();
+    }
+
+    /// `=` with `:set equalprg` set — filter rows `a..=b` through the external
+    /// program and replace them with its output (vim's external-indent path).
+    fn reindent_via_equalprg(&mut self, a: usize, b: usize) {
+        let cmd = self.equalprg.clone();
+        let eol = if cfg!(windows) { "\r\n" } else { "\n" };
+        let mut input = String::new();
+        for row in a..=b {
+            input.push_str(self.buffer.line(row).unwrap_or(""));
+            input.push_str(eol);
+        }
+        let Some(output) = Self::run_shell_filter(&cmd, &input) else {
+            self.message = format!("E485: Can't run: {cmd}");
+            return;
+        };
+        let mut lines: Vec<String> = output
+            .split('\n')
+            .map(|l| l.trim_end_matches('\r').to_string())
+            .collect();
+        if lines.last().map(|s| s.is_empty()).unwrap_or(false) {
+            lines.pop();
+        }
+        self.checkpoint();
+        let produced = lines.len();
+        self.splice_lines(a, b, &lines);
+        self.cursor.row = a.min(self.buffer.line_count().saturating_sub(1));
+        self.move_first_nonblank();
+        self.clamp_cursor(false);
+        self.scroll_into_view();
+        self.message = format!("reindented {produced} line(s) via {cmd}");
     }
 
     fn shift_selection(&mut self, indent: bool) {

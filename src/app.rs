@@ -1482,6 +1482,10 @@ impl App {
             }
             ExCommand::SetListchars(spec) => self.editor.set_listchars(&spec),
             ExCommand::SetMatchPairs(spec) => self.editor.set_matchpairs(&spec),
+            ExCommand::SetEqualprg(cmd) => {
+                self.editor.equalprg = cmd;
+                self.editor.message = self.editor.option_value("equalprg");
+            }
             ExCommand::ToggleWrapScan(on) => {
                 self.editor.wrapscan = on;
                 self.editor.message = format!("wrapscan {}", if on { "on" } else { "off" });
@@ -1998,7 +2002,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \tgcc  gc<motion>     toggle line comment (also visual gc)\n\
          \tD / C              delete / change to end of line\n\
          \t>> / <<            indent / dedent (also >motion, >ip, visual)\n\
-         \t== / =G / =ip       reindent lines by brace depth (brace languages)\n\
+         \t== / =G / =ip       reindent lines by brace depth (or :set equalprg)\n\
          \tyy / p / P         yank line / paste after / before\n\
          \t]p / [p            paste below / above, reindented to current line\n\
          \t\"a yy / \"a p       named registers a-z (\"A-\"Z append); auto: \"0 \"1-9 \"-\n\
@@ -2057,6 +2061,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set autoindent|noai   :set expandtab|noet\n\
          \t:set shiftwidth=N  :set tabstop=N  :set scrolloff=N  :set textwidth=N\n\
          \t:set shiftround|nosr   :set joinspaces|nojs   :set matchpairs=(:),<:>\n\
+         \t:set equalprg=<cmd>    filter `=` lines through an external formatter\n\
          \t:set paste|nopaste     :set readonly|noro (:w! overrides)\n\
          \t:set language=<code>   UI language (en, vi, fr)\n\
          \t:cd [dir]  :pwd        change / show the working directory\n\
