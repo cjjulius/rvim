@@ -385,6 +385,9 @@ pub struct Editor {
     pub incsearch: bool,
     /// Whether searches wrap around the ends of the buffer (`:set wrapscan`).
     pub wrapscan: bool,
+    /// `:set gdefault` — make `:s` substitute all matches on a line by default,
+    /// so an explicit `g` flag instead restricts to the first. Default off.
+    pub gdefault: bool,
     /// Direction of the last search, so `n` repeats it and `N` reverses it
     /// (e.g. after `?foo`, `n` searches backward).
     search_forward: bool,
@@ -681,6 +684,7 @@ impl Editor {
             smartcase: false,
             incsearch: true,
             wrapscan: true,
+            gdefault: false,
             search_forward: true,
             search_origin: Position::default(),
             saved_search_re: None,
@@ -1527,6 +1531,7 @@ impl Editor {
             "list" => flag(self.list, "list"),
             "listchars" | "lcs" => self.listchars_summary(),
             "wrapscan" | "ws" => flag(self.wrapscan, "wrapscan"),
+            "gdefault" | "gd" => flag(self.gdefault, "gdefault"),
             "cursorline" | "cul" => flag(self.cursorline, "cursorline"),
             "cursorcolumn" | "cuc" => flag(self.cursorcolumn, "cursorcolumn"),
             "shiftwidth" | "sw" => format!("shiftwidth={}", self.shiftwidth),
@@ -1708,7 +1713,7 @@ impl Editor {
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
         "matchpairs", "filetype", "fileformat", "foldmethod", "foldcolumn", "language",
-        "splitbelow", "splitright", "modeline", "modelines", "equalprg",
+        "splitbelow", "splitright", "modeline", "modelines", "equalprg", "gdefault",
     ];
 
     /// A `:set` / `:set all` listing: one option per line with its current value.
@@ -1889,6 +1894,12 @@ impl Editor {
     }
 
     pub fn substitute(&mut self, spec: &SubstituteSpec) -> (usize, usize) {
+        // `:set gdefault` flips the meaning of the `g` flag.
+        let spec = &{
+            let mut s = spec.clone();
+            s.global ^= self.gdefault;
+            s
+        };
         let Some(re) = self.resolve_substitute(spec) else {
             return (0, 0);
         };
@@ -1971,6 +1982,12 @@ impl Editor {
     /// match and show its prompt. Subsequent y/n/a/q/l keys are handled by
     /// [`handle_subst_confirm`](Editor::handle_subst_confirm).
     pub fn substitute_confirm_start(&mut self, spec: &SubstituteSpec) {
+        // `:set gdefault` flips the meaning of the `g` flag.
+        let spec = &{
+            let mut s = spec.clone();
+            s.global ^= self.gdefault;
+            s
+        };
         let Some(re) = self.resolve_substitute(spec) else {
             self.message = "E486: Pattern not found".into();
             return;

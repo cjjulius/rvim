@@ -213,6 +213,14 @@
     }
 
     #[test]
+    fn set_gdefault() {
+        assert_eq!(parse("set gdefault"), ExCommand::ToggleGdefault(true));
+        assert_eq!(parse("set gd"), ExCommand::ToggleGdefault(true));
+        assert_eq!(parse("set nogdefault"), ExCommand::ToggleGdefault(false));
+        assert_eq!(parse("set nogd"), ExCommand::ToggleGdefault(false));
+    }
+
+    #[test]
     fn set_autowrite() {
         assert_eq!(parse("set autowrite"), ExCommand::ToggleAutowrite(true));
         assert_eq!(parse("set aw"), ExCommand::ToggleAutowrite(true));

@@ -210,6 +210,7 @@ pub enum ExCommand {
     ToggleList(bool),
     /// `:set wrapscan` / `:set nowrapscan` — whether searches wrap around the file.
     ToggleWrapScan(bool),
+    ToggleGdefault(bool),
     /// `:set cursorline` / `:set nocursorline` — highlight the cursor's line.
     ToggleCursorLine(bool),
     /// `:set shiftround` / `:set noshiftround` — round `>`/`<` to a shiftwidth.
@@ -992,6 +993,8 @@ fn parse_set(rest: &str) -> ExCommand {
         "nolist" => ExCommand::ToggleList(false),
         "wrapscan" | "ws" => ExCommand::ToggleWrapScan(true),
         "nowrapscan" | "nows" => ExCommand::ToggleWrapScan(false),
+        "gdefault" | "gd" => ExCommand::ToggleGdefault(true),
+        "nogdefault" | "nogd" => ExCommand::ToggleGdefault(false),
         "cursorline" | "cul" => ExCommand::ToggleCursorLine(true),
         "nocursorline" | "nocul" => ExCommand::ToggleCursorLine(false),
         "cursorcolumn" | "cuc" => ExCommand::ToggleCursorColumn(true),

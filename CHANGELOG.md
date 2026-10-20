@@ -41,6 +41,8 @@ All notable changes to rvim are recorded here. Versions follow
   and split status lines).
 
 ### Search
+- `:set gdefault` makes `:s` substitute every match on a line by default; an
+  explicit `g` flag then restricts to the first match (vim's gdefault). Default off.
 - `:s` replacements support vim case escapes: `\u` / `\l` (upper/lower the next
   character) and `\U` / `\L` … `\E` (case a run), e.g. `:%s/\w+/\U&/g`.
 - vim's word-boundary atoms `\<` / `\>` now work in search and substitute patterns

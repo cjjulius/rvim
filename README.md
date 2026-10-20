@@ -322,7 +322,7 @@ Grouped by what they do. Most line commands accept a leading range such as
 
 **Search and replace**
 
-- `:s/pat/rep/[g]` substitutes on the current line; add `g` for every match and a range for more (see the table below).
+- `:s/pat/rep/[g]` substitutes on the current line; add `g` for every match and a range for more (see the table below). Prefer replacing every match by default? `:set gdefault` flips it, so a bare `:s` acts global and an explicit `g` restricts to the first.
 - `:noh` clears the search highlight (`:set hlsearch` / `nohlsearch` toggles it).
 
 **Working with lines**
@@ -718,7 +718,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **878 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **882 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
