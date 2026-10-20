@@ -1414,6 +1414,37 @@
     }
 
     #[test]
+    fn autoread_warns_on_conflict() {
+        let path = std::env::temp_dir().join(format!("rvim_arc_{}.txt", std::process::id()));
+        std::fs::write(&path, "v1\n").unwrap();
+        let mut app = App::new();
+        app.editor = Editor::from_file(path.to_str().unwrap()).unwrap();
+        app.editor.autoread = true;
+        app.editor.buffer.set_line(0, "local"); // unsaved change
+        std::fs::write(&path, "v2\n").unwrap();
+        app.editor.file_mtime = Some(std::time::UNIX_EPOCH);
+        app.check_autoread();
+        assert_eq!(app.editor.buffer.line(0), Some("local")); // edits preserved
+        assert!(app.editor.message.contains("W12"));
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn autoread_reloads_background_buffer() {
+        let path = std::env::temp_dir().join(format!("rvim_arbg_{}.txt", std::process::id()));
+        std::fs::write(&path, "v1\n").unwrap();
+        let mut app = App::new();
+        app.editor.autoread = true; // session setting gates background checks
+        let mut bg = Editor::from_file(path.to_str().unwrap()).unwrap();
+        bg.file_mtime = Some(std::time::UNIX_EPOCH); // force "changed" after rewrite
+        app.others.push(bg);
+        std::fs::write(&path, "v2\n").unwrap();
+        app.check_autoread();
+        assert_eq!(app.others[0].buffer.line(0), Some("v2"));
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
     fn autowrite_saves_on_buffer_switch() {
         let path = std::env::temp_dir().join(format!("rvim_aw_{}.txt", std::process::id()));
         std::fs::write(&path, "old\n").unwrap();
