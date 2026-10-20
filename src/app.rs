@@ -203,6 +203,7 @@ impl App {
         });
         match pos {
             Some(i) => {
+                self.autowrite_current();
                 self.remember_alternate();
                 std::mem::swap(&mut self.editor, &mut self.others[i]);
                 self.editor.message = format!("\"{alt}\"");
@@ -314,6 +315,7 @@ impl App {
         ed.splitright = self.editor.splitright;
         ed.modeline = self.editor.modeline;
         ed.modelines = self.editor.modelines;
+        ed.autowrite = self.editor.autowrite;
     }
 
     /// `:e <file>` — edit a file, switching to it if already open.
@@ -325,6 +327,7 @@ impl App {
             self.notify_fmt("already editing \"{path}\"", &[("{path}", path)]);
             return;
         }
+        self.autowrite_current();
         if let Some(i) = self
             .others
             .iter()
@@ -434,6 +437,7 @@ impl App {
             self.notify("only one buffer");
             return;
         }
+        self.autowrite_current();
         self.remember_alternate();
         let next = self.others.remove(0);
         let old = std::mem::replace(&mut self.editor, next);
@@ -445,6 +449,7 @@ impl App {
     /// `:bp` — rotate to the previous buffer.
     fn buffer_prev(&mut self) {
         if let Some(prev) = self.others.pop() {
+            self.autowrite_current();
             self.remember_alternate();
             let old = std::mem::replace(&mut self.editor, prev);
             self.others.insert(0, old);
@@ -462,6 +467,7 @@ impl App {
         }
         let idx = n.wrapping_sub(2);
         if idx < self.others.len() {
+            self.autowrite_current();
             self.remember_alternate();
             std::mem::swap(&mut self.editor, &mut self.others[idx]);
             self.apply_modelines_if_needed();
@@ -1410,6 +1416,10 @@ impl App {
                 self.editor.readonly = on;
                 self.notify(if on { "readonly" } else { "noreadonly" });
             }
+            ExCommand::ToggleAutowrite(on) => {
+                self.editor.autowrite = on;
+                self.notify(if on { "autowrite" } else { "noautowrite" });
+            }
             ExCommand::ToggleTitle(on) => {
                 self.editor.title = on;
             }
@@ -1803,6 +1813,18 @@ impl App {
         }
     }
 
+    /// `:set autowrite` — save the focused buffer before leaving it, when it is
+    /// modified, named, and not read-only. Called by the buffer-switch commands.
+    fn autowrite_current(&mut self) {
+        if self.editor.autowrite
+            && self.editor.buffer.is_dirty()
+            && !self.editor.readonly
+            && self.editor.buffer.path().is_some()
+        {
+            self.do_write(None, false);
+        }
+    }
+
     /// Save the active buffer and every other open buffer that has a file name.
     /// Returns `(written, failed)`; a buffer with no path counts as a failure.
     fn write_all(&mut self) -> (usize, usize) {
@@ -2100,6 +2122,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set shiftround|nosr   :set joinspaces|nojs   :set matchpairs=(:),<:>\n\
          \t:set equalprg=<cmd>    filter `=` lines through an external formatter\n\
          \t:set paste|nopaste     :set readonly|noro (:w! overrides)\n\
+         \t:set autowrite|noaw    save a named buffer when switching away\n\
          \t:set language=<code>   UI language (en, vi, fr)\n\
          \t:cd [dir]  :pwd        change / show the working directory\n\
          \t:set sidescrolloff=N   horizontal context columns\n\
