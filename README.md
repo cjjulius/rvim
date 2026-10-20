@@ -251,7 +251,8 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   jump to the identifier's definition (nearest earlier use / first in file); `gf`
   opens the file whose name is under the cursor (resolved against the cwd, then
   the current file's directory), and `gF` opens it at a trailing `:line` number
-  (as does `:e +N file`). All matches
+  (as does `:e +N file`); `gx` opens the web URL under the cursor in your browser
+  (http, https, or ftp, and bare `www.` links). All matches
   are highlighted — with the match the cursor is on shown in a brighter colour —
   clear with `:noh` (`:set hlsearch`/`nohlsearch`). Case
   handling follows `:set ignorecase` and `:set smartcase` (an uppercase letter in
@@ -716,7 +717,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **869 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **875 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

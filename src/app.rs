@@ -2056,6 +2056,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t* / #  g* / g#     search word under cursor (whole / substring)\n\
          \tgd / gD            go to definition (nearest above / first in file)\n\
          \tgf / gF            open the file name under the cursor (gF: at :line)\n\
+         \tgx                 open the web URL under the cursor in your browser\n\
          \tgn / gN            select next / prev match (cgn + . to repeat)\n\
          \t&  / g&            repeat last :s on current line / whole file\n\
          \tm<x> `<x> '<x>     set mark / jump exact / jump line   `` prev pos\n\
