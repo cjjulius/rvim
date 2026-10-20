@@ -15,6 +15,12 @@ All notable changes to rvim are recorded here. Versions follow
   the layout. `:set equalprg=<cmd>` routes `=` through an external formatter
   (e.g. `clang-format`, `rustfmt`) instead of the built-in indenter.
 
+### Configuration
+- `:set` now accepts option values containing spaces when the space is escaped
+  with a backslash, e.g. `:set equalprg=clang-format\ --style=Google`; previously
+  the multi-option splitter broke such values apart. `\\` gives a literal
+  backslash.
+
 ### UI
 - `:messages` recalls recent status-line messages (the last 200), so a note or
   error that flashed by can be read again. It opens in a scratch buffer like the

@@ -20,6 +20,37 @@ use std::io::{self, BufWriter};
 /// How many recent status messages `:messages` keeps.
 const MESSAGE_LOG_CAP: usize = 200;
 
+/// Split a `:set` argument list into individual options. A backslash escapes the
+/// next character, so a value may contain spaces (vim's `equalprg=a\ b`) or a
+/// literal backslash (`\\`); the escaping backslashes are removed. Returns the
+/// options with their escapes resolved.
+fn split_set_options(rest: &str) -> Vec<String> {
+    let mut opts = Vec::new();
+    let mut cur = String::new();
+    let mut in_token = false;
+    let mut chars = rest.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            // A backslash takes the next character literally (or stays literal at
+            // end of input).
+            cur.push(chars.next().unwrap_or('\\'));
+            in_token = true;
+        } else if c.is_whitespace() {
+            if in_token {
+                opts.push(std::mem::take(&mut cur));
+                in_token = false;
+            }
+        } else {
+            cur.push(c);
+            in_token = true;
+        }
+    }
+    if in_token {
+        opts.push(cur);
+    }
+    opts
+}
+
 /// One non-focused on-screen window: its layout id and the editor it shows.
 struct WinPane {
     id: WinId,
@@ -1194,23 +1225,28 @@ impl App {
         }
     }
 
-    /// Execute a parsed ex-command.
+    /// Execute an ex-command. `:set` with several options is split and each is run
+    /// in turn; splitting is escape-aware so a value may contain spaces, e.g.
+    /// `:set equalprg=clang-format\ --style=Google`.
     pub fn run_ex(&mut self, input: &str) {
         // Expand any leading user-defined command first.
         let resolved = self.resolve_user_command(input);
         let input = resolved.as_str();
-        // `:set a b c` — apply each space-separated option in turn (vim allows
-        // several options per `:set`). Each token is itself a valid `:set` command.
         let trimmed = input.trim();
         if let Some(rest) = trimmed.strip_prefix("set ").or_else(|| trimmed.strip_prefix("se ")) {
-            let opts: Vec<&str> = rest.split_whitespace().collect();
-            if opts.len() > 1 {
+            let opts = split_set_options(rest);
+            if !opts.is_empty() {
                 for opt in opts {
-                    self.run_ex(&format!("set {opt}"));
+                    self.exec_ex(&format!("set {opt}"));
                 }
                 return;
             }
         }
+        self.exec_ex(input);
+    }
+
+    /// Execute a single parsed ex-command (no `:set` option splitting).
+    fn exec_ex(&mut self, input: &str) {
         match command::parse(input) {
             ExCommand::Empty => {}
             ExCommand::Write { path, force } => {
