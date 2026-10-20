@@ -316,6 +316,7 @@ impl App {
         ed.modeline = self.editor.modeline;
         ed.modelines = self.editor.modelines;
         ed.autowrite = self.editor.autowrite;
+        ed.autoread = self.editor.autoread;
     }
 
     /// `:e <file>` — edit a file, switching to it if already open.
@@ -925,6 +926,9 @@ impl App {
         let mut out = BufWriter::new(io::stdout());
 
         loop {
+            // `:set autoread` — pick up external changes to the current file.
+            self.check_autoread();
+
             // Reconcile mouse capture with the desired state.
             if self.want_mouse != mouse_on {
                 if self.want_mouse {
@@ -1420,6 +1424,13 @@ impl App {
                 self.editor.autowrite = on;
                 self.notify(if on { "autowrite" } else { "noautowrite" });
             }
+            ExCommand::ToggleAutoread(on) => {
+                self.editor.autoread = on;
+                // Baseline the mtime so an edit made just before enabling it does
+                // not trigger an immediate reload.
+                self.editor.refresh_file_mtime();
+                self.notify(if on { "autoread" } else { "noautoread" });
+            }
             ExCommand::ToggleTitle(on) => {
                 self.editor.title = on;
             }
@@ -1797,6 +1808,8 @@ impl App {
         match self.editor.buffer.save() {
             Ok(bytes) => {
                 self.editor.redetect_language();
+                // Our own write is the newest version; don't let autoread re-read it.
+                self.editor.refresh_file_mtime();
                 let name = self
                     .editor
                     .buffer
@@ -1814,6 +1827,30 @@ impl App {
                 self.editor.message = format!("E212: write failed: {e}");
                 false
             }
+        }
+    }
+
+    /// `:set autoread` — if the focused file changed on disk and the buffer has no
+    /// unsaved edits, reload it. Cheap no-op unless `autoread` is on. Called once
+    /// per event in the main loop.
+    fn check_autoread(&mut self) {
+        if !self.editor.autoread
+            || self.editor.buffer.is_dirty()
+            || !self.editor.file_changed_on_disk()
+        {
+            return;
+        }
+        let Some(path) = self.editor.buffer.path().map(|p| p.display().to_string()) else {
+            return;
+        };
+        let row = self.editor.cursor.row;
+        if let Ok(mut ed) = Editor::from_file(&path) {
+            self.inherit_prefs(&mut ed);
+            ed.buf_id = self.editor.buf_id;
+            ed.cursor.row = row.min(ed.buffer.line_count().saturating_sub(1));
+            self.editor = ed;
+            self.apply_modelines();
+            self.notify_fmt("\"{path}\" reloaded (changed on disk)", &[("{path}", &path)]);
         }
     }
 
@@ -2127,6 +2164,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set equalprg=<cmd>    filter `=` lines through an external formatter\n\
          \t:set paste|nopaste     :set readonly|noro (:w! overrides)\n\
          \t:set autowrite|noaw    save a named buffer when switching away\n\
+         \t:set autoread|noar     reload the file when it changes on disk\n\
          \t:set language=<code>   UI language (en, vi, fr)\n\
          \t:cd [dir]  :pwd        change / show the working directory\n\
          \t:set sidescrolloff=N   horizontal context columns\n\

@@ -1349,6 +1349,37 @@
     }
 
     #[test]
+    fn autoread_reloads_external_change() {
+        let path = std::env::temp_dir().join(format!("rvim_ar_{}.txt", std::process::id()));
+        std::fs::write(&path, "v1\n").unwrap();
+        let mut app = App::new();
+        app.editor = Editor::from_file(path.to_str().unwrap()).unwrap();
+        app.editor.autoread = true;
+        assert_eq!(app.editor.buffer.line(0), Some("v1"));
+        std::fs::write(&path, "v2\n").unwrap();
+        // Force the known mtime older than the file so the change is detected.
+        app.editor.file_mtime = Some(std::time::UNIX_EPOCH);
+        app.check_autoread();
+        assert_eq!(app.editor.buffer.line(0), Some("v2"));
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn autoread_skips_dirty_buffer() {
+        let path = std::env::temp_dir().join(format!("rvim_ar2_{}.txt", std::process::id()));
+        std::fs::write(&path, "v1\n").unwrap();
+        let mut app = App::new();
+        app.editor = Editor::from_file(path.to_str().unwrap()).unwrap();
+        app.editor.autoread = true;
+        app.editor.buffer.set_line(0, "local edit"); // unsaved change
+        std::fs::write(&path, "v2\n").unwrap();
+        app.editor.file_mtime = Some(std::time::UNIX_EPOCH);
+        app.check_autoread();
+        assert_eq!(app.editor.buffer.line(0), Some("local edit"));
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
     fn autowrite_saves_on_buffer_switch() {
         let path = std::env::temp_dir().join(format!("rvim_aw_{}.txt", std::process::id()));
         std::fs::write(&path, "old\n").unwrap();

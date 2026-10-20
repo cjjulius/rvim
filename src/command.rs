@@ -100,6 +100,7 @@ pub enum ExCommand {
     /// `:set readonly` / `:set noreadonly`
     ToggleReadonly(bool),
     ToggleAutowrite(bool),
+    ToggleAutoread(bool),
     /// `:set title` / `:set notitle` — show the file name in the window title.
     ToggleTitle(bool),
     /// `:set backup` / `:set nobackup` — keep a `~` backup on overwrite.
@@ -1011,6 +1012,8 @@ fn parse_set(rest: &str) -> ExCommand {
         "noreadonly" | "noro" => ExCommand::ToggleReadonly(false),
         "autowrite" | "aw" => ExCommand::ToggleAutowrite(true),
         "noautowrite" | "noaw" => ExCommand::ToggleAutowrite(false),
+        "autoread" | "ar" => ExCommand::ToggleAutoread(true),
+        "noautoread" | "noar" => ExCommand::ToggleAutoread(false),
         "title" => ExCommand::ToggleTitle(true),
         "notitle" => ExCommand::ToggleTitle(false),
         "backup" | "bk" => ExCommand::ToggleBackup(true),
