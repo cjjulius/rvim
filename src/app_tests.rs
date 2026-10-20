@@ -173,6 +173,35 @@
     }
 
     #[test]
+    fn global_join_merges_matching_with_next() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("foo\n  bar\nkeep\nbaz");
+        app.run_ex("g/foo/j");
+        assert_eq!(app.editor.buffer.line(0), Some("foo bar")); // leading space collapsed
+        assert_eq!(app.editor.buffer.line(1), Some("keep"));
+        assert_eq!(app.editor.buffer.line(2), Some("baz"));
+    }
+
+    #[test]
+    fn global_join_raw_adds_no_space() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("a\nb\nc");
+        app.run_ex("g/a/j!");
+        assert_eq!(app.editor.buffer.line(0), Some("ab"));
+        assert_eq!(app.editor.buffer.line(1), Some("c"));
+    }
+
+    #[test]
+    fn global_join_handles_multiple_matches() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("x1\na\nx2\nb");
+        app.run_ex("g/x/j"); // rows 0 and 2 match; bottom-to-top keeps indices valid
+        assert_eq!(app.editor.buffer.line(0), Some("x1 a"));
+        assert_eq!(app.editor.buffer.line(1), Some("x2 b"));
+        assert_eq!(app.editor.buffer.line_count(), 2);
+    }
+
+    #[test]
     fn vglobal_shift_affects_nonmatching_lines() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("keep\ndrop");

@@ -45,6 +45,8 @@ All notable changes to rvim are recorded here. Versions follow
   and split status lines).
 
 ### Search
+- `:g/re/j` (and `:g/re/j!`) joins each matching line with the line below — with
+  or without a space — alongside the existing `d`, `s///`, `>`, `<`, and `normal`.
 - `:g/re/>` and `:g/re/<` (and `:v/…`) now indent or dedent every matching line,
   repeatable as `>>`/`<<`, alongside the existing `d`, `s///`, and `normal`.
 - `:set gdefault` makes `:s` substitute every match on a line by default; an

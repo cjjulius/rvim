@@ -1471,6 +1471,25 @@ impl Editor {
             self.move_first_nonblank();
             return matches.len();
         }
+        // `:g/pat/j[!]` — join each matching line with the one below (`!` joins
+        // without a space, like `gJ`). Bottom-to-top keeps indices valid.
+        if cmd == "j" || cmd == "join" || cmd == "j!" || cmd == "join!" {
+            let raw = cmd.ends_with('!');
+            self.checkpoint();
+            for &row in matches.iter().rev() {
+                if row + 1 >= self.buffer.line_count() {
+                    continue;
+                }
+                if raw {
+                    self.buffer.join_line_raw(row);
+                } else {
+                    self.buffer.join_line(row, self.joinspaces);
+                }
+            }
+            self.cursor.row = self.cursor.row.min(self.buffer.line_count().saturating_sub(1));
+            self.clamp_cursor(false);
+            return matches.len();
+        }
         if let crate::command::ExCommand::Substitute(spec) = crate::command::parse(cmd) {
             // Lines aren't deleted, so the indices stay valid as we go.
             let mut count = 0;
