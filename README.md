@@ -79,197 +79,203 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
 ## Features
 
 ### Modal editing (vim-style)
-- **Modes:** Normal, Insert, Replace (`R` — overtype), Visual, Visual-Line,
-  Visual-Block (`Ctrl-v`), Command.
-- **Motions:** `h j k l` (`j`/`k` keep their goal column across shorter lines,
-  and stay at the line end after `$`),
-  arrows, `w`/`b`/`e`/`ge` (word) and `W`/`B`/`E`/`gE` (WORD),
-  `0`/`^`/`$`/`g_` (line ends), `|` (column), `+`/`-`/`Enter` (line first
-  non-blank), `{`/`}` (paragraph), `(`/`)` (sentence, counted),
-  `[[`/`]]`/`[]`/`][` (section — brace in
-  column 0), `[(`/`[{`/`])`/`]}` (unmatched enclosing bracket, counted),
-  `gg`/`G`/`<n>gg`/`<n>G`,
-  `f`/`F`/`t`/`T`+`;`/`,` (find char on line, counted — `3fx` — and usable as
-  operator motions — `dfx`, `ct)`, `dFx`), `%` (matching bracket, with pairs
-  configurable via `:set matchpairs`; also an operator motion — `d%`/`y%`/`c%`
-  act from the cursor to the match, across lines),
-  `<n>%` (jump to n% of the file),
-  `H`/`M`/`L` (top/middle/bottom of screen; `<n>H`/`<n>L` count in from the
-  edge; also line-wise operator motions — `dL`, `yH`), `Ctrl-d`/`Ctrl-u` (half-page).
-- **Scrolling:** `zz`/`zt`/`zb` (center/top/bottom the current line),
-  `z.`/`z<CR>`/`z-` (same, then jump to first non-blank),
-  `Ctrl-f`/`Ctrl-b` (full page forward/back, 2-line overlap, counted),
-  `Ctrl-e`/`Ctrl-y` (scroll one line).
-- **Editing:** `i a I A o O`, `gI` (insert at column 0), `x`/`X`, `r<c>` (with
-  count), `~` (toggle case), `s`/`S`, `D`/`C`, `Y` (yank line), `p`/`P`,
-  `gp`/`gP` (paste, cursor after), `]p`/`[p` (paste linewise, reindented to the
-  current line), `J`/`gJ` (join with/without space; counted),
-  `>>`/`<<` (indent, honoring `shiftwidth`, and `shiftround` to snap to a
-  multiple) — also as an operator over a motion or text object (`>ip`, `>i{`,
-  `<ap`), counts (e.g. `5j`).
-- **Reindent (`=`):** `==`, `=G`, `=ip`, `=i{`, or `=` over a visual selection
-  re-space lines to their brace nesting (honoring `shiftwidth`/`expandtab`).
-  Braces inside strings and `//` or `/* */` comments are ignored, and comment
-  bodies keep their own alignment. Great for tidying up pasted or hand-edited
-  brace code; `gg=G` fixes a whole file. It stays out of the way in indentation-
-  structured languages like Python and YAML, where a brace rule would do more
-  harm than good. Point `:set equalprg=<cmd>` at an external formatter (for
-  example `clang-format` or `rustfmt`) and `=` pipes the lines through it instead;
-  escape spaces in the command with a backslash, as in `clang-format\ --style=Google`.
-- **Operators + motions:** `d`, `y`, `c` compose with motions — `dw`/`dW`/`yw`,
-  `d$`/`y$`, `d0`, `de`/`dE`, `dj`/`dk`, `dG`/`dgg` (to EOF/BOF), `d}` and the
-  doubled `dd`/`yy`/`cc`. `cw`/`cW` act like `ce`/`cE` (vim's special case).
-  `>`/`<` also take a motion (`>j`, `>G`).
-- **Counts:** prefix motions, operators, paste and inserts with a number —
-  `5j`, `3dd`, `d3w`, `2d3w` (multiplied), `3p`, `3rx`, `<n>gg`, and counted
-  inserts (`3ihi<Esc>` → `hihihi`, `3o`, `3a`).
-- **Text objects:** `d`/`y`/`c` + `i`/`a` + object — `iw`/`aw` (word),
-  `iW`/`aW` (WORD), `ip`/`ap` (paragraph), `is`/`as` (sentence),
-  `ii`/`ai` (indentation block), `it`/`at` (XML/HTML tag),
-  `i(` `i{` `i[` `i<` and `i"` `i'`
-  `` i` `` (inner), `a(` … (around). E.g. `diw`, `ci(`, `yi"`, `dap`, `das`, `dii`.
-  Bracket objects (`i(`/`i{`/`i[`/`i<` and their `a` forms) span multiple lines,
-  so `ci{` / `da(` work on a block or argument list across rows.
-  The indentation object `ii` selects the run of lines indented at least as far
-  as the cursor's (interior blank lines kept); `ai` also takes the header line
-  above — handy for operating on a whole indented block (`dii`, `cii`, `>ai`).
-  Word and paragraph objects take a count: `d3iw` (word, space, word),
-  `d2aw` (two words), `d2ap` (two paragraphs) — and the count may precede the
-  operator instead (`2daw`). The tag object `it`/`at` finds the innermost
-  `<name>…</name>` pair enclosing the cursor (across lines, honouring nesting):
-  `cit` replaces a tag's contents, `dat` deletes the whole element.
-- **Case operators:** `gu`/`gU`/`g~` (lower/upper/toggle) and `g?` (ROT13) over
-  a motion, a text object, or doubled for the whole line — `guw`, `gUiw`, `g~$`,
-  `guu`, `g?w`, `g?ip`, `g??`; `g?` also works on a visual selection.
-- **Comment toggling:** `gcc` toggles the current line, `gc<motion>` a range
-  (e.g. `gcj`, `gcG`), and `gc` in visual mode the selection — using the current
-  language's comment marker (`//`, `--`, `;`), indentation preserved.
-- **Registers:** `"a`–`"z` prefix any yank/delete/paste to use a named register
-  (e.g. `"ayy` … `"ap`); the uppercase name `"A`–`"Z` *appends* to that register
-  (`"Ayy` adds to `"a`). Vim's read-only registers are populated automatically:
-  `"0` (last yank), `"1`–`"9` (recent line/multi-line deletes, shifted), and
-  `"-` (last small delete). The unnamed register is used when none is given. The
-  black-hole register `"_` (e.g. `"_dd`) deletes without disturbing any register.
-  The read-only `"%` register holds the current file name (`"%p`, or `Ctrl-r %`
-  in insert mode), `".` holds the last inserted text (`".p`, `Ctrl-r .`, or
-  `Ctrl-a` in insert mode to re-insert it), `"/` holds the last search pattern,
-  and `":` the last command line (handy as `Ctrl-r /` when building a `:s`).
-- **System clipboard:** `"+` is the system clipboard and `"*` is the X11/Wayland
-  PRIMARY selection (middle-click paste); on Windows and macOS both are the one
-  clipboard. So `"+y` copies and `"+p` pastes across programs. rvim uses your
-  platform's clipboard tool (Windows, macOS, `wl-clipboard`/`xclip`/`xsel` on
-  Linux). Where none is available, set `RVIM_CLIPBOARD` to a file path to use that
-  file as a shared clipboard instead.
-- **Marks:** `m<letter>` sets a mark, `` `<letter> `` jumps to it (exact),
-  `'<letter>` jumps to its line; `` `` `` / `''` return to the previous position
-  (also set by `G`, `gg`, and searches). Automatic marks: `` `. `` (last change),
-  `` `^ `` (last insert), and `` `[ `` / `` `] `` (start / end of the text just
-  changed, yanked, or put). `gi` resumes insert at the last insert position. Marks
-  also work as ex-command addresses — `:'a,'bd`, `:'<,'>s/…` — including the
-  `'<`/`'>` selection marks.
-- **Jump list:** `Ctrl-o` jumps to an older position, `Ctrl-i` (or `Tab`) to a
-  newer one — populated by `G`, `gg`, searches and mark jumps.
-- **Change list:** `g;` jumps to an older edit position, `g,` to a newer one —
-  so you can hop back to where you were just editing.
-- **Macros:** `q<reg>` records keystrokes, `q` stops, `@<reg>` replays, `@@`
-  repeats the last macro (a `recording @x` indicator shows in the status line).
-  Recording to an uppercase register (`qA`) appends to that macro instead of
-  overwriting it.
-  `@:` repeats the last `:` command-line command.
-- **Insert mode:** autoindent on Enter (`:set autoindent`/`noai`), optional
-  smartindent (`:set smartindent` adds a level after `{` and dedents on `}`),
-  `Ctrl-w` (delete word before cursor), `Ctrl-u` (delete to line start),
-  `Ctrl-r<reg>` (paste a register), `Ctrl-t`/`Ctrl-d` (indent/dedent line), `Tab`.
-- **Paste mode (`:set paste`):** turns off autoindent, smartindent, abbreviations
-  and auto-wrap while inserting, so text pasted into a terminal keeps its own
-  indentation instead of stair-stepping. The status line shows `[paste]` while it
-  is on, so you don't forget; `:set nopaste` returns to normal.
-- **Literal and numeric entry (`Ctrl-v`):** `Ctrl-v` then a key inserts it
-  literally (so `Ctrl-v Tab` inserts a real tab even with `expandtab`), or a
-  character code: decimal digits (`Ctrl-v 065` → `A`), `u` plus four hex digits
-  (`Ctrl-v u00e9` → `é`), `x` plus two hex, or `o` plus three octal.
-- **Digraphs (`Ctrl-k`):** `Ctrl-k` plus two characters inserts a special
-  character — e.g. `Ctrl-k a:` → `ä`, `Ctrl-k e'` → `é`, `Ctrl-k n~` → `ñ`,
-  `Ctrl-k ->` → `→`, `Ctrl-k Eu` → `€`, `Ctrl-k +-` → `±`. The two keys may be
-  given in either order, matching vim; the covered set spans accented Latin
-  letters, common ligatures, currency, and a handful of math/arrow symbols.
-- **Keyword completion:** `Ctrl-n` / `Ctrl-p` complete the word before the cursor
-  from other words in the buffer, cycling forward / backward through the matches.
-- **Line completion:** `Ctrl-x Ctrl-l` completes the whole line from other buffer
-  lines that start with the text before the cursor; `Ctrl-n` / `Ctrl-p` cycle the
-  candidates.
-- **Filename completion:** `Ctrl-x Ctrl-f` completes the path before the cursor
-  from the filesystem (directories gain a trailing `/` so you can keep going).
-- **Abbreviations:** `:iabbrev teh the` expands `teh` to `the` as you type (on the
-  next space, punctuation, or Enter). `:unabbreviate teh` removes it, and bare
-  `:abbreviate` lists them.
-- **One-shot normal (`Ctrl-o`):** in insert mode, `Ctrl-o` runs a single
-  Normal-mode command (e.g. `Ctrl-o dd`, `Ctrl-o 0`) and returns to insert.
-- **Copy adjacent char:** in insert mode, `Ctrl-e` / `Ctrl-y` insert the character
-  directly below / above the cursor.
-- **Reflow:** `gq{motion}` / `gqq` / `gqip` / `gqap` (and `gw`) rewrap lines to
-  `:set textwidth=N` (default 79), preserving the first line's indent — great for
-  comments and prose. Works on a visual selection too.
-- **Auto-wrap:** with `:set textwidth=N`, typing past the limit breaks the line
-  at the last space and carries the word (plus any autoindent) down, so prose
-  stays within the margin as you write. Set `textwidth=0` to turn it off.
-- **Repeat:** `.` repeats the last change (a delete, paste, replace, indent, or a
-  whole insert/change session); a count repeats it that many times (`3.`).
-- **Info:** `Ctrl-g` shows the file name, modified flag, line count and position;
-  `g Ctrl-g` reports word / character / byte counts; `ga` shows the character
-  under the cursor as decimal / hex / octal.
-- **Numbers:** `Ctrl-a` / `Ctrl-x` increment / decrement the number under (or
-  next on) the line, with a count (`10Ctrl-a`); handles negatives, and
-  recognizes hexadecimal (`0x1f`) and binary (`0b1010`) literals — preserving
-  the prefix, digit width, and hex letter case. In visual mode they bump the
-  first number on every selected line at once; `g Ctrl-a` / `g Ctrl-x` instead
-  build an incrementing sequence (1, 2, 3, … — with `{count}` as the step).
-- **Undo/redo:** `u` / `Ctrl-r` (snapshot-based, bounded history), counted
-  (`3u`, `2Ctrl-r`); `:earlier [N]` / `:later [N]` step back/forward N changes.
-  `U` restores the most recently changed line (press it again to toggle).
-- **Visual mode:** `v`/`V` then `d`/`x`, `y`, `c`/`s`, `>`/`<` (indent),
-  `J`/`gJ` (join the selected lines), `r<c>` (replace every selected char with
-  `c`), and `u`/`U`/`~`
-  (lower/upper/toggle case of the selection). `o` swaps the active end of the
-  selection; `gv` (from normal mode) reselects the last selection. `*`/`#` search
-  for the selected text (literally) forward/back. `i`/`a` + an object select a
-  text object (`viw`, `vi(`, `vap`, …).
-  Pressing `:` from visual mode prefills the command line with the selection
-  range (`:'<,'>`), so any ex-command — `:'<,'>s/…`, `:'<,'>d`, `:'<,'>m0` — runs
-  on the selected lines. `p`/`P` over a selection replaces it with the register
-  (the replaced text goes to the unnamed register).
-- **Visual block (`Ctrl-v`):** select a rectangle, then `d`/`x` to delete it,
-  `I`/`A` to insert/append text on every row, or `c` to change the block. `$`
-  extends the block to each line's own end, so `$A` appends ragged-right. `y`
-  yanks the rectangle, and `p`/`P` pastes it back as a rectangle (padding short
-  lines), so you can move a column of text.
-- **Search:** `/pattern`, `?pattern`, `n`/`N` (repeat in the last search's
-  direction / reversed; wraps around); patterns are
-  **regular expressions** (e.g. `/\bfn\s+\w+`). `*`/`#` search the word under the
-  cursor (whole word) forward/back, and take a count (`3*`); `g*`/`g#` do so as a
-  substring; `gd`/`gD`
-  jump to the identifier's definition (nearest earlier use / first in file); `gf`
-  opens the file whose name is under the cursor (resolved against the cwd, then
-  the current file's directory), and `gF` opens it at a trailing `:line` number
-  (as does `:e +N file`); `gx` opens the web URL under the cursor in your browser
-  (http, https, or ftp, and bare `www.` links). All matches
-  are highlighted — with the match the cursor is on shown in a brighter colour —
-  clear with `:noh` (`:set hlsearch`/`nohlsearch`). Case
-  handling follows `:set ignorecase` and `:set smartcase` (an uppercase letter in
-  the pattern forces a case-sensitive search), with per-pattern `\c`/`\C` overrides.
-  Patterns are regular expressions, and vim's word-boundary atoms `\<` / `\>` work
-  (e.g. `/\<cat\>` matches the whole word `cat`, not `category`).
-  With `:set incsearch` (on by default) the first match is previewed as you type;
-  `Enter` jumps to it, `Esc` returns to where you started. Typing a substitute
-  (`:s/pattern/...` or `:%s/...`) highlights the matches live too, so you can see
-  what you are about to replace before pressing `Enter`. After a search (and on
-  `n`/`N`) a `[index/total]` count shows where you are among the matches. Searches
-  wrap around the file by default; `:set nowrapscan` stops at the last/first match.
-  Search offsets are supported and reused by `n`/`N`: `/pat/e[±N]` (end of match),
-  `/pat/s[±N]` / `/pat/b[±N]` (start of match), and `/pat/±N` (N lines away).
-  `gn`/`gN` visually select the match under or after/before the cursor, and work
-  as operator targets (`cgn`, `dgn`, `ygn`) — so `cgn` to change a match, then
-  `.` to change the next, is the quick search-and-replace-by-hand workflow.
+
+Like vim, rvim is built on a small grammar: an optional **count**, an
+**operator**, and a **motion** or **text object**. Learn the pieces and they
+combine freely.
+
+```
+[count] operator [count] motion | text-object
+   3       d                w          ->  3dw    delete three words
+           c                i(         ->  ci(    change inside ( … )
+   2       >                ip         ->  2>ip   indent a paragraph, twice
+```
+
+A bare motion just moves the cursor; doubling an operator (`dd`, `>>`, `==`)
+makes it act on whole lines.
+
+**Modes**
+
+| Mode | Enter with | For |
+|------|-----------|-----|
+| Normal | `Esc` | moving around and running operators (home base) |
+| Insert | `i` `a` `o` `I` `A` `O` | typing text |
+| Replace | `R` | overtype existing characters |
+| Visual / Line / Block | `v` / `V` / `Ctrl-v` | select a span / whole lines / a rectangle |
+| Command | `:` `/` `?` | ex commands and search |
+
+**Moving the cursor**
+
+| Move to | Keys |
+|---------|------|
+| Left, down, up, right | `h` `j` `k` `l` (or arrows) |
+| Line start / first non-blank / end | `0` / `^` / `$` (and `g_`, last non-blank) |
+| First non-blank of next / previous line | `+` or `Enter` / `-` |
+| Column N | `N\|` |
+| Word / WORD — forward, back, end | `w` `b` `e` `ge` / `W` `B` `E` `gE` |
+| Find a char on the line | `f` `F` `t` `T`, repeat with `;` `,` (counts: `3fx`) |
+| Matching bracket | `%` (pairs set by `:set matchpairs`) |
+| Paragraph / sentence | `{` `}` / `(` `)` |
+| Section / unmatched enclosing bracket | `[[` `]]` `[]` `][` / `[(` `[{` `])` `]}` |
+| File top / bottom / line N | `gg` / `G` / `NG` |
+| N percent into the file | `N%` |
+| Screen top / middle / bottom | `H` `M` `L` |
+| Half page / full page | `Ctrl-d` `Ctrl-u` / `Ctrl-f` `Ctrl-b` |
+| Recenter line / scroll one line | `zz` `zt` `zb` (also `z.` `z<CR>` `z-`) / `Ctrl-e` `Ctrl-y` |
+
+`j`/`k` keep their goal column across shorter lines (and stay at the line end
+after `$`). Almost every motion doubles as an operator target, so `d}`, `y%`,
+`dL`, and `c3w` all work.
+
+**Changing text**
+
+| Keys | Action |
+|------|--------|
+| `d` `y` `c` + motion | delete / yank / change over the motion (`dw`, `y$`, `ci(`, `dG`) |
+| `dd` `yy` `cc` | whole line (counts: `3dd`); `cw`/`cW` act like `ce`/`cE` |
+| `x` `X` / `r<c>` / `~` | delete char / replace char / toggle case |
+| `s` `S` / `C` `D` / `Y` | change char / line, change / delete to end of line, yank line |
+| `i` `a` `I` `A` / `o` `O` / `gI` | insert, append, line start/end / open line below/above / insert at column 0 |
+| `p` `P` / `gp` `gP` / `]p` `[p` | paste after / before / with cursor after / reindented to the current line |
+| `J` `gJ` | join lines, with / without a space |
+| `>>` `<<` (or `>`+motion) | indent / dedent — honors `shiftwidth`, `shiftround`; `>ip`, `>i{`, `<ap` |
+| `=` (`==`, `=G`, `=ip`) | reindent to brace nesting, or pipe through `:set equalprg` |
+| `gu` `gU` `g~` / `g?` | lowercase / uppercase / toggle / ROT13 over a motion or object |
+| `gcc` / `gc`+motion | toggle comments (`gcj`, `gcG`, or a visual selection) |
+
+Counts combine everywhere: `5j`, `3dd`, `d3w`, `2d3w` (multiplied), `3p`, `3rx`,
+and even counted inserts (`3ihi<Esc>` → `hihihi`, `3o`).
+
+The `=` reindenter ignores braces inside strings and `//` or `/* */` comments and
+leaves comment bodies aligned, so `gg=G` tidies a whole file; it is a deliberate
+no-op in indentation-structured languages (Python, YAML, …). Point
+`:set equalprg=<cmd>` at an external formatter (e.g. `clang-format`, `rustfmt`) to
+pipe lines through it instead — escape spaces as `clang-format\ --style=Google`.
+
+**Text objects** — pair an operator with `i` (inner) or `a` (around) plus an object:
+
+| Object | Keys (`i` inner / `a` around) | Selects |
+|--------|------------------------------|---------|
+| Word / WORD | `iw` `aw` / `iW` `aW` | the word (plus surrounding space for `a`) |
+| Sentence / paragraph | `is` `as` / `ip` `ap` | the sentence / paragraph |
+| Indent block | `ii` `ai` | lines at/under the cursor's indent (`ai` adds the header line) |
+| Brackets | `i(` `i{` `i[` `i<` (+ `a`) | inside / around the pair, across lines |
+| Quotes | `i"` `i'` `` i` `` | inside the quotes |
+| Tag | `it` `at` | innermost `<name>…</name>` element (nested, multi-line) |
+
+Examples: `diw`, `ci(`, `yi"`, `dap`, `das`, `dii`, `cit`, `dat`. Word and
+paragraph objects take counts (`d3iw`, `d2ap`), and the count may lead instead
+(`2daw`).
+
+**Registers** — prefix any yank/delete/paste with `"x` to use register `x`:
+
+| Register | Holds |
+|----------|-------|
+| `"a`–`"z` | named registers (`"ayy` … `"ap`); `"A`–`"Z` *append* to them |
+| `"0` | the last yank |
+| `"1`–`"9` / `"-` | recent line deletes (shifted) / the last small delete |
+| `"_` | the black-hole — `"_dd` deletes without touching any register |
+| `"+` / `"*` | system clipboard / PRIMARY selection (one clipboard on Windows & macOS) |
+| `"%` `".` `"/` `":` | file name / last insert / last search / last command (read-only) |
+
+With no prefix, the unnamed register is used. `"+y` copies across programs and
+`"+p` pastes; rvim uses your platform's clipboard tool (`wl-clipboard`/`xclip`/
+`xsel` on Linux), or set `RVIM_CLIPBOARD` to a file path for a shared fallback.
+
+**Marks, jumps & history**
+
+| Feature | Keys |
+|---------|------|
+| Set / jump to mark (exact / line) | `m<x>` / `` `<x> `` / `'<x>` |
+| Back to previous spot | `` `` `` / `''` (also set by `G`, `gg`, searches) |
+| Auto marks | `` `. `` last change, `` `^ `` last insert, `` `[ `` `` `] `` last changed text |
+| Resume insert at last spot | `gi` |
+| Jump list: older / newer | `Ctrl-o` / `Ctrl-i` (or `Tab`) |
+| Change list: older / newer edit | `g;` / `g,` |
+
+Marks also work as ex-command addresses — `:'a,'bd`, `:'<,'>s/…` (including the
+`'<`/`'>` selection marks).
+
+**Macros & repeat**
+
+| Keys | Action |
+|------|--------|
+| `q<x>` … `q` | record keystrokes into register `x` (`qA` appends); status shows `recording @x` |
+| `@<x>` / `@@` | replay a macro / repeat the last one |
+| `@:` | repeat the last `:` command |
+| `.` | repeat the last change (`3.` repeats it three times) |
+
+**Insert mode**
+
+| Keys | Action |
+|------|--------|
+| `Ctrl-w` / `Ctrl-u` | delete the word before the cursor / back to line start |
+| `Ctrl-t` / `Ctrl-d` | indent / dedent the current line |
+| `Ctrl-r<reg>` | insert a register (`Ctrl-r %` file name, `Ctrl-r /` last search) |
+| `Ctrl-a` | re-insert the text from your last insert |
+| `Ctrl-o {cmd}` | run one Normal-mode command, then return to insert |
+| `Ctrl-e` / `Ctrl-y` | copy the character below / above the cursor |
+| `Ctrl-v` | next key literally, or a code: `065`, `u00e9`, `x…`, `o…` |
+| `Ctrl-k` + two chars | digraph: `a:`→`ä`, `e'`→`é`, `->`→`→`, `Eu`→`€`, `+-`→`±` |
+| `Ctrl-n` / `Ctrl-p` | complete the word from the buffer, cycling matches |
+| `Ctrl-x Ctrl-l` / `Ctrl-x Ctrl-f` | complete a whole line / a file path |
+
+Auto-indent follows `:set autoindent` / `smartindent`, and `:iabbrev teh the`
+expands abbreviations as you type. `:set paste` suspends auto-indent,
+abbreviations and auto-wrap (the status line shows `[paste]`) so pasted text keeps
+its own layout.
+
+**Formatting** — `gq{motion}` / `gqq` / `gqip` (and `gw`) rewrap text to
+`:set textwidth=N`, ideal for comments and prose; with a textwidth set, auto-wrap
+also breaks long lines as you type (`textwidth=0` turns it off).
+
+**Undo, info & numbers**
+
+| Keys | Action |
+|------|--------|
+| `u` / `Ctrl-r` | undo / redo (counted: `3u`); `:earlier [N]` / `:later [N]` step by N changes |
+| `U` | restore the most recently changed line (toggles) |
+| `Ctrl-g` / `g Ctrl-g` / `ga` | file info / word-char-byte counts / character code under cursor |
+| `Ctrl-a` / `Ctrl-x` | increment / decrement the number (hex, binary, negatives; counted) |
+| `g Ctrl-a` / `g Ctrl-x` (visual) | turn a column of numbers into a 1, 2, 3 … sequence |
+
+**Visual mode** — select with `v` (characters), `V` (lines), or `Ctrl-v` (block), then:
+
+| Keys | Action |
+|------|--------|
+| `d` `x` / `y` / `c` `s` | delete / yank / change the selection |
+| `>` `<` / `=` | indent / dedent / reindent |
+| `J` `gJ` / `r<c>` | join the lines / replace every selected char with `c` |
+| `u` `U` `~` / `g?` | lowercase / uppercase / toggle case / ROT13 |
+| `o` / `gv` | swap the active end / reselect the last selection (from Normal) |
+| `*` `#` | search for the selected text, forward / back |
+| `i` `a` + object | select a text object (`viw`, `vi(`, `vap`) |
+| `p` `P` | replace the selection with a register |
+| `:` | prefill `:'<,'>` so an ex-command runs on the selection (`:'<,'>s/…`, `:'<,'>m0`) |
+
+**Visual block (`Ctrl-v`)** selects a rectangle: `d`/`x` delete it, `I`/`A`
+insert/append on every row, `c` changes it, `$` extends to each line's own end
+(so `$A` appends ragged-right), and `y` then `p`/`P` moves a column of text
+(short lines padded).
+
+**Search** — patterns are regular expressions (e.g. `/\bfn\s+\w+`):
+
+| Keys | Action |
+|------|--------|
+| `/pat` `?pat` / `n` `N` | search forward / back; repeat same / reversed direction (wraps) |
+| `*` `#` / `g*` `g#` | the word under the cursor, whole word / substring (counted: `3*`) |
+| `gd` `gD` | jump to the identifier's definition (nearest earlier use / first in file) |
+| `gf` `gF` | open the file named under the cursor (`gF` at a trailing `:line`) |
+| `gx` | open the URL under the cursor in your browser |
+| `gn` `gN` | select the next / previous match — an operator target, so `cgn` then `.` |
+| `:noh` | clear the match highlight |
+
+Case follows `:set ignorecase` / `smartcase` (per-pattern `\c` / `\C`), word
+boundaries `\<` `\>` work, and `:set nowrapscan` stops at the ends. With `:set
+incsearch` (on) the first match previews as you type — and typing a `:s`
+substitution highlights its matches live. A `[index/total]` count shows your
+position, and search offsets (`/pat/e`, `/pat/s±N`, `/pat/±N`) carry over to
+`n`/`N`.
 
 ### Global command (`:g` / `:v`)
 Run a command on every line matching a pattern:
