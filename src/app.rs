@@ -2185,7 +2185,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:history [:|/|all] list command-line / search history\n\
          \t:s/pat/rep/[ginc]  substitute (g all, i ignore-case, n count, c confirm)\n\
          \t  rep: \\1-\\9 & groups; \\U \\L \\u \\l \\E case; pat: \\< \\> word bounds\n\
-         \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///, >, <, normal)\n\
+         \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///, >, <, j, normal)\n\
          \t:[range]norm {{keys}}  run Normal-mode keys (per line over a range)\n\
          \t:theme <name>      themes: {themes}\n\
          \t:set number|nonumber   :set relativenumber|nornu\n\
