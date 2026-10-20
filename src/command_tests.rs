@@ -221,6 +221,14 @@
     }
 
     #[test]
+    fn set_autoread() {
+        assert_eq!(parse("set autoread"), ExCommand::ToggleAutoread(true));
+        assert_eq!(parse("set ar"), ExCommand::ToggleAutoread(true));
+        assert_eq!(parse("set noautoread"), ExCommand::ToggleAutoread(false));
+        assert_eq!(parse("set noar"), ExCommand::ToggleAutoread(false));
+    }
+
+    #[test]
     fn set_autowrite() {
         assert_eq!(parse("set autowrite"), ExCommand::ToggleAutowrite(true));
         assert_eq!(parse("set aw"), ExCommand::ToggleAutowrite(true));

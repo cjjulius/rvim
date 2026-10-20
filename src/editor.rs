@@ -273,6 +273,12 @@ fn scan_brackets(line: &str, mut in_block: bool) -> (isize, bool) {
     (depth, in_block)
 }
 
+/// The modified-time of `path`, or `None` if it can't be read (missing file, or
+/// a platform without mtime support).
+fn disk_mtime(path: impl AsRef<std::path::Path>) -> Option<std::time::SystemTime> {
+    std::fs::metadata(path).and_then(|m| m.modified()).ok()
+}
+
 /// Whether the first non-blank character of `line` is a closing bracket, so the
 /// line itself sits one level out from the block it closes.
 fn starts_with_closer(line: &str) -> bool {
@@ -413,6 +419,12 @@ pub struct Editor {
     /// `:set autowrite` — write a modified, named buffer automatically when
     /// switching away from it (`:bn`/`:bp`/`:b`/`:e`/`Ctrl-^`). Default off.
     pub autowrite: bool,
+    /// `:set autoread` — reload the file when it changes on disk and the buffer
+    /// has no unsaved edits. Default off.
+    pub autoread: bool,
+    /// Modified-time of the backing file when it was last loaded or saved, used by
+    /// `autoread` to notice an external change.
+    pub file_mtime: Option<std::time::SystemTime>,
     /// `:set language=<code>` — the user-interface language for menus and mode
     /// indicators (default English). See [`crate::i18n`].
     pub locale: crate::i18n::Locale,
@@ -695,6 +707,8 @@ impl Editor {
             paste: false,
             readonly: false,
             autowrite: false,
+            autoread: false,
+            file_mtime: None,
             locale: crate::i18n::Locale::English,
             title: false,
             backup: false,
@@ -1237,7 +1251,29 @@ impl Editor {
         let mut ed = Editor::new();
         ed.buffer = buffer;
         ed.language = lang;
+        ed.file_mtime = disk_mtime(std::path::Path::new(path));
         Ok(ed)
+    }
+
+    /// Record the backing file's current modified-time (after a load or save), so
+    /// `autoread` compares against the version we actually have.
+    pub fn refresh_file_mtime(&mut self) {
+        self.file_mtime = self
+            .buffer
+            .path()
+            .and_then(disk_mtime);
+    }
+
+    /// Whether the backing file's modified-time is newer than when we last loaded
+    /// or saved it — the trigger for an `autoread` reload.
+    pub fn file_changed_on_disk(&self) -> bool {
+        let Some(known) = self.file_mtime else {
+            return false;
+        };
+        match self.buffer.path().and_then(disk_mtime) {
+            Some(current) => current > known,
+            None => false,
+        }
     }
 
     /// The terminal window title for `:set title`: the file's base name (or
@@ -1521,6 +1557,7 @@ impl Editor {
             "paste" => flag(self.paste, "paste"),
             "readonly" | "ro" => flag(self.readonly, "readonly"),
             "autowrite" | "aw" => flag(self.autowrite, "autowrite"),
+            "autoread" | "ar" => flag(self.autoread, "autoread"),
             "language" | "lang" => format!("language={}", self.locale.code()),
             "title" => flag(self.title, "title"),
             "backup" | "bk" => flag(self.backup, "backup"),
@@ -1708,7 +1745,7 @@ impl Editor {
     /// Canonical option names shown by `:set` / `:set all`, in display order.
     const OPTION_NAMES: &'static [&'static str] = &[
         "number", "relativenumber", "hlsearch", "ignorecase", "smartcase",
-        "incsearch", "autoindent", "smartindent", "paste", "readonly", "autowrite", "title", "backup", "showmode",
+        "incsearch", "autoindent", "smartindent", "paste", "readonly", "autowrite", "autoread", "title", "backup", "showmode",
         "showcmd", "ruler", "expandtab", "list", "wrapscan", "cursorline",
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
