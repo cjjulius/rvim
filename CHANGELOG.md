@@ -12,7 +12,8 @@ All notable changes to rvim are recorded here. Versions follow
   ignored (block-comment state carries across lines, and comment-body lines keep
   their own indentation). It is a deliberate no-op for indentation-structured
   languages (Python, YAML, Ruby, Lua, Shell), where a brace rule would corrupt
-  the layout.
+  the layout. `:set equalprg=<cmd>` routes `=` through an external formatter
+  (e.g. `clang-format`, `rustfmt`) instead of the built-in indenter.
 
 ### UI
 - `:messages` recalls recent status-line messages (the last 200), so a note or

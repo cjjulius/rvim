@@ -113,7 +113,8 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   bodies keep their own alignment. Great for tidying up pasted or hand-edited
   brace code; `gg=G` fixes a whole file. It stays out of the way in indentation-
   structured languages like Python and YAML, where a brace rule would do more
-  harm than good.
+  harm than good. Point `:set equalprg=<cmd>` at an external formatter (for
+  example `clang-format` or `rustfmt`) and `=` pipes the lines through it instead.
 - **Operators + motions:** `d`, `y`, `c` compose with motions — `dw`/`dW`/`yw`,
   `d$`/`y$`, `d0`, `de`/`dE`, `dj`/`dk`, `dG`/`dgg` (to EOF/BOF), `d}` and the
   doubled `dd`/`yy`/`cc`. `cw`/`cW` act like `ce`/`cE` (vim's special case).
@@ -714,7 +715,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **863 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **866 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

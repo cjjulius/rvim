@@ -6088,6 +6088,30 @@
     }
 
     #[test]
+    fn reindent_uses_equalprg_when_set() {
+        // With equalprg set, `=` filters the range through it (here, `sort`).
+        let mut ed = ed_with("banana\napple\ncherry");
+        ed.equalprg = "sort".into();
+        let last = ed.buffer.line_count() - 1;
+        ed.reindent_range(0, last);
+        assert_eq!(ed.buffer.line(0), Some("apple"));
+        assert_eq!(ed.buffer.line(1), Some("banana"));
+        assert_eq!(ed.buffer.line(2), Some("cherry"));
+    }
+
+    #[test]
+    fn reindent_equalprg_runs_even_for_indentation_languages() {
+        // equalprg takes over from the built-in indenter, so the usual Python
+        // no-op does not apply.
+        let mut ed = ed_with("b\na");
+        ed.language = crate::syntax::Language::Python;
+        ed.equalprg = "sort".into();
+        ed.reindent_range(0, 1);
+        assert_eq!(ed.buffer.line(0), Some("a"));
+        assert_eq!(ed.buffer.line(1), Some("b"));
+    }
+
+    #[test]
     fn reindent_noop_for_indentation_languages() {
         let mut ed = ed_with("def f():\n    pass\n");
         ed.language = crate::syntax::Language::Python;

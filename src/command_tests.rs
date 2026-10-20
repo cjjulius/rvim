@@ -213,6 +213,16 @@
     }
 
     #[test]
+    fn set_equalprg() {
+        assert_eq!(
+            parse("set equalprg=clang-format"),
+            ExCommand::SetEqualprg("clang-format".into())
+        );
+        assert_eq!(parse("set ep=rustfmt"), ExCommand::SetEqualprg("rustfmt".into()));
+        assert_eq!(parse("set equalprg="), ExCommand::SetEqualprg(String::new()));
+    }
+
+    #[test]
     fn set_modeline() {
         assert_eq!(parse("set modeline"), ExCommand::ToggleModeline(true));
         assert_eq!(parse("set ml"), ExCommand::ToggleModeline(true));

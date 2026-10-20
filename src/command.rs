@@ -121,6 +121,9 @@ pub enum ExCommand {
     ToggleModeline(bool),
     /// `:set modelines=N` — lines scanned at each end of the file for a modeline.
     SetModelines(usize),
+    /// `:set equalprg=<cmd>` — external program the `=` operator filters through
+    /// (empty uses the built-in indenter).
+    SetEqualprg(String),
     /// `:set textwidth=N` — wrap column for `gq` reflow (0 disables).
     SetTextWidth(usize),
     /// `:set ft=<lang>`
@@ -1029,6 +1032,11 @@ fn parse_set(rest: &str) -> ExCommand {
                 .or_else(|| opt.strip_prefix("mps="))
             {
                 ExCommand::SetMatchPairs(v.to_string())
+            } else if let Some(v) = opt
+                .strip_prefix("equalprg=")
+                .or_else(|| opt.strip_prefix("ep="))
+            {
+                ExCommand::SetEqualprg(v.trim().to_string())
             } else if let Some(v) = opt
                 .strip_prefix("language=")
                 .or_else(|| opt.strip_prefix("lang="))
