@@ -6006,3 +6006,68 @@
         ed.modelines = 2; // the modeline is on row 4, outside the first/last 2
         assert!(ed.modeline_options().is_empty());
     }
+
+    #[test]
+    fn reindent_operator_formats_nested_braces() {
+        // All lines flush-left; `=` recomputes indentation from brace depth.
+        let mut ed = ed_with("fn main() {\nlet x = 1;\nif x {\nfoo();\n}\n}");
+        let last = ed.buffer.line_count() - 1;
+        ed.reindent_range(0, last);
+        assert_eq!(ed.buffer.line(0), Some("fn main() {"));
+        assert_eq!(ed.buffer.line(1), Some("    let x = 1;"));
+        assert_eq!(ed.buffer.line(2), Some("    if x {"));
+        assert_eq!(ed.buffer.line(3), Some("        foo();"));
+        assert_eq!(ed.buffer.line(4), Some("    }"));
+        assert_eq!(ed.buffer.line(5), Some("}"));
+    }
+
+    #[test]
+    fn reindent_double_equals_via_keys() {
+        // Over-indented single line snaps back to depth 0 with `==`.
+        let mut ed = ed_with("            let x = 1;\n");
+        ed.handle_key(key('='));
+        ed.handle_key(key('='));
+        assert_eq!(ed.buffer.line(0), Some("let x = 1;"));
+    }
+
+    #[test]
+    fn reindent_equals_g_whole_file_via_keys() {
+        let mut ed = ed_with("{\na;\n}");
+        ed.handle_key(key('=')); // operator
+        ed.handle_key(special(KeyCode::Char('G'))); // to end of file
+        assert_eq!(ed.buffer.line(0), Some("{"));
+        assert_eq!(ed.buffer.line(1), Some("    a;"));
+        assert_eq!(ed.buffer.line(2), Some("}"));
+    }
+
+    #[test]
+    fn reindent_ignores_braces_in_strings_and_comments() {
+        let mut ed = ed_with("{\nlet s = \"}\"; // a } brace\nx;\n}");
+        let last = ed.buffer.line_count() - 1;
+        ed.reindent_range(0, last);
+        // The string/comment braces must not affect depth: body stays one level.
+        assert_eq!(ed.buffer.line(1), Some("    let s = \"}\"; // a } brace"));
+        assert_eq!(ed.buffer.line(2), Some("    x;"));
+        assert_eq!(ed.buffer.line(3), Some("}"));
+    }
+
+    #[test]
+    fn reindent_blanks_emptied_and_closer_dedents() {
+        let mut ed = ed_with("{\n   \nbar();\n}");
+        let last = ed.buffer.line_count() - 1;
+        ed.reindent_range(0, last);
+        assert_eq!(ed.buffer.line(1), Some("")); // whitespace-only line emptied
+        assert_eq!(ed.buffer.line(2), Some("    bar();"));
+        assert_eq!(ed.buffer.line(3), Some("}"));
+    }
+
+    #[test]
+    fn reindent_noop_for_indentation_languages() {
+        let mut ed = ed_with("def f():\n    pass\n");
+        ed.language = crate::syntax::Language::Python;
+        ed.reindent_range(0, 1);
+        // Python layout must be left intact (brace rule would flatten it).
+        assert_eq!(ed.buffer.line(0), Some("def f():"));
+        assert_eq!(ed.buffer.line(1), Some("    pass"));
+        assert!(ed.message.contains("not available"));
+    }

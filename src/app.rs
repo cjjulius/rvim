@@ -1951,6 +1951,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \tgcc  gc<motion>     toggle line comment (also visual gc)\n\
          \tD / C              delete / change to end of line\n\
          \t>> / <<            indent / dedent (also >motion, >ip, visual)\n\
+         \t== / =G / =ip       reindent lines by brace depth (brace languages)\n\
          \tyy / p / P         yank line / paste after / before\n\
          \t]p / [p            paste below / above, reindented to current line\n\
          \t\"a yy / \"a p       named registers a-z (\"A-\"Z append); auto: \"0 \"1-9 \"-\n\

@@ -5,6 +5,13 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Editing
+- `=` reindent operator: `==`, `=G`, `=ip`, `=i{`, and visual-mode `=` re-space
+  lines to their brace nesting (honoring `shiftwidth`/`expandtab`), so `gg=G`
+  tidies a whole file. Braces inside strings and `//` comments are ignored. It is
+  a deliberate no-op for indentation-structured languages (Python, YAML, Ruby,
+  Lua, Shell), where a brace rule would corrupt the layout.
+
 ### UI
 - The status line shows `[paste]` while paste mode is on, next to the existing
   `[+]` / `[RO]` / `[dos]` flags (whose construction is now shared by the single

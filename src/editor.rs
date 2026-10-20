@@ -223,6 +223,41 @@ fn parse_modeline_opts(after: &str) -> Vec<String> {
     }
 }
 
+/// Net bracket-nesting change across one line, for the `=` reindenter: `+1` per
+/// opening `([{`, `-1` per closing `)]}`, skipping brackets inside string or
+/// character literals and after a `//` line comment. Block comments and other
+/// comment leaders are out of scope — `=` is best-effort for brace languages.
+fn net_brackets(line: &str) -> isize {
+    let mut depth = 0isize;
+    let mut quote: Option<char> = None;
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        match quote {
+            Some(q) => {
+                if c == '\\' {
+                    chars.next(); // skip the escaped character
+                } else if c == q {
+                    quote = None;
+                }
+            }
+            None => match c {
+                '"' | '\'' | '`' => quote = Some(c),
+                '/' if chars.peek() == Some(&'/') => break, // line comment
+                '(' | '[' | '{' => depth += 1,
+                ')' | ']' | '}' => depth -= 1,
+                _ => {}
+            },
+        }
+    }
+    depth
+}
+
+/// Whether the first non-blank character of `line` is a closing bracket, so the
+/// line itself sits one level out from the block it closes.
+fn starts_with_closer(line: &str) -> bool {
+    matches!(line.trim_start().chars().next(), Some(')' | ']' | '}'))
+}
+
 /// The kind of text being entered on the command line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LineKind {
@@ -4289,6 +4324,9 @@ impl Editor {
                     if op == '>' || op == '<' {
                         let (a, b) = self.target_rows(t);
                         self.shift_range(a, b, op == '>');
+                    } else if op == '=' {
+                        let (a, b) = self.target_rows(t);
+                        self.reindent_range(a, b);
                     } else {
                         self.apply_op(op, t);
                     }
@@ -4406,7 +4444,7 @@ impl Editor {
             let op_count = self.pending_op_count.take().unwrap_or(1);
             // `i`/`a` after d/y/c (and the shift operators >/<) begins a text
             // object (e.g. diw, ci(, >ip).
-            if matches!(op, 'd' | 'y' | 'c' | '>' | '<')
+            if matches!(op, 'd' | 'y' | 'c' | '>' | '<' | '=')
                 && matches!(code, KeyCode::Char('i') | KeyCode::Char('a'))
             {
                 if let KeyCode::Char(iora) = code {
@@ -4635,6 +4673,14 @@ impl Editor {
                     self.shift_selection(false);
                 } else {
                     self.pending_op = Some('<');
+                    self.pending_op_count = Some(count);
+                }
+            }
+            KeyCode::Char('=') => {
+                if let Some((s, e)) = self.selection() {
+                    self.reindent_range(s.row, e.row);
+                } else {
+                    self.pending_op = Some('=');
                     self.pending_op_count = Some(count);
                 }
             }
@@ -4967,6 +5013,18 @@ impl Editor {
                 };
                 if let Some((a, b)) = rows {
                     self.shift_range(a, b, op == '>');
+                }
+            }
+            '=' => {
+                let last = self.buffer.line_count().saturating_sub(1);
+                let rows = if code == KeyCode::Char('=') {
+                    // Doubled (`==`): `count` lines from the cursor.
+                    Some((self.cursor.row, (self.cursor.row + count - 1).min(last)))
+                } else {
+                    self.motion_target(code, count).map(|t| self.target_rows(t))
+                };
+                if let Some((a, b)) = rows {
+                    self.reindent_range(a, b);
                 }
             }
             '!' => {
@@ -6610,6 +6668,53 @@ impl Editor {
             } else {
                 self.dedent_line(r);
             }
+        }
+        self.cursor.row = a;
+        self.move_first_nonblank();
+    }
+
+    /// Running brace depth at the start of `row` (net unclosed `([{` in lines
+    /// before it), so reindenting a sub-range keeps its surrounding context.
+    fn brace_depth_before(&self, row: usize) -> usize {
+        let mut depth = 0isize;
+        for r in 0..row.min(self.buffer.line_count()) {
+            depth = (depth + net_brackets(self.buffer.line(r).unwrap_or(""))).max(0);
+        }
+        depth as usize
+    }
+
+    /// `=` operator — reindent the inclusive row range to brace depth ×
+    /// shiftwidth. A language-agnostic indenter: depth rises after a line with
+    /// more openers than closers and a line beginning with a closer sits one
+    /// level out. Blank lines are emptied. It is a no-op for indentation-
+    /// structured languages (Python, YAML, Ruby, Lua, Shell), where a brace rule
+    /// would corrupt the layout.
+    fn reindent_range(&mut self, a: usize, b: usize) {
+        self.mode = Mode::Normal;
+        if crate::syntax::prefers_indent_folds(self.language) {
+            self.message = format!("= reindent not available for {}", self.language.name());
+            return;
+        }
+        let last = self.buffer.line_count().saturating_sub(1);
+        let (a, b) = (a.min(last), b.min(last));
+        let sw = self.shiftwidth.max(1);
+        self.checkpoint();
+        let mut depth = self.brace_depth_before(a) as isize;
+        for r in a..=b {
+            let line = self.buffer.line(r).unwrap_or("").to_string();
+            if line.trim().is_empty() {
+                if !line.is_empty() {
+                    self.buffer.set_line(r, String::new());
+                }
+                continue;
+            }
+            let this = if starts_with_closer(&line) {
+                (depth - 1).max(0)
+            } else {
+                depth
+            };
+            self.set_indent_columns(r, this as usize * sw);
+            depth = (depth + net_brackets(&line)).max(0);
         }
         self.cursor.row = a;
         self.move_first_nonblank();

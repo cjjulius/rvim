@@ -107,6 +107,11 @@ buffer, leaving your file untouched — `:bd` closes it), and `:q` to quit.
   `>>`/`<<` (indent, honoring `shiftwidth`, and `shiftround` to snap to a
   multiple) — also as an operator over a motion or text object (`>ip`, `>i{`,
   `<ap`), counts (e.g. `5j`).
+- **Reindent (`=`):** `==`, `=G`, `=ip`, `=i{`, or `=` over a visual selection
+  re-space lines to their brace nesting (honoring `shiftwidth`/`expandtab`).
+  Great for tidying up pasted or hand-edited brace code; `gg=G` fixes a whole
+  file. It stays out of the way in indentation-structured languages like Python
+  and YAML, where a brace rule would do more harm than good.
 - **Operators + motions:** `d`, `y`, `c` compose with motions — `dw`/`dW`/`yw`,
   `d$`/`y$`, `d0`, `de`/`dE`, `dj`/`dk`, `dG`/`dgg` (to EOF/BOF), `d}` and the
   doubled `dd`/`yy`/`cc`. `cw`/`cW` act like `ce`/`cE` (vim's special case).
@@ -706,7 +711,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **851 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **857 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
