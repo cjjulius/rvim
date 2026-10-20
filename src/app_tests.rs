@@ -150,6 +150,40 @@
     }
 
     #[test]
+    fn global_shift_indents_matching_lines() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("foo\nbar\nfoo");
+        app.editor.shiftwidth = 2;
+        app.editor.expandtab = true;
+        app.run_ex("g/foo/>");
+        assert_eq!(app.editor.buffer.line(0), Some("  foo"));
+        assert_eq!(app.editor.buffer.line(1), Some("bar"));
+        assert_eq!(app.editor.buffer.line(2), Some("  foo"));
+    }
+
+    #[test]
+    fn global_double_shift_indents_twice() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("x\ny");
+        app.editor.shiftwidth = 2;
+        app.editor.expandtab = true;
+        app.run_ex("g/x/>>");
+        assert_eq!(app.editor.buffer.line(0), Some("    x"));
+        assert_eq!(app.editor.buffer.line(1), Some("y"));
+    }
+
+    #[test]
+    fn vglobal_shift_affects_nonmatching_lines() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("keep\ndrop");
+        app.editor.shiftwidth = 2;
+        app.editor.expandtab = true;
+        app.run_ex("v/keep/>"); // indent lines NOT matching "keep"
+        assert_eq!(app.editor.buffer.line(0), Some("keep"));
+        assert_eq!(app.editor.buffer.line(1), Some("  drop"));
+    }
+
+    #[test]
     fn earlier_later_undo_redo() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("abcdef");

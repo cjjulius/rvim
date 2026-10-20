@@ -44,6 +44,8 @@ All notable changes to rvim are recorded here. Versions follow
   and split status lines).
 
 ### Search
+- `:g/re/>` and `:g/re/<` (and `:v/…`) now indent or dedent every matching line,
+  repeatable as `>>`/`<<`, alongside the existing `d`, `s///`, and `normal`.
 - `:set gdefault` makes `:s` substitute every match on a line by default; an
   explicit `g` flag then restricts to the first match (vim's gdefault). Default off.
 - `:s` replacements support vim case escapes: `\u` / `\l` (upper/lower the next

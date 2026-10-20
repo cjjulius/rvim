@@ -1452,6 +1452,25 @@ impl Editor {
             self.clamp_cursor(false);
             return matches.len();
         }
+        // `:g/pat/>` / `:g/pat/<` (repeatable, e.g. `>>`): indent or dedent each
+        // matching line. Shifting keeps the line count, so indices stay valid.
+        let indent = !cmd.is_empty() && cmd.chars().all(|c| c == '>');
+        let dedent = !cmd.is_empty() && cmd.chars().all(|c| c == '<');
+        if indent || dedent {
+            self.checkpoint();
+            for &row in &matches {
+                for _ in 0..cmd.len() {
+                    if indent {
+                        self.indent_line(row);
+                    } else {
+                        self.dedent_line(row);
+                    }
+                }
+            }
+            self.cursor.row = matches[0].min(self.buffer.line_count().saturating_sub(1));
+            self.move_first_nonblank();
+            return matches.len();
+        }
         if let crate::command::ExCommand::Substitute(spec) = crate::command::parse(cmd) {
             // Lines aren't deleted, so the indices stay valid as we go.
             let mut count = 0;
