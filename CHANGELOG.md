@@ -13,6 +13,9 @@ All notable changes to rvim are recorded here. Versions follow
   Lua, Shell), where a brace rule would corrupt the layout.
 
 ### UI
+- `:messages` recalls recent status-line messages (the last 200), so a note or
+  error that flashed by can be read again. It opens in a scratch buffer like the
+  other listings.
 - The status line shows `[paste]` while paste mode is on, next to the existing
   `[+]` / `[RO]` / `[dos]` flags (whose construction is now shared by the single
   and split status lines).

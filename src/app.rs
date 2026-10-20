@@ -17,6 +17,9 @@ use crossterm::event::{
 use std::collections::HashMap;
 use std::io::{self, BufWriter};
 
+/// How many recent status messages `:messages` keeps.
+const MESSAGE_LOG_CAP: usize = 200;
+
 /// One non-focused on-screen window: its layout id and the editor it shows.
 struct WinPane {
     id: WinId,
@@ -65,6 +68,12 @@ pub struct App {
     /// Last window title pushed to the terminal (for `:set title`), so it is only
     /// re-sent when it changes.
     last_title: String,
+    /// Recent status-line messages, oldest first, for `:messages`. Captured once
+    /// per frame when the message changes, so transient notes can be recalled.
+    message_log: Vec<String>,
+    /// The last message pushed to `message_log`, to avoid logging duplicates while
+    /// a message stays on screen across frames.
+    last_logged_msg: String,
 }
 
 impl App {
@@ -90,7 +99,38 @@ impl App {
             alternate: None,
             user_commands: HashMap::new(),
             last_title: String::new(),
+            message_log: Vec::new(),
+            last_logged_msg: String::new(),
         }
+    }
+
+    /// Record the current status message for `:messages` if it changed. Called
+    /// once per frame; keeps the most recent [`MESSAGE_LOG_CAP`] entries.
+    fn log_message(&mut self) {
+        let m = &self.editor.message;
+        if m.is_empty() || *m == self.last_logged_msg {
+            return;
+        }
+        self.last_logged_msg = m.clone();
+        self.message_log.push(m.clone());
+        let overflow = self.message_log.len().saturating_sub(MESSAGE_LOG_CAP);
+        if overflow > 0 {
+            self.message_log.drain(0..overflow);
+        }
+    }
+
+    /// A `:messages` listing, newest last (vim order).
+    fn messages_listing(&self) -> String {
+        if self.message_log.is_empty() {
+            return "messages — :bd to close\n\n  (no messages)\n".to_string();
+        }
+        let mut out = String::from("messages — :bd to close\n\n");
+        for m in &self.message_log {
+            out.push_str("  ");
+            out.push_str(m);
+            out.push('\n');
+        }
+        out
     }
 
     /// Expand a leading user-defined command (`:command`) into its definition,
@@ -884,6 +924,9 @@ impl App {
                 }
             }
 
+            // Capture the current status message for `:messages` (once per change).
+            self.log_message();
+
             if split {
                 // Multiple windows: size each to its rectangle and draw them all.
                 self.size_windows(area);
@@ -1263,6 +1306,10 @@ impl App {
             ExCommand::Jumps => {
                 let text = self.editor.jumps_listing();
                 self.open_scratch(&text, "jumps —", "jumps — :bd to close");
+            }
+            ExCommand::Messages => {
+                let text = self.messages_listing();
+                self.open_scratch(&text, "messages —", "messages — :bd to close");
             }
             ExCommand::Changes => {
                 let text = self.editor.changes_listing();
@@ -1997,6 +2044,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t  (:n / :N are aliases for :bn / :bp)\n\
          \tCtrl-^ / :b#       switch to the alternate (last) buffer\n\
          \t:marks :reg :jumps list marks / registers / jump list\n\
+         \t:messages          recall recent status-line messages\n\
          \t:changes           list the change list (g; / g, navigate it)\n\
          \t:delmarks a b / !  delete the named marks (! clears all a-z marks)\n\
          \t:history [:|/|all] list command-line / search history\n\

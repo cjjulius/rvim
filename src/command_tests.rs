@@ -206,6 +206,13 @@
     }
 
     #[test]
+    fn messages_command_parses() {
+        assert_eq!(parse("messages"), ExCommand::Messages);
+        assert_eq!(parse("mes"), ExCommand::Messages);
+        assert_eq!(parse("message"), ExCommand::Messages);
+    }
+
+    #[test]
     fn set_modeline() {
         assert_eq!(parse("set modeline"), ExCommand::ToggleModeline(true));
         assert_eq!(parse("set ml"), ExCommand::ToggleModeline(true));
