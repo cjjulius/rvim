@@ -332,6 +332,7 @@ Grouped by what they do. Most line commands accept a leading range such as
 **Marks, registers, history**
 
 - `:marks`, `:registers` (`:reg`), `:jumps`, `:changes`, `:history [:|/|all]` each open a listing.
+- `:messages` recalls recent status-line notes and errors, so a message that flashed by isn't lost.
 - `:delmarks a b` / `:delmarks!` delete named or all marks.
 - `:earlier [N]` / `:later [N]` step back and forward through changes.
 
@@ -711,7 +712,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **857 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **861 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

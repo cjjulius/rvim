@@ -1300,6 +1300,38 @@
     }
 
     #[test]
+    fn messages_log_captures_and_dedups() {
+        let mut app = App::new();
+        app.editor.message = "first".into();
+        app.log_message();
+        app.log_message(); // unchanged -> no duplicate
+        app.editor.message = "second".into();
+        app.log_message();
+        assert_eq!(
+            app.message_log,
+            vec!["first".to_string(), "second".to_string()]
+        );
+    }
+
+    #[test]
+    fn messages_command_shows_history_in_scratch() {
+        let mut app = App::new();
+        app.editor.message = "hello world".into();
+        app.log_message();
+        app.run_ex("messages");
+        let found = (0..app.editor.buffer.line_count())
+            .filter_map(|i| app.editor.buffer.line(i))
+            .any(|l| l.contains("hello world"));
+        assert!(found);
+    }
+
+    #[test]
+    fn messages_listing_empty_is_friendly() {
+        let app = App::new();
+        assert!(app.messages_listing().contains("no messages"));
+    }
+
+    #[test]
     fn modeline_not_reapplied_over_manual_set() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("// vim: set ts=4:\ncode\n");

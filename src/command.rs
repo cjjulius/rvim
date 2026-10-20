@@ -283,6 +283,8 @@ pub enum ExCommand {
     Registers,
     /// `:jumps` — list the jump list.
     Jumps,
+    /// `:messages` — list recent status-line messages.
+    Messages,
     /// `:changes` — list the change list.
     Changes,
     /// `:delmarks {marks}` — delete marks (`"!"` deletes all lowercase marks).
@@ -494,6 +496,7 @@ pub fn parse(input: &str) -> ExCommand {
         "marks" => ExCommand::Marks,
         "reg" | "registers" | "display" | "di" => ExCommand::Registers,
         "ju" | "jumps" => ExCommand::Jumps,
+        "mes" | "messages" | "message" => ExCommand::Messages,
         "changes" => ExCommand::Changes,
         "delmarks!" | "delm!" => ExCommand::DelMarks("!".into()),
         "delmarks" | "delm" => ExCommand::DelMarks(arg.unwrap_or_default()),
