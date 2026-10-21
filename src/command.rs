@@ -244,10 +244,10 @@ pub enum ExCommand {
     MoveLines { range: SubRange, dest: LineAddr },
     /// `:[range]t`/`:[range]co[py] {addr}` — copy the range's lines to after `dest`.
     CopyLines { range: SubRange, dest: LineAddr },
-    /// `:[range]d[elete]` — delete the range's lines.
-    DeleteLines(SubRange),
-    /// `:[range]y[ank]` — yank the range's lines.
-    YankLines(SubRange),
+    /// `:[range]d[elete] [x]` — delete the range's lines (into register `x`).
+    DeleteLines { range: SubRange, register: Option<char> },
+    /// `:[range]y[ank] [x]` — yank the range's lines (into register `x`).
+    YankLines { range: SubRange, register: Option<char> },
     /// `:[range]>` / `:[range]<` — shift the range right/left by `times` steps.
     ShiftLines { range: SubRange, dedent: bool, times: usize },
     /// `:[range]j[oin][!]` — join the range's lines (`!` keeps whitespace, like `gJ`).
@@ -773,22 +773,32 @@ fn parse_line_op(trimmed: &str) -> Option<ExCommand> {
             times,
         });
     }
-    // `d`/`delete`/`y`/`yank`: the leading alphabetic run must be exactly one of
-    // these (so `diffsplit`, `yankring`, … fall through), trailing args ignored.
+    // `d`/`delete`/`y`/`yank`/`j`/`join`: the leading alphabetic run names the
+    // command (so `diffsplit`, `yankring`, … fall through via the `_` arm).
     let word: String = after.chars().take_while(|c| c.is_ascii_alphabetic()).collect();
-    let rest = after[word.len()..].trim_start();
-    // Reject a trailing word character run masquerading as args.
-    if rest.chars().next().is_some_and(|c| c.is_ascii_alphabetic()) {
-        return None;
-    }
+    let rest = after[word.len()..].trim();
     let range = parse_range(range_str)?;
     let bang = rest.starts_with('!');
+    // `:d`/`:y` accept an optional single-letter register argument (`:d a`).
+    let reg_arg = match rest.chars().next() {
+        Some(c) if rest.chars().count() == 1 && is_register_char(c) => Some(c),
+        _ => None,
+    };
     match word.as_str() {
-        "d" | "delete" | "de" | "del" => Some(ExCommand::DeleteLines(range)),
-        "y" | "yank" | "ya" => Some(ExCommand::YankLines(range)),
+        "d" | "delete" | "de" | "del" if rest.is_empty() || reg_arg.is_some() => {
+            Some(ExCommand::DeleteLines { range, register: reg_arg })
+        }
+        "y" | "yank" | "ya" if rest.is_empty() || reg_arg.is_some() => {
+            Some(ExCommand::YankLines { range, register: reg_arg })
+        }
         "j" | "join" => Some(ExCommand::JoinLines { range, raw: bang }),
         _ => None,
     }
+}
+
+/// Whether `c` names a register usable as a `:d`/`:y` argument.
+fn is_register_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || matches!(c, '_' | '+' | '*' | '-')
 }
 
 /// Parse `:[range]left [indent]`, `:[range]right [width]`, `:[range]center

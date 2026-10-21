@@ -337,7 +337,7 @@ Grouped by what they do. Most line commands accept a leading range such as
 **Working with lines**
 
 - `:m {addr}` and `:t` / `:co {addr}` move or copy lines.
-- `:d` / `:y` delete or yank; `:>` / `:<` shift the indent.
+- `:d` / `:y` delete or yank (add a letter to target a register, e.g. `:1,5y a`); `:>` / `:<` shift the indent.
 - `:j[oin][!]` joins lines (`!` keeps the whitespace).
 - `:ce[nter]` / `:ri[ght]` / `:le[ft]` align lines to `textwidth`.
 - `:sort[!] [u][n][i] [/pat/ [r]]` sorts (reverse, unique, numeric, ignore-case, or by the text after a pattern).
@@ -727,7 +727,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **893 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **896 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

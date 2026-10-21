@@ -45,10 +45,10 @@
     fn mark_and_visual_range_addresses() {
         assert_eq!(
             parse("'<,'>d"),
-            ExCommand::DeleteLines(SubRange::Range(
-                LineAddr::Mark('<'),
-                LineAddr::Mark('>')
-            ))
+            ExCommand::DeleteLines {
+                range: SubRange::Range(LineAddr::Mark('<'), LineAddr::Mark('>')),
+                register: None,
+            }
         );
         assert_eq!(
             parse("'a,'bm0"),
@@ -69,13 +69,25 @@
 
     #[test]
     fn line_op_variants() {
-        assert_eq!(parse("d"), ExCommand::DeleteLines(SubRange::CurrentLine));
+        assert_eq!(
+            parse("d"),
+            ExCommand::DeleteLines { range: SubRange::CurrentLine, register: None }
+        );
         assert_eq!(
             parse("1,5d"),
-            ExCommand::DeleteLines(SubRange::Range(LineAddr::Num(1), LineAddr::Num(5)))
+            ExCommand::DeleteLines {
+                range: SubRange::Range(LineAddr::Num(1), LineAddr::Num(5)),
+                register: None,
+            }
         );
-        assert_eq!(parse("%y"), ExCommand::YankLines(SubRange::WholeFile));
-        assert_eq!(parse("delete"), ExCommand::DeleteLines(SubRange::CurrentLine));
+        assert_eq!(
+            parse("%y"),
+            ExCommand::YankLines { range: SubRange::WholeFile, register: None }
+        );
+        assert_eq!(
+            parse("delete"),
+            ExCommand::DeleteLines { range: SubRange::CurrentLine, register: None }
+        );
         assert_eq!(
             parse(">>"),
             ExCommand::ShiftLines { range: SubRange::CurrentLine, dedent: false, times: 2 }
@@ -102,6 +114,27 @@
             parse("join!"),
             ExCommand::JoinLines { range: SubRange::CurrentLine, raw: true }
         );
+    }
+
+    #[test]
+    fn line_op_register_argument() {
+        assert_eq!(
+            parse("d a"),
+            ExCommand::DeleteLines { range: SubRange::CurrentLine, register: Some('a') }
+        );
+        assert_eq!(
+            parse("y b"),
+            ExCommand::YankLines { range: SubRange::CurrentLine, register: Some('b') }
+        );
+        assert_eq!(
+            parse("1,3y z"),
+            ExCommand::YankLines {
+                range: SubRange::Range(LineAddr::Num(1), LineAddr::Num(3)),
+                register: Some('z'),
+            }
+        );
+        // A multi-char trailing token is not a register, so `:d` doesn't match it.
+        assert!(!matches!(parse("d foo"), ExCommand::DeleteLines { .. }));
     }
 
     #[test]

@@ -2459,15 +2459,21 @@ impl Editor {
     }
 
     /// `:[range]d[elete]` — delete the range's lines into the unnamed register.
-    pub fn delete_lines(&mut self, range: SubRange) {
+    pub fn delete_lines(&mut self, range: SubRange, register: Option<char>) {
         let (a, b) = self.resolve_range(range);
+        if let Some(r) = register {
+            self.pending_register = Some(r);
+        }
         self.apply_op('d', OpTarget::Lines(a, b));
         self.message = format!("{} line(s) deleted", b - a + 1);
     }
 
-    /// `:[range]y[ank]` — yank the range's lines into the unnamed register.
-    pub fn yank_lines(&mut self, range: SubRange) {
+    /// `:[range]y[ank] [x]` — yank the range's lines into register `x` (or unnamed).
+    pub fn yank_lines(&mut self, range: SubRange, register: Option<char>) {
         let (a, b) = self.resolve_range(range);
+        if let Some(r) = register {
+            self.pending_register = Some(r);
+        }
         self.apply_op('y', OpTarget::Lines(a, b));
         self.message = format!("{} line(s) yanked", b - a + 1);
     }

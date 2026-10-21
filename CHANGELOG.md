@@ -44,6 +44,10 @@ All notable changes to rvim are recorded here. Versions follow
   `[+]` / `[RO]` / `[dos]` flags (whose construction is now shared by the single
   and split status lines).
 
+### Ex commands
+- `:[range]d` and `:[range]y` take an optional register argument, so `:1,5y a`
+  yanks those lines into register `a` and `:d b` deletes the current line into `b`.
+
 ### Search
 - `:g/re/j` (and `:g/re/j!`) joins each matching line with the line below — with
   or without a space — alongside the existing `d`, `s///`, `>`, `<`, and `normal`.
