@@ -173,6 +173,30 @@
     }
 
     #[test]
+    fn ex_yank_to_register_then_put() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("alpha\nbeta\ngamma");
+        app.run_ex("1,2y a"); // yank lines 1-2 into register a
+        app.editor.cursor.row = 2; // on "gamma"
+        app.run_ex("put a"); // put register a below the current line
+        assert_eq!(app.editor.buffer.line(3), Some("alpha"));
+        assert_eq!(app.editor.buffer.line(4), Some("beta"));
+    }
+
+    #[test]
+    fn ex_delete_to_register() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("one\ntwo\nthree");
+        app.run_ex("1d b"); // delete line 1 into register b
+        assert_eq!(app.editor.buffer.line(0), Some("two"));
+        let last = app.editor.buffer.line_count() - 1;
+        app.editor.cursor.row = last;
+        app.run_ex("put b");
+        let last = app.editor.buffer.line_count() - 1;
+        assert_eq!(app.editor.buffer.line(last), Some("one"));
+    }
+
+    #[test]
     fn global_join_merges_matching_with_next() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("foo\n  bar\nkeep\nbaz");

@@ -1582,11 +1582,11 @@ impl App {
             ExCommand::CopyLines { range, dest } => {
                 self.editor.copy_lines(range, dest);
             }
-            ExCommand::DeleteLines(range) => {
-                self.editor.delete_lines(range);
+            ExCommand::DeleteLines { range, register } => {
+                self.editor.delete_lines(range, register);
             }
-            ExCommand::YankLines(range) => {
-                self.editor.yank_lines(range);
+            ExCommand::YankLines { range, register } => {
+                self.editor.yank_lines(range, register);
             }
             ExCommand::ShiftLines { range, dedent, times } => {
                 self.editor.shift_lines(range, dedent, times);
@@ -2217,7 +2217,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set mouse|nomouse toggle mouse support\n\
          \t:[range]sort[!] [uni] sort (! rev, u uniq, n numeric, i ic, /pat/[r])\n\
          \t:[range]m {{addr}}   move lines    :[range]t/co {{addr}}  copy lines\n\
-         \t:[range]d / y       delete / yank lines   :[range]> / <  shift lines\n\
+         \t:[range]d / y [x]   delete / yank lines (into register x)   :[range]> / <  shift\n\
          \t:[range]j[!]        join lines (! keeps whitespace)\n\
          \t:[range]ce|ri|le [w]  center / right / left align lines\n\
          \t:[addr]pu [reg]     put a register as lines after addr\n\
