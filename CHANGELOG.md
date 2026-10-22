@@ -5,6 +5,11 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Internal
+- The three register-store paths (yank, block yank, delete) now share one helper
+  for the black-hole guard, pending named-register write, and unnamed-register
+  update, so that common logic lives in a single place. No behavior change.
+
 ### Buffers
 - `:set autowrite` writes a modified, named, non-readonly buffer automatically
   when switching away from it (`:bn`/`:bp`/`:b N`/`:e`/`Ctrl-^`), so moving

@@ -7339,68 +7339,62 @@ impl Editor {
         self.clamp_cursor(false);
     }
 
-    /// Store yanked text: unnamed register + the yank register `"0` (or the
-    /// pending named register if one was given, e.g. `"ayy`).
-    fn store_yank(&mut self, text: String, linewise: bool) {
+    /// Shared tail for every register store: honor the black-hole register `"_`,
+    /// write a pending named register (clearing it), and set the unnamed register.
+    /// When no named register is pending, `default` fills the implicit target
+    /// (`"0` for yanks, the numbered ring / `"-` for deletes). Returns early
+    /// without touching any register when the black hole is selected.
+    fn store_register(&mut self, reg: Register, default: impl FnOnce(&mut Self, &Register)) {
         // The black-hole register "_ discards without touching any register.
         if self.pending_register == Some('_') {
             self.pending_register = None;
             return;
         }
-        let reg = Register { text, linewise, block: false };
         if let Some(name) = self.pending_register.take() {
             self.write_named_register(name, reg.clone());
         } else {
-            self.registers.insert('0', reg.clone());
+            default(self, &reg);
         }
         self.register = reg;
     }
 
+    /// Store yanked text: unnamed register + the yank register `"0` (or the
+    /// pending named register if one was given, e.g. `"ayy`).
+    fn store_yank(&mut self, text: String, linewise: bool) {
+        let reg = Register { text, linewise, block: false };
+        self.store_register(reg, |s, r| {
+            s.registers.insert('0', r.clone());
+        });
+    }
+
     /// Store a block-wise yank (`Ctrl-v` + `y`) into `"0` / the pending register.
     fn store_block_yank(&mut self, text: String) {
-        if self.pending_register == Some('_') {
-            self.pending_register = None;
-            return;
-        }
-        let reg = Register {
-            text,
-            linewise: false,
-            block: true,
-        };
-        if let Some(name) = self.pending_register.take() {
-            self.write_named_register(name, reg.clone());
-        } else {
-            self.registers.insert('0', reg.clone());
-        }
-        self.register = reg;
+        let reg = Register { text, linewise: false, block: true };
+        self.store_register(reg, |s, r| {
+            s.registers.insert('0', r.clone());
+        });
     }
 
     /// Store deleted/changed text: unnamed register plus either a pending named
     /// register, the numbered ring `"1`–`"9` (line-wise / multi-line deletes), or
     /// the small-delete register `"-` (within-line deletes). Mirrors vim.
     fn store_delete(&mut self, text: String, linewise: bool) {
-        // The black-hole register "_ discards without touching any register.
-        if self.pending_register == Some('_') {
-            self.pending_register = None;
-            return;
-        }
         let reg = Register { text, linewise, block: false };
-        if let Some(name) = self.pending_register.take() {
-            self.write_named_register(name, reg.clone());
-        } else if linewise || reg.text.contains('\n') {
-            // Shift "1 -> "2 ... "8 -> "9, then store into "1.
-            for d in (1..9).rev() {
-                let from = char::from_digit(d, 10).unwrap();
-                let to = char::from_digit(d + 1, 10).unwrap();
-                if let Some(r) = self.registers.get(&from).cloned() {
-                    self.registers.insert(to, r);
+        self.store_register(reg, |s, r| {
+            if linewise || r.text.contains('\n') {
+                // Shift "1 -> "2 ... "8 -> "9, then store into "1.
+                for d in (1..9).rev() {
+                    let from = char::from_digit(d, 10).unwrap();
+                    let to = char::from_digit(d + 1, 10).unwrap();
+                    if let Some(prev) = s.registers.get(&from).cloned() {
+                        s.registers.insert(to, prev);
+                    }
                 }
+                s.registers.insert('1', r.clone());
+            } else {
+                s.registers.insert('-', r.clone());
             }
-            self.registers.insert('1', reg.clone());
-        } else {
-            self.registers.insert('-', reg.clone());
-        }
-        self.register = reg;
+        });
     }
 
     /// The register to read for a paste: the pending named one if set, else the
