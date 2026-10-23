@@ -1344,12 +1344,20 @@ impl App {
             }
             ExCommand::Edit { path, line } => self.edit_file(&path, line),
             ExCommand::Reload { force } => self.reload_file(force),
-            ExCommand::ReadFile(path) => {
+            ExCommand::ReadFile { addr, path } => {
+                // `:[addr]r` inserts at the resolved index; bare `:r` below cursor.
+                let at = addr.map(|a| self.editor.insert_index_for(a));
                 if let Some(cmd) = path.strip_prefix('!') {
-                    self.editor.read_command(cmd);
+                    match at {
+                        Some(i) => self.editor.read_command_at(cmd, i),
+                        None => self.editor.read_command(cmd),
+                    }
                 } else {
                     match std::fs::read_to_string(&path) {
-                        Ok(text) => self.editor.read_lines_below(&text),
+                        Ok(text) => match at {
+                            Some(i) => self.editor.read_lines_at(&text, i),
+                            None => self.editor.read_lines_below(&text),
+                        },
                         Err(e) => {
                             self.editor.message = format!("E484: can't open \"{path}\": {e}")
                         }
@@ -2204,7 +2212,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:qa  :wa  :wqa     quit / write / write-quit all buffers (! to force)\n\
          \tZZ / ZQ            write & quit / quit without saving\n\
          \t:e <file>          open file     :enew  new empty buffer\n\
-         \t:r <file>          read file below the cursor\n\
+         \t:[addr]r <file>    read file (or !cmd) below cursor (:0r top, :$r end)\n\
          \t:e / :e!            reload current file (! discards changes)\n\
          \t:ls :bn :bp :b<n>  list / next / prev / goto buffer   :bd close\n\
          \t  (:n / :N are aliases for :bn / :bp)\n\

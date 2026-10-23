@@ -395,7 +395,31 @@
 
     #[test]
     fn read_command_parse() {
-        assert_eq!(parse("r !ls"), ExCommand::ReadFile("!ls".into()));
+        assert_eq!(
+            parse("r !ls"),
+            ExCommand::ReadFile { addr: None, path: "!ls".into() }
+        );
+    }
+
+    #[test]
+    fn addressed_read_parse() {
+        assert_eq!(
+            parse("0r notes.txt"),
+            ExCommand::ReadFile { addr: Some(LineAddr::Num(0)), path: "notes.txt".into() }
+        );
+        assert_eq!(
+            parse("$r !date"),
+            ExCommand::ReadFile { addr: Some(LineAddr::Last), path: "!date".into() }
+        );
+        assert_eq!(
+            parse("3read f.txt"),
+            ExCommand::ReadFile { addr: Some(LineAddr::Num(3)), path: "f.txt".into() }
+        );
+        // No address still parses as a plain read (handled by the bare `:r` arm).
+        assert_eq!(
+            parse("r x.txt"),
+            ExCommand::ReadFile { addr: None, path: "x.txt".into() }
+        );
     }
 
     #[test]
@@ -517,8 +541,14 @@
 
     #[test]
     fn read_file_variants() {
-        assert_eq!(parse("r notes.txt"), ExCommand::ReadFile("notes.txt".into()));
-        assert_eq!(parse("read data.csv"), ExCommand::ReadFile("data.csv".into()));
+        assert_eq!(
+            parse("r notes.txt"),
+            ExCommand::ReadFile { addr: None, path: "notes.txt".into() }
+        );
+        assert_eq!(
+            parse("read data.csv"),
+            ExCommand::ReadFile { addr: None, path: "data.csv".into() }
+        );
         // No file name falls through to the plugin passthrough, not a crash.
         assert!(matches!(parse("r"), ExCommand::Passthrough { .. }));
     }
