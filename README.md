@@ -322,7 +322,7 @@ Grouped by what they do. Most line commands accept a leading range such as
 - `:w [file]`, `:wq`, `:x`, `:q`, `:q!` — write and quit (`!` discards changes). `:N,Mw file` writes just those lines to a file. Files keep the line endings they were loaded with (Windows CRLF or Unix LF); `:set fileformat=dos` or `=unix` changes which is written.
 - `:set readonly` (`ro`) guards a file against accidental overwrite: `:w` is refused (shown as `[RO]` in the status line) until you force it with `:w!`. `:set noreadonly` lifts the guard.
 - `:qa` / `:wa` / `:wqa` — quit or write every buffer at once.
-- `:e <file>` opens a file; `:e` / `:e!` reloads the current one; `:enew` starts a new empty buffer. `:r <file>` inserts a file below the cursor, and `:r !cmd` inserts a command's output.
+- `:e <file>` opens a file; `:e` / `:e!` reloads the current one; `:enew` starts a new empty buffer. `:r <file>` inserts a file below the cursor (or `:r !cmd` a command's output); prefix an address to choose where, so `:0r` prepends and `:$r` appends.
 - `:cd <dir>` changes the working directory (so relative `:e`/`:w`/`:r` paths resolve from there); a leading `~` is your home, and `:cd` alone goes home. `:pwd` shows the current directory.
 - `:ls` lists buffers; `:bn` / `:bp` (or `:n` / `:N`) / `:b <n>` / `:bd` switch or close them; `Ctrl-^` (or `:b#`) returns to the previous buffer. `:bufdo {cmd}` runs a command on every open buffer (e.g. `:bufdo %s/old/new/g`).
 - `:set autowrite` saves a modified, named buffer automatically when you switch away from it, so you can move between files without a manual `:w` each time.
@@ -732,7 +732,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **905 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **907 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

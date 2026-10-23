@@ -53,6 +53,8 @@ All notable changes to rvim are recorded here. Versions follow
   and split status lines).
 
 ### Ex commands
+- `:[addr]r {file|!cmd}` reads a file or command output after line `addr` instead
+  of only below the cursor, so `:0r` prepends and `:$r` appends.
 - `:[range]w !cmd` pipes the lines (or the whole buffer) to a shell command's
   input and shows its output, without modifying the buffer — e.g. `:%w !wc`,
   `:'<,'>w !python`. Multi-line output opens in a scratch buffer.

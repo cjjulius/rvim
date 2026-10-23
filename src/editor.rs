@@ -2430,13 +2430,20 @@ impl Editor {
     /// cursor moves to the first inserted line. A trailing newline doesn't create
     /// a spurious empty line.
     pub fn read_lines_below(&mut self, text: &str) {
+        self.read_lines_at(text, self.cursor.row + 1);
+    }
+
+    /// Insert `text`'s lines starting at buffer index `at` (clamped), as `:[addr]r`
+    /// does: `at` is the number of lines to skip, so 0 prepends and `line_count`
+    /// appends.
+    pub fn read_lines_at(&mut self, text: &str, at: usize) {
         let body = text.strip_suffix('\n').unwrap_or(text);
         let lines: Vec<&str> = body.split('\n').collect();
         if lines.is_empty() {
             return;
         }
         self.checkpoint();
-        let at = self.cursor.row + 1;
+        let at = at.min(self.buffer.line_count());
         for (k, line) in lines.iter().enumerate() {
             self.buffer.insert_line(at + k, *line);
         }
@@ -2450,15 +2457,25 @@ impl Editor {
 
     /// `:r !cmd` — run a shell command and insert its output below the cursor.
     pub fn read_command(&mut self, cmd: &str) {
+        self.read_command_at(cmd, self.cursor.row + 1);
+    }
+
+    /// `:[addr]r !cmd` — run a shell command and insert its output at index `at`.
+    pub fn read_command_at(&mut self, cmd: &str, at: usize) {
         let cmd = cmd.trim();
         if cmd.is_empty() {
             self.message = "E471: Argument required".into();
             return;
         }
         match Self::run_shell_filter(cmd, "") {
-            Some(out) => self.read_lines_below(&out.replace("\r\n", "\n")),
+            Some(out) => self.read_lines_at(&out.replace("\r\n", "\n"), at),
             None => self.message = format!("E485: Can't run: {cmd}"),
         }
+    }
+
+    /// Resolve a single ex address to a 0-based insert index (for `:[addr]r`).
+    pub fn insert_index_for(&self, addr: LineAddr) -> usize {
+        self.resolve_dest(addr)
     }
 
     /// `:[range]d[elete]` — delete the range's lines into the unnamed register.

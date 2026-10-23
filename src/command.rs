@@ -85,7 +85,7 @@ pub enum ExCommand {
     /// `:e file` (optionally `:e +N file` to open at line N).
     Edit { path: String, line: Option<usize> },
     /// `:r[ead] file` — insert the file's contents below the cursor line.
-    ReadFile(String),
+    ReadFile { addr: Option<LineAddr>, path: String },
     /// `:e` / `:e!` with no file — reload the current file (`force` discards changes).
     Reload { force: bool },
     /// `:theme [name]` / `:colorscheme [name]` — `None` lists/cycles.
@@ -333,6 +333,11 @@ pub fn parse(input: &str) -> ExCommand {
         return w;
     }
 
+    // Addressed read (`0r file`, `$r !cmd`). A bare `:r file` falls through below.
+    if let Some(r) = parse_read(trimmed) {
+        return r;
+    }
+
     // Substitution, possibly with a leading range (`s/`, `%s/`, `1,5s/`).
     if let Some(sub) = parse_substitute(trimmed) {
         return sub;
@@ -419,7 +424,7 @@ pub fn parse(input: &str) -> ExCommand {
             None => ExCommand::Reload { force: true },
         },
         "r" | "re" | "read" => match arg {
-            Some(a) => ExCommand::ReadFile(a),
+            Some(a) => ExCommand::ReadFile { addr: None, path: a },
             None => ExCommand::Passthrough {
                 name: word.to_string(),
                 args: String::new(),
@@ -627,6 +632,32 @@ fn range_prefix_len(s: &str) -> usize {
         }
     }
     i
+}
+
+/// Parse `:[addr]r[ead] {file|!cmd}` — read a file or command output after line
+/// `addr` (`:0r` prepends, `:$r` appends). Returns `None` without a leading
+/// address (so the bare `:r file` handling applies) or when the word isn't read.
+fn parse_read(trimmed: &str) -> Option<ExCommand> {
+    let i = range_prefix_len(trimmed);
+    if i == 0 {
+        return None;
+    }
+    let after = &trimmed[i..];
+    // Match the command word (longest first) terminated by whitespace or end.
+    let rest = ["read", "re", "r"].iter().find_map(|w| {
+        after.strip_prefix(w).filter(|r| r.is_empty() || r.starts_with(char::is_whitespace))
+    })?;
+    let path = rest.trim();
+    if path.is_empty() {
+        return None;
+    }
+    // The last line of the (usually single-line) address is the insert point.
+    let addr = match parse_range(&trimmed[..i])? {
+        SubRange::CurrentLine => LineAddr::Current,
+        SubRange::WholeFile => LineAddr::Last,
+        SubRange::Range(_, b) => b,
+    };
+    Some(ExCommand::ReadFile { addr: Some(addr), path: path.to_string() })
 }
 
 /// Parse `:[range]w[rite][!] [file]` — write a range of lines to a file. Returns

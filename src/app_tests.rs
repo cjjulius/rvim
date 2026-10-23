@@ -173,6 +173,22 @@
     }
 
     #[test]
+    fn addressed_read_prepends_and_appends() {
+        let path = std::env::temp_dir().join(format!("rvim_rd_{}.txt", std::process::id()));
+        std::fs::write(&path, "X\nY\n").unwrap();
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("a\nb\nc");
+        app.run_ex(&format!("0r {}", path.display())); // prepend at the top
+        assert_eq!(app.editor.buffer.line(0), Some("X"));
+        assert_eq!(app.editor.buffer.line(1), Some("Y"));
+        assert_eq!(app.editor.buffer.line(2), Some("a"));
+        app.run_ex(&format!("$r {}", path.display())); // append at the end
+        let last = app.editor.buffer.line_count() - 1;
+        assert_eq!(app.editor.buffer.line(last), Some("Y"));
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
     fn write_filter_shows_output_without_changing_buffer() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("b\na\nc");
