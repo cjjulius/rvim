@@ -1709,10 +1709,30 @@ impl App {
                 invert,
                 command,
             } => {
-                if command.is_empty() {
-                    self.editor.message = "E471: Argument required".into();
+                let trimmed = command.trim();
+                if trimmed.is_empty()
+                    || matches!(trimmed, "p" | "print" | "#" | "nu" | "number" | "l" | "list")
+                {
+                    // `:g/re/p` (and bare `:g/re/`) — list matching lines in a scratch
+                    // buffer; `#` / `number` prefix line numbers.
+                    let numbered = matches!(trimmed, "#" | "nu" | "number");
+                    let rows = self.editor.global_rows(&pattern, invert);
+                    if rows.is_empty() {
+                        self.notify("pattern not found");
+                    } else {
+                        let mut body = String::from("matching lines — :bd to close\n\n");
+                        for row in rows {
+                            let line = self.editor.buffer.line(row).unwrap_or("");
+                            if numbered {
+                                body.push_str(&format!("  {:>5}  {}\n", row + 1, line));
+                            } else {
+                                body.push_str(&format!("  {line}\n"));
+                            }
+                        }
+                        self.open_scratch(&body, "matching —", "matching lines — :bd to close");
+                    }
                 } else if let command::ExCommand::Normal { keys, .. } =
-                    command::parse(command.trim())
+                    command::parse(trimmed)
                 {
                     // `:g/pat/normal {keys}` — run the keys on each matching line.
                     // Process bottom-to-top so earlier indices stay valid even if
@@ -2224,7 +2244,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:history [:|/|all] list command-line / search history\n\
          \t:s/pat/rep/[ginc]  substitute (g all, i ignore-case, n count, c confirm)\n\
          \t  rep: \\1-\\9 & groups; \\U \\L \\u \\l \\E case; pat: \\< \\> word bounds\n\
-         \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///, >, <, j, normal)\n\
+         \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///, >, <, j, p, normal)\n\
          \t:[range]norm {{keys}}  run Normal-mode keys (per line over a range)\n\
          \t:theme <name>      themes: {themes}\n\
          \t:set number|nonumber   :set relativenumber|nornu\n\

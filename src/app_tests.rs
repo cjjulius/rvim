@@ -150,6 +150,35 @@
     }
 
     #[test]
+    fn global_print_lists_matching_lines() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("foo 1\nbar\nfoo 2\nbaz");
+        app.run_ex("g/foo/p");
+        let joined: String = (0..app.editor.buffer.line_count())
+            .filter_map(|i| app.editor.buffer.line(i).map(str::to_string))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(joined.contains("foo 1"));
+        assert!(joined.contains("foo 2"));
+        assert!(!joined.contains("bar")); // non-matching line excluded
+        // Original buffer preserved in the background.
+        assert!(app.others.iter().any(|e| e.buffer.line(1) == Some("bar")));
+    }
+
+    #[test]
+    fn global_print_numbered_includes_line_number() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("a\nfoo\nb");
+        app.run_ex("g/foo/#");
+        let joined: String = (0..app.editor.buffer.line_count())
+            .filter_map(|i| app.editor.buffer.line(i).map(str::to_string))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(joined.contains("2")); // "foo" is on line 2
+        assert!(joined.contains("foo"));
+    }
+
+    #[test]
     fn global_shift_indents_matching_lines() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("foo\nbar\nfoo");
