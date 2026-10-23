@@ -62,6 +62,8 @@ All notable changes to rvim are recorded here. Versions follow
   yanks those lines into register `a` and `:d b` deletes the current line into `b`.
 
 ### Search
+- `:g/re/p` (and bare `:g/re/`, or `:g/re/#` for line numbers) lists the matching
+  lines in a scratch buffer — the regex companion to `[I`, e.g. `:g/TODO/p`.
 - `:g/re/j` (and `:g/re/j!`) joins each matching line with the line below — with
   or without a space — alongside the existing `d`, `s///`, `>`, `<`, and `normal`.
 - `:g/re/>` and `:g/re/<` (and `:v/…`) now indent or dedent every matching line,

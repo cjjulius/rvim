@@ -288,6 +288,7 @@ Run a command on every line matching a pattern:
 | `:g/re/s/a/b/g`     | run the substitution on matching lines only         |
 | `:g/re/>` (`:g/re/<`) | indent / dedent every matching line (`>>` shifts twice) |
 | `:g/re/j` (`:g/re/j!`) | join each matching line with the next (`j!` without a space) |
+| `:g/re/p` (`:g/re/#`) | list matching lines in a scratch buffer (`#` adds line numbers) |
 | `:g/re/normal A;`   | run Normal-mode keys on each matching line (`:normal`) |
 | `/re` then `:g//d`  | an empty pattern reuses the last search             |
 
@@ -732,7 +733,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **907 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **909 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
