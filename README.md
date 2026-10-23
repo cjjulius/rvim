@@ -264,6 +264,7 @@ insert/append on every row, `c` changes it, `$` extends to each line's own end
 |------|--------|
 | `/pat` `?pat` / `n` `N` | search forward / back; repeat same / reversed direction (wraps) |
 | `*` `#` / `g*` `g#` | the word under the cursor, whole word / substring (counted: `3*`) |
+| `[I` `]I` | list every line containing the word under the cursor (whole file / below) |
 | `gd` `gD` | jump to the identifier's definition (nearest earlier use / first in file) |
 | `gf` `gF` | open the file named under the cursor (`gF` at a trailing `:line`) |
 | `gx` | open the URL under the cursor in your browser |
@@ -728,7 +729,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **898 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **901 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

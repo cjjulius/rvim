@@ -23,6 +23,9 @@ pub enum Action {
     None,
     /// Execute this ex command (text after the leading `:`).
     RunEx(String),
+    /// Open a read-only scratch buffer showing `body`, with a `title` marker (for
+    /// listings produced from Normal mode, e.g. `[I`).
+    OpenScratch { title: String, body: String },
 }
 
 /// A yank/delete register.
@@ -4372,6 +4375,10 @@ impl Editor {
                 // `[z` / `]z` — move to the start / end of the current fold.
                 ('[', KeyCode::Char('z')) => self.fold_move_edge(false),
                 (']', KeyCode::Char('z')) => self.fold_move_edge(true),
+                // `[I` / `]I` — list every line containing the word under the
+                // cursor (whole file / from the next line on).
+                ('[', KeyCode::Char('I')) => return self.list_word_occurrences(true),
+                (']', KeyCode::Char('I')) => return self.list_word_occurrences(false),
                 _ => {}
             }
             return Action::None;
@@ -8284,6 +8291,50 @@ impl Editor {
     // ---- search ----------------------------------------------------------
 
     /// The word under (or next on the line after) the cursor.
+    /// `[I` / `]I` — list every line containing the whole word under the cursor,
+    /// with line numbers, in a scratch buffer. `whole_file` scans the entire
+    /// buffer; otherwise only lines after the cursor. Returns an [`Action`] for the
+    /// app to open the listing.
+    fn list_word_occurrences(&mut self, whole_file: bool) -> Action {
+        let Some(word) = self.word_under_cursor() else {
+            self.message = "E349: No identifier under cursor".into();
+            return Action::None;
+        };
+        let start = if whole_file { 0 } else { self.cursor.row + 1 };
+        let is_word = |c: char| c.is_alphanumeric() || c == '_';
+        let mut body = String::new();
+        let mut count = 0;
+        for row in start..self.buffer.line_count() {
+            let line = self.buffer.line(row).unwrap_or("");
+            // Whole-word match: the word's neighbors must not be word characters.
+            let mut found = false;
+            let mut from = 0;
+            while let Some(rel) = line[from..].find(&word) {
+                let at = from + rel;
+                let before = line[..at].chars().next_back();
+                let after = line[at + word.len()..].chars().next();
+                if !before.is_some_and(is_word) && !after.is_some_and(is_word) {
+                    found = true;
+                    break;
+                }
+                from = at + word.len();
+            }
+            if found {
+                count += 1;
+                body.push_str(&format!("  {:>5}  {}\n", row + 1, line.trim_end()));
+            }
+        }
+        if count == 0 {
+            self.message = format!("E389: Couldn't find pattern: {word}");
+            return Action::None;
+        }
+        self.message = format!("{count} line(s) with \"{word}\"");
+        Action::OpenScratch {
+            title: format!("[I] {word} —"),
+            body: format!("lines containing \"{word}\" — :bd to close\n\n{body}"),
+        }
+    }
+
     fn word_under_cursor(&self) -> Option<String> {
         let chars: Vec<char> = self.buffer.line(self.cursor.row).unwrap_or("").chars().collect();
         if chars.is_empty() {

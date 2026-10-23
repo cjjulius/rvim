@@ -1043,9 +1043,7 @@ impl App {
                         self.editor.message.clear();
                     }
                     let action = self.editor.handle_key(key);
-                    if let Action::RunEx(cmd) = action {
-                        self.run_ex(&cmd);
-                    }
+                    self.apply_editor_action(action);
                 }
                 Event::Mouse(m) => self.handle_mouse(m, &layout),
                 Event::Resize(_, _) => { /* redrawn next loop */ }
@@ -1232,6 +1230,17 @@ impl App {
                 }
             }
             _ => {}
+        }
+    }
+
+    /// Handle an [`Action`] returned by the editor's key handling.
+    fn apply_editor_action(&mut self, action: Action) {
+        match action {
+            Action::None => {}
+            Action::RunEx(cmd) => self.run_ex(&cmd),
+            Action::OpenScratch { title, body } => {
+                self.open_scratch(&body, &title, &title);
+            }
         }
     }
 
@@ -1967,9 +1976,8 @@ impl App {
     fn feed_normal_keys(&mut self, keys: &str) {
         for c in keys.chars() {
             let ev = crossterm::event::KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE);
-            if let Action::RunEx(cmd) = self.editor.handle_key(ev) {
-                self.run_ex(&cmd);
-            }
+            let action = self.editor.handle_key(ev);
+            self.apply_editor_action(action);
         }
         let esc = crossterm::event::KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
         self.editor.handle_key(esc);
@@ -2170,6 +2178,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t/pat  ?pat         search fwd / back (regex)  n / N  next / prev\n\
          \t  offsets: /pat/e (match end) /pat/s±N (start) /pat/±N (lines)\n\
          \t* / #  g* / g#     search word under cursor (whole / substring)\n\
+         \t[I / ]I            list lines with the word under cursor (all / below)\n\
          \tgd / gD            go to definition (nearest above / first in file)\n\
          \tgf / gF            open the file name under the cursor (gF: at :line)\n\
          \tgx                 open the web URL under the cursor in your browser\n\

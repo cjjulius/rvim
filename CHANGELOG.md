@@ -20,6 +20,9 @@ All notable changes to rvim are recorded here. Versions follow
   kept with a `W12` warning rather than clobbered. Default off.
 
 ### Navigation
+- `[I` / `]I` list every line containing the word under the cursor (whole file, or
+  from the next line on) with line numbers, in a scratch buffer — a quick "find
+  uses". Whole-word match only.
 - `gx` opens the web URL under the cursor with the system browser (http, https,
   ftp, and bare `www.` links, opened over https). The URL is extracted without its
   surrounding markdown/prose brackets and launched without a shell, so characters
