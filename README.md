@@ -543,6 +543,9 @@ then tokenized and color-coded:
 | Scala                 | `.scala`, `.sc`                     |
 | Dart                  | `.dart`                             |
 | R                     | `.r`                                |
+| Haskell               | `.hs`                               |
+| Zig                   | `.zig`                              |
+| Elixir                | `.ex`, `.exs`                       |
 | YAML                  | `.yaml`, `.yml`                     |
 
 A generic `.sql` file can be pinned to a dialect with a first-line hint such as
@@ -729,7 +732,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **901 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **905 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

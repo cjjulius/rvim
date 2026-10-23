@@ -76,6 +76,9 @@ pub enum Language {
     Scala,
     Dart,
     R,
+    Haskell,
+    Zig,
+    Elixir,
 }
 
 /// One language's metadata, driving `name`, `from_name`, `line_comment_token`,
@@ -122,6 +125,9 @@ const LANG_TABLE: &[LangInfo] = &[
     LangInfo { lang: Language::Scala, name: "scala", aliases: &["sc"], extensions: &["scala", "sc"], comment: Some("//") },
     LangInfo { lang: Language::Dart, name: "dart", aliases: &[], extensions: &["dart"], comment: Some("//") },
     LangInfo { lang: Language::R, name: "r", aliases: &["rlang"], extensions: &["r"], comment: Some("#") },
+    LangInfo { lang: Language::Haskell, name: "haskell", aliases: &["hs"], extensions: &["hs"], comment: Some("--") },
+    LangInfo { lang: Language::Zig, name: "zig", aliases: &[], extensions: &["zig"], comment: Some("//") },
+    LangInfo { lang: Language::Elixir, name: "elixir", aliases: &["ex", "exs"], extensions: &["ex", "exs"], comment: Some("#") },
 ];
 
 impl Language {
@@ -151,7 +157,13 @@ impl Language {
 pub fn prefers_indent_folds(lang: Language) -> bool {
     matches!(
         lang,
-        Language::Python | Language::Yaml | Language::Ruby | Language::Lua | Language::Shell
+        Language::Python
+            | Language::Yaml
+            | Language::Ruby
+            | Language::Lua
+            | Language::Shell
+            | Language::Haskell
+            | Language::Elixir
     )
 }
 
@@ -845,7 +857,8 @@ mod tests {
             Language::Go, Language::Shell, Language::C, Language::Java, Language::Yaml,
             Language::TypeScript, Language::Kotlin, Language::Ruby, Language::Lua,
             Language::CSharp, Language::Swift, Language::Php, Language::Scala,
-            Language::Dart, Language::R,
+            Language::Dart, Language::R, Language::Haskell, Language::Zig,
+            Language::Elixir,
         ];
         for lang in all {
             match lang {
@@ -855,7 +868,8 @@ mod tests {
                 | Language::Go | Language::Shell | Language::C | Language::Java
                 | Language::Yaml | Language::TypeScript | Language::Kotlin | Language::Ruby
                 | Language::Lua | Language::CSharp | Language::Swift | Language::Php
-                | Language::Scala | Language::Dart | Language::R => {}
+                | Language::Scala | Language::Dart | Language::R | Language::Haskell
+                | Language::Zig | Language::Elixir => {}
             }
             assert!(
                 LANG_TABLE.iter().any(|e| e.lang == lang),
