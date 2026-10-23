@@ -4958,6 +4958,48 @@
     }
 
     #[test]
+    fn bracket_i_lists_whole_word_occurrences() {
+        let mut ed = ed_with("foo bar\nbaz\nuse foo here\nfood\nfoo");
+        ed.cursor = Position::new(0, 0); // on "foo"
+        ed.handle_key(key('['));
+        let act = ed.handle_key(special(KeyCode::Char('I')));
+        match act {
+            Action::OpenScratch { body, .. } => {
+                assert!(body.contains("foo bar"));
+                assert!(body.contains("use foo here"));
+                // "food" is not a whole-word match and must be excluded.
+                assert!(!body.lines().any(|l| l.contains("food")));
+            }
+            other => panic!("expected OpenScratch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn bracket_i_below_excludes_current_line() {
+        let mut ed = ed_with("foo\nfoo\nbar");
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key(']'));
+        let act = ed.handle_key(special(KeyCode::Char('I')));
+        match act {
+            Action::OpenScratch { body, .. } => {
+                // Only the "foo" on row 2 (below the cursor) is listed → one entry.
+                let count = body.lines().filter(|l| l.trim_start().starts_with(|c: char| c.is_ascii_digit())).count();
+                assert_eq!(count, 1);
+            }
+            other => panic!("expected OpenScratch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn bracket_i_no_identifier_reports() {
+        let mut ed = ed_with("   \nx");
+        ed.cursor = Position::new(0, 0); // blank line
+        ed.handle_key(key('['));
+        let act = ed.handle_key(special(KeyCode::Char('I')));
+        assert!(matches!(act, Action::None));
+    }
+
+    #[test]
     fn mark_range_addresses_resolve() {
         let mut ed = ed_with("a\nb\nc\nd");
         ed.marks.insert('<', Position::new(1, 0));
