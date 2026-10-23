@@ -50,6 +50,9 @@ All notable changes to rvim are recorded here. Versions follow
   and split status lines).
 
 ### Ex commands
+- `:[range]w !cmd` pipes the lines (or the whole buffer) to a shell command's
+  input and shows its output, without modifying the buffer — e.g. `:%w !wc`,
+  `:'<,'>w !python`. Multi-line output opens in a scratch buffer.
 - `:[range]d` and `:[range]y` take an optional register argument, so `:1,5y a`
   yanks those lines into register `a` and `:d b` deletes the current line into `b`.
 

@@ -69,6 +69,9 @@ pub enum ExCommand {
     Write { path: Option<String>, force: bool },
     /// `:[range]w[rite][!] file` — write a line range to a file.
     WriteRange { range: SubRange, file: Option<String> },
+    /// `:[range]w !cmd` — pipe the lines to a shell command's stdin and show its
+    /// output, without modifying the buffer (`range: None` means the whole file).
+    WriteFilter { range: Option<SubRange>, cmd: String },
     /// `:q` / `:q!`
     Quit { force: bool },
     /// `:wq [file]` / `:x` (and `:wq!` / `:x!`, which force past `:set readonly`)
@@ -383,7 +386,14 @@ pub fn parse(input: &str) -> ExCommand {
     match word {
         "cd" | "chdir" | "cd!" | "chdir!" => ExCommand::ChangeDir(arg),
         "pwd" => ExCommand::Pwd,
-        "w" | "write" => ExCommand::Write { path: arg, force: false },
+        "w" | "write" => match arg.as_deref().map(str::trim) {
+            // `:w !cmd` — pipe the whole buffer to a command, don't write a file.
+            Some(a) if a.starts_with('!') => ExCommand::WriteFilter {
+                range: None,
+                cmd: a[1..].trim().to_string(),
+            },
+            _ => ExCommand::Write { path: arg, force: false },
+        },
         "w!" | "write!" => ExCommand::Write { path: arg, force: true },
         "q" | "quit" => ExCommand::Quit { force: false },
         "q!" | "quit!" => ExCommand::Quit { force: true },
@@ -637,9 +647,16 @@ fn parse_write_range(trimmed: &str) -> Option<ExCommand> {
     } else {
         return None;
     };
-    let rest = rest.strip_prefix('!').unwrap_or(rest);
-    let file = rest.trim();
+    let after_bang = rest.strip_prefix('!').unwrap_or(rest);
+    let file = after_bang.trim();
     let range = parse_range(&trimmed[..i])?;
+    // `:[range]w !cmd` pipes the lines to a command instead of writing a file.
+    if let Some(cmd) = file.strip_prefix('!') {
+        return Some(ExCommand::WriteFilter {
+            range: Some(range),
+            cmd: cmd.trim().to_string(),
+        });
+    }
     Some(ExCommand::WriteRange {
         range,
         file: (!file.is_empty()).then(|| file.to_string()),
