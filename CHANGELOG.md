@@ -138,6 +138,12 @@ All notable changes to rvim are recorded here. Versions follow
   unchanged.
 
 ### Syntax
+- Haskell highlighting (`.hs`): keywords, core types/classes, Prelude builtins,
+  strings, and `--` / `{- -}` comments (folds by indentation).
+- Zig highlighting (`.zig`): keywords, primitive types, `@builtin` calls, strings,
+  and `//` comments.
+- Elixir highlighting (`.ex`, `.exs`): keywords, core modules, builtins, strings
+  (incl. `"""` heredocs), `@attributes`, and `#` comments (folds by indentation).
 - Scala highlighting (`.scala`, `.sc`): keywords, core types, common builtins,
   strings (including `"""` multi-line strings), and `//` / `/* */` comments.
 - Dart highlighting (`.dart`): keywords, core types, common builtins, strings

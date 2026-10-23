@@ -57,6 +57,9 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(scala_spec())),
         Box::new(SpecHighlighter::new(dart_spec())),
         Box::new(SpecHighlighter::new(r_spec())),
+        Box::new(SpecHighlighter::new(haskell_spec())),
+        Box::new(SpecHighlighter::new(zig_spec())),
+        Box::new(SpecHighlighter::new(elixir_spec())),
     ]
 }
 
@@ -1034,6 +1037,113 @@ const R_BUILTINS: &[&str] = &[
     "apply", "mapply", "which", "head", "tail", "str", "summary", "plot", "read.csv", "rnorm",
 ];
 
+// ---- Haskell -------------------------------------------------------------
+
+fn haskell_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Haskell,
+        multiline_strings: &[],
+        preprocessor: None,
+        line_comments: &["--"],
+        block_comment: Some(("{-", "-}")),
+        keywords: HASKELL_KEYWORDS,
+        types: HASKELL_TYPES,
+        builtins: HASKELL_BUILTINS,
+        string_delims: &['"'],
+        case_insensitive: false,
+        var_sigils: &[],
+        detect_calls: true,
+    }
+}
+
+const HASKELL_KEYWORDS: &[&str] = &[
+    "module", "where", "import", "qualified", "as", "hiding", "let", "in", "do", "case", "of",
+    "if", "then", "else", "class", "instance", "data", "newtype", "type", "deriving", "default",
+    "infix", "infixl", "infixr", "foreign", "family", "mdo", "proc", "rec",
+];
+const HASKELL_TYPES: &[&str] = &[
+    "Int", "Integer", "Float", "Double", "Rational", "Bool", "Char", "String", "Maybe", "Either",
+    "Ordering", "IO", "Word", "Ord", "Eq", "Show", "Read", "Num", "Functor", "Monad", "Applicative",
+    "Foldable", "Traversable",
+];
+const HASKELL_BUILTINS: &[&str] = &[
+    "map", "filter", "foldr", "foldl", "zip", "zipWith", "fmap", "return", "pure", "putStrLn",
+    "print", "show", "read", "head", "tail", "length", "reverse", "concat", "elem", "maybe",
+    "either", "const", "id", "flip", "curry", "uncurry", "error", "undefined", "Just", "Nothing",
+    "True", "False",
+];
+
+// ---- Zig -----------------------------------------------------------------
+
+fn zig_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Zig,
+        multiline_strings: &[],
+        preprocessor: None,
+        line_comments: &["//"],
+        block_comment: None,
+        keywords: ZIG_KEYWORDS,
+        types: ZIG_TYPES,
+        builtins: ZIG_BUILTINS,
+        string_delims: &['"', '\''],
+        case_insensitive: false,
+        // `@import`, `@sizeOf`, … are builtin calls; highlight the `@name` token.
+        var_sigils: &['@'],
+        detect_calls: true,
+    }
+}
+
+const ZIG_KEYWORDS: &[&str] = &[
+    "const", "var", "fn", "pub", "return", "if", "else", "while", "for", "switch", "break",
+    "continue", "defer", "errdefer", "try", "catch", "orelse", "unreachable", "struct", "enum",
+    "union", "error", "comptime", "inline", "export", "extern", "async", "await", "suspend",
+    "resume", "test", "and", "or", "usingnamespace", "threadlocal", "packed", "align", "null",
+    "undefined", "true", "false",
+];
+const ZIG_TYPES: &[&str] = &[
+    "i8", "i16", "i32", "i64", "i128", "isize", "u8", "u16", "u32", "u64", "u128", "usize",
+    "f16", "f32", "f64", "f128", "bool", "void", "type", "anytype", "anyerror", "noreturn",
+    "c_int", "c_uint", "comptime_int", "comptime_float",
+];
+const ZIG_BUILTINS: &[&str] = &[
+    "std", "allocator", "print", "assert", "expect", "alloc", "free", "init", "deinit",
+];
+
+// ---- Elixir --------------------------------------------------------------
+
+fn elixir_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Elixir,
+        // Elixir heredocs (`"""` / `'''`).
+        multiline_strings: &["\"\"\"", "'''"],
+        preprocessor: None,
+        line_comments: &["#"],
+        block_comment: None,
+        keywords: ELIXIR_KEYWORDS,
+        types: ELIXIR_TYPES,
+        builtins: ELIXIR_BUILTINS,
+        string_delims: &['"', '\''],
+        case_insensitive: false,
+        var_sigils: &['@'],
+        detect_calls: true,
+    }
+}
+
+const ELIXIR_KEYWORDS: &[&str] = &[
+    "def", "defp", "defmodule", "defmacro", "defmacrop", "defstruct", "defprotocol", "defimpl",
+    "defguard", "do", "end", "fn", "if", "unless", "else", "case", "cond", "when", "with", "for",
+    "receive", "try", "rescue", "catch", "after", "raise", "throw", "import", "alias", "require",
+    "use", "quote", "unquote", "and", "or", "not", "in", "nil", "true", "false",
+];
+const ELIXIR_TYPES: &[&str] = &[
+    "Enum", "Map", "List", "String", "Integer", "Float", "Atom", "Tuple", "Keyword", "Range",
+    "Stream", "Process", "Agent", "GenServer", "Supervisor", "Task", "Kernel", "IO", "File",
+];
+const ELIXIR_BUILTINS: &[&str] = &[
+    "map", "reduce", "filter", "each", "put", "get", "to_string", "inspect", "is_nil", "is_atom",
+    "is_list", "is_map", "is_binary", "length", "hd", "tl", "elem", "spawn", "send", "self",
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1194,6 +1304,41 @@ mod tests {
         assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // print/c
         assert!(toks.iter().any(|t| t.kind == TokenKind::Number)); // 1, 2
         assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // # ...
+    }
+
+    #[test]
+    fn haskell_highlights_keyword_type_comment() {
+        let h = SpecHighlighter::new(haskell_spec());
+        let toks = h.highlight_line("main :: IO () -- entry\nmain = putStrLn \"hi\"");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // IO
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // -- entry
+    }
+
+    #[test]
+    fn haskell_highlights_keyword_and_string() {
+        let h = SpecHighlighter::new(haskell_spec());
+        let toks = h.highlight_line("let x = map show [1,2] in \"done\"");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // let/in
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // map/show
+        assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "done"
+    }
+
+    #[test]
+    fn zig_highlights_keyword_type_string_comment() {
+        let h = SpecHighlighter::new(zig_spec());
+        let toks = h.highlight_line("const x: u32 = 1; // c  pub fn f() void {}");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // const/pub/fn
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // u32/void
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // // c
+    }
+
+    #[test]
+    fn elixir_highlights_keyword_builtin_string_comment() {
+        let h = SpecHighlighter::new(elixir_spec());
+        let toks = h.highlight_line("def run do Enum.map(xs) end # note");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // def/do/end
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // Enum
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // # note
     }
 
     #[test]
