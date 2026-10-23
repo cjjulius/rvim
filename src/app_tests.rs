@@ -173,6 +173,19 @@
     }
 
     #[test]
+    fn write_filter_shows_output_without_changing_buffer() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("b\na\nc");
+        app.run_ex("%w !sort");
+        // Multi-line output opens in a scratch buffer, sorted.
+        assert_eq!(app.editor.buffer.line(0), Some("a"));
+        assert_eq!(app.editor.buffer.line(1), Some("b"));
+        assert_eq!(app.editor.buffer.line(2), Some("c"));
+        // The original buffer is preserved unchanged in the background.
+        assert!(app.others.iter().any(|e| e.buffer.line(0) == Some("b")));
+    }
+
+    #[test]
     fn ex_yank_to_register_then_put() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("alpha\nbeta\ngamma");

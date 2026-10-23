@@ -1311,6 +1311,28 @@ impl App {
                 }
             }
             ExCommand::WriteRange { range, file } => self.write_range(range, file),
+            ExCommand::WriteFilter { range, cmd } => {
+                if cmd.is_empty() {
+                    self.notify("E471: Argument required");
+                } else if let Some(out) = self.editor.pipe_to_command(range, &cmd) {
+                    // Normalize line endings and drop the trailing blank line.
+                    let mut lines: Vec<&str> =
+                        out.split('\n').map(|l| l.trim_end_matches('\r')).collect();
+                    while lines.last() == Some(&"") {
+                        lines.pop();
+                    }
+                    let text = lines.join("\n");
+                    if text.is_empty() {
+                        self.editor.message = format!("ran: !{cmd}");
+                    } else if lines.len() > 1 {
+                        self.open_scratch(&text, "!output —", &format!("!{cmd} — :bd to close"));
+                    } else {
+                        self.editor.message = text;
+                    }
+                } else {
+                    self.editor.message = format!("E485: Can't run: {cmd}");
+                }
+            }
             ExCommand::Edit { path, line } => self.edit_file(&path, line),
             ExCommand::Reload { force } => self.reload_file(force),
             ExCommand::ReadFile(path) => {
@@ -2204,6 +2226,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set / :set all        list modified / all options\n\
          \t:retab [N]             normalise tabs/spaces to tabstop (set to N)\n\
          \t!{{motion}} / :range!cmd  filter lines through a shell command\n\
+         \t:[range]w !cmd      pipe lines to a command, show its output (no change)\n\
          \t:set ignorecase|noic   :set smartcase|noscs   (search case)\n\
          \t:set gdefault|nogd     :s substitutes all matches on a line by default\n\
          \t:set incsearch|nois    preview match while typing /?\n\

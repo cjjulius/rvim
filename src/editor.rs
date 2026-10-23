@@ -7747,6 +7747,23 @@ impl Editor {
         self.begin_ex(format!("{},{}!", a + 1, b + 1));
     }
 
+    /// `:[range]w !cmd` — pipe the lines (the range, or the whole buffer when
+    /// `range` is `None`) to the shell command's stdin and return its captured
+    /// output. The buffer is not modified. Returns `None` if the command fails.
+    pub fn pipe_to_command(&mut self, range: Option<SubRange>, cmd: &str) -> Option<String> {
+        let (a, b) = match range {
+            Some(r) => self.resolve_range(r),
+            None => (0, self.buffer.line_count().saturating_sub(1)),
+        };
+        let eol = if cfg!(windows) { "\r\n" } else { "\n" };
+        let mut input = String::new();
+        for row in a..=b {
+            input.push_str(self.buffer.line(row).unwrap_or(""));
+            input.push_str(eol);
+        }
+        Self::run_shell_filter(cmd.trim(), &input)
+    }
+
     /// `:[range]!cmd` — replace the range's lines with the output of piping them
     /// through the shell command `cmd`. With `range: None` (bare `:!cmd`) the
     /// command is just run and the first line of its output shown.

@@ -117,6 +117,23 @@
     }
 
     #[test]
+    fn write_filter_parses() {
+        assert_eq!(
+            parse("w !wc"),
+            ExCommand::WriteFilter { range: None, cmd: "wc".into() }
+        );
+        assert_eq!(
+            parse("%w !sort"),
+            ExCommand::WriteFilter { range: Some(SubRange::WholeFile), cmd: "sort".into() }
+        );
+        // A real filename still writes to a file.
+        assert_eq!(
+            parse("w out.txt"),
+            ExCommand::Write { path: Some("out.txt".into()), force: false }
+        );
+    }
+
+    #[test]
     fn line_op_register_argument() {
         assert_eq!(
             parse("d a"),
