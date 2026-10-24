@@ -63,6 +63,7 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(perl_spec())),
         Box::new(SpecHighlighter::new(ocaml_spec())),
         Box::new(SpecHighlighter::new(julia_spec())),
+        Box::new(SpecHighlighter::new(powershell_spec())),
     ]
 }
 
@@ -1252,6 +1253,52 @@ const JULIA_BUILTINS: &[&str] = &[
     "throw",
 ];
 
+// ---- PowerShell ----------------------------------------------------------
+
+fn powershell_spec() -> LangSpec {
+    LangSpec {
+        language: Language::PowerShell,
+        multiline_strings: &[],
+        preprocessor: None,
+        line_comments: &["#"],
+        // Block comments are `<# … #>`; checked before the `#` line comment.
+        block_comment: Some(("<#", "#>")),
+        keywords: POWERSHELL_KEYWORDS,
+        types: POWERSHELL_TYPES,
+        builtins: POWERSHELL_BUILTINS,
+        // Both quoting styles; `'…'` is literal, `"…"` is expandable.
+        string_delims: &['"', '\''],
+        // PowerShell keywords, operators and cmdlets are case-insensitive.
+        case_insensitive: true,
+        var_sigils: &['$'], // $x, $_, $true, $env:PATH
+        detect_calls: true,
+    }
+}
+
+const POWERSHELL_KEYWORDS: &[&str] = &[
+    // Language keywords.
+    "begin", "break", "catch", "class", "continue", "data", "define", "do", "dynamicparam", "else",
+    "elseif", "end", "enum", "exit", "filter", "finally", "for", "foreach", "from", "function",
+    "hidden", "if", "in", "inlinescript", "parallel", "param", "process", "return", "sequence",
+    "static", "switch", "throw", "trap", "try", "until", "using", "while", "workflow",
+    // Word operators. The leading `-` tokenizes separately; the bare word matches.
+    "eq", "ne", "gt", "ge", "lt", "le", "like", "notlike", "match", "notmatch", "contains",
+    "notcontains", "notin", "is", "isnot", "and", "or", "xor", "not", "band", "bor", "bxor", "bnot",
+    "shl", "shr", "replace", "split", "join", "ceq", "cne", "clike", "cmatch", "ieq", "ine",
+];
+const POWERSHELL_TYPES: &[&str] = &[
+    "int", "long", "string", "char", "bool", "byte", "sbyte", "short", "ushort", "uint", "ulong",
+    "double", "decimal", "single", "float", "array", "hashtable", "object", "void", "psobject",
+    "pscustomobject", "datetime", "timespan", "guid", "version", "uri", "xml", "regex",
+    "scriptblock", "type", "pscredential", "ipaddress", "ordered", "nullable", "bigint",
+];
+const POWERSHELL_BUILTINS: &[&str] = &[
+    // Common terse cmdlet aliases (full Verb-Noun names tokenize across `-`).
+    "echo", "write", "cat", "ls", "dir", "gci", "cd", "pwd", "cls", "gc", "sc", "gm", "gcm", "gal",
+    "iwr", "irm", "cp", "cpi", "mv", "mi", "rm", "ri", "ni", "del", "type", "sort", "select",
+    "where", "measure", "group", "tee", "ft", "fl", "pushd", "popd",
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1476,6 +1523,37 @@ mod tests {
         assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // Int
         assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // println
         assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // # c
+    }
+
+    #[test]
+    fn powershell_highlights_keyword_type_var_string_comment() {
+        let h = SpecHighlighter::new(powershell_spec());
+        let toks =
+            h.highlight_line("function f { param([int]$n) $s = \"hi\"; echo $s } # c");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // function/param
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // int
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Variable)); // $n / $s
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // echo
+        assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "hi"
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // # c
+    }
+
+    #[test]
+    fn powershell_is_case_insensitive_and_block_comment_spans_lines() {
+        let h = SpecHighlighter::new(powershell_spec());
+        // Keywords match regardless of case.
+        let toks = h.highlight_line("FOREACH ($x IN $xs) { }");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // FOREACH/IN
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Variable)); // $x / $xs
+        // `<# … #>` opens a block that runs until `#>`, across lines.
+        let (t0, s0) = h.highlight_line_stateful("x <# open", LineState::Normal);
+        assert_eq!(s0, LineState::Block);
+        assert!(t0.iter().any(|t| t.kind == TokenKind::Comment));
+        let (_t1, s1) = h.highlight_line_stateful("still comment #> y", s0);
+        assert_eq!(s1, LineState::Normal); // closed here
+        // A bare `#` is a line comment, not swallowed as a block.
+        let (_t2, s2) = h.highlight_line_stateful("$z = 3 # note", LineState::Normal);
+        assert_eq!(s2, LineState::Normal);
     }
 
     #[test]
