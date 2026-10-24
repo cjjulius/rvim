@@ -5780,6 +5780,22 @@
     }
 
     #[test]
+    fn foldlevel_set_and_zr_zm_wiring() {
+        let mut ed = ed_with_two_folds(); // two level-1 folds, currently open
+        ed.set_foldlevel(0); // close all
+        assert_eq!(ed.foldlevel, 0);
+        assert!(ed.folds().all().iter().all(|f| !f.open));
+        ed.handle_key(key('z'));
+        ed.handle_key(key('r')); // zr -> open one level
+        assert_eq!(ed.foldlevel, 1);
+        assert!(ed.folds().all().iter().all(|f| f.open));
+        ed.handle_key(key('z'));
+        ed.handle_key(key('m')); // zm -> close one level
+        assert_eq!(ed.foldlevel, 0);
+        assert!(ed.folds().all().iter().all(|f| !f.open));
+    }
+
+    #[test]
     fn zj_moves_to_next_fold_start() {
         let mut ed = ed_with_two_folds();
         ed.cursor.row = 0;

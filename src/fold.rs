@@ -244,6 +244,20 @@ impl Folds {
         }
     }
 
+    /// The deepest fold nesting on screen (0 when there are no folds).
+    pub fn max_level(&self) -> usize {
+        self.items.iter().map(|f| self.level(f.start)).max().unwrap_or(0)
+    }
+
+    /// `:set foldlevel=N` / `zr` / `zm` — open folds up to nesting `level` and
+    /// close the deeper ones (level 0 closes all, a high level opens all).
+    pub fn apply_foldlevel(&mut self, level: usize) {
+        let levels: Vec<usize> = self.items.iter().map(|f| self.level(f.start)).collect();
+        for (f, l) in self.items.iter_mut().zip(levels) {
+            f.open = l <= level;
+        }
+    }
+
     /// The start line of the next fold that begins below `line` (`zj`).
     pub fn next_fold_start(&self, line: usize) -> Option<usize> {
         self.items
@@ -285,6 +299,26 @@ impl Folds {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn foldlevel_opens_up_to_nesting() {
+        let mut f = Folds::default();
+        f.create(0, 10); // outer, level 1
+        f.create(2, 5); // inner, level 2
+        assert_eq!(f.max_level(), 2);
+
+        f.apply_foldlevel(0); // close everything
+        assert!(f.is_hidden(1));
+        assert!(f.is_hidden(5));
+
+        f.apply_foldlevel(1); // outer open, inner closed
+        assert!(!f.is_hidden(1)); // outer body visible
+        assert!(f.is_hidden(3)); // inner body hidden
+        assert!(!f.is_hidden(7));
+
+        f.apply_foldlevel(2); // all open
+        assert!(!f.is_hidden(3));
+    }
 
     #[test]
     fn create_requires_two_lines_and_rejects_duplicates() {

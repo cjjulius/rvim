@@ -660,6 +660,9 @@ pub struct Editor {
     pub foldmethod: FoldMethod,
     /// `:set foldcolumn` — width of the fold-indicator column (0 = off).
     pub foldcolumn: usize,
+    /// `:set foldlevel` — folds nested deeper than this are closed (`zr`/`zm`
+    /// raise/lower it). Tracked so `zr`/`zm` step relative to the current level.
+    pub foldlevel: usize,
     /// `:set splitbelow` — a new horizontal split opens below the current window
     /// (default off: above). `:set splitright` — vertical split opens to the right.
     pub splitbelow: bool,
@@ -835,6 +838,7 @@ impl Editor {
             foldenable: true,
             foldmethod: FoldMethod::Manual,
             foldcolumn: 0,
+            foldlevel: 0,
             splitbelow: false,
             splitright: false,
             fold_rev: u64::MAX,
@@ -942,12 +946,35 @@ impl Editor {
     /// `zR` — open every fold.
     fn fold_open_all(&mut self) {
         self.folds.open_all();
+        self.foldlevel = self.folds.max_level();
         self.scroll_into_view();
     }
 
     /// `zM` — close every fold.
     fn fold_close_all(&mut self) {
         self.folds.close_all();
+        self.foldlevel = 0;
+        self.scroll_into_view();
+    }
+
+    /// `zr` — open one more fold level (reduce folding).
+    fn fold_reduce(&mut self) {
+        self.foldlevel = (self.foldlevel + 1).min(self.folds.max_level());
+        self.folds.apply_foldlevel(self.foldlevel);
+        self.scroll_into_view();
+    }
+
+    /// `zm` — close one more fold level (more folding).
+    fn fold_more(&mut self) {
+        self.foldlevel = self.foldlevel.saturating_sub(1);
+        self.folds.apply_foldlevel(self.foldlevel);
+        self.scroll_into_view();
+    }
+
+    /// `:set foldlevel=N` — open folds up to nesting N, close deeper ones.
+    pub fn set_foldlevel(&mut self, level: usize) {
+        self.foldlevel = level;
+        self.folds.apply_foldlevel(level);
         self.scroll_into_view();
     }
 
@@ -1647,6 +1674,7 @@ impl Editor {
             "filetype" | "ft" | "syntax" => format!("filetype={}", self.language.name()),
             "fileformat" | "ff" => format!("fileformat={}", self.buffer.fileformat().name()),
             "foldcolumn" | "fdc" => format!("foldcolumn={}", self.foldcolumn),
+            "foldlevel" | "fdl" => format!("foldlevel={}", self.foldlevel),
             "splitbelow" | "sb" => flag(self.splitbelow, "splitbelow"),
             "splitright" | "spr" => flag(self.splitright, "splitright"),
             "foldmethod" | "fdm" => format!(
@@ -1803,7 +1831,7 @@ impl Editor {
         "showcmd", "ruler", "expandtab", "list", "wrapscan", "cursorline",
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
-        "matchpairs", "filetype", "fileformat", "foldmethod", "foldcolumn", "language",
+        "matchpairs", "filetype", "fileformat", "foldmethod", "foldcolumn", "foldlevel", "language",
         "splitbelow", "splitright", "modeline", "modelines", "equalprg", "gdefault",
         "nrformats", "formatprg",
     ];
@@ -5215,6 +5243,8 @@ impl Editor {
                 KeyCode::Char('A') => self.fold_toggle_recursive(),
                 KeyCode::Char('R') => self.fold_open_all(),
                 KeyCode::Char('M') => self.fold_close_all(),
+                KeyCode::Char('r') => self.fold_reduce(),
+                KeyCode::Char('m') => self.fold_more(),
                 KeyCode::Char('d') => self.fold_delete(),
                 KeyCode::Char('E') => self.fold_eliminate(),
                 KeyCode::Char('i') => self.fold_toggle_enable(),

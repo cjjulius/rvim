@@ -287,6 +287,12 @@
     }
 
     #[test]
+    fn set_foldlevel() {
+        assert_eq!(parse("set foldlevel=2"), ExCommand::SetFoldLevel(2));
+        assert_eq!(parse("set fdl=0"), ExCommand::SetFoldLevel(0));
+    }
+
+    #[test]
     fn set_formatprg() {
         assert_eq!(parse("set formatprg=fmt"), ExCommand::SetFormatprg("fmt".into()));
         assert_eq!(parse("set fp=par"), ExCommand::SetFormatprg("par".into()));

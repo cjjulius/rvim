@@ -61,6 +61,10 @@ All notable changes to rvim are recorded here. Versions follow
 - `:[range]d` and `:[range]y` take an optional register argument, so `:1,5y a`
   yanks those lines into register `a` and `:d b` deletes the current line into `b`.
 
+### Folding
+- `zr` / `zm` open / close one fold nesting level at a time, and `:set foldlevel=N`
+  opens folds up to level N and closes the deeper ones — companions to `zR`/`zM`.
+
 ### Editing
 - `:set formatprg=<cmd>` routes `gq`/`gw` reflow through an external formatter
   (e.g. `fmt`, `par`) instead of the built-in wrap — the `gq` parallel to `equalprg`.
