@@ -2275,7 +2275,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set wrapscan|nows     search wraps around the file (default on)\n\
          \t:set ft=<lang>     {langs}\n\
          \t:set mouse|nomouse toggle mouse support\n\
-         \t:[range]sort[!] [uni] sort (! rev, u uniq, n numeric, i ic, /pat/[r])\n\
+         \t:[range]sort[!] [flags] sort (! rev, u uniq, n/f/x num/float/hex, i ic, /pat/[r])\n\
          \t:[range]m {{addr}}   move lines    :[range]t/co {{addr}}  copy lines\n\
          \t:[range]d / y [x]   delete / yank lines (into register x)   :[range]> / <  shift\n\
          \t:[range]j[!]        join lines (! keeps whitespace)\n\

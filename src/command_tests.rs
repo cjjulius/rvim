@@ -634,13 +634,16 @@
             pattern: None,
             use_match: false,
         };
-        assert_eq!(parse("sort"), base(false, false, false, false));
-        assert_eq!(parse("sort!"), base(true, false, false, false));
-        assert_eq!(parse("sort u"), base(false, true, false, false));
-        assert_eq!(parse("sort! u"), base(true, true, false, false));
-        assert_eq!(parse("sort n"), base(false, false, true, false));
-        assert_eq!(parse("sort i"), base(false, false, false, true));
-        assert_eq!(parse("sort! un"), base(true, true, true, false));
+        use crate::command::SortNumeric::{Float, Hex, Int, None as NoNum};
+        assert_eq!(parse("sort"), base(false, false, NoNum, false));
+        assert_eq!(parse("sort!"), base(true, false, NoNum, false));
+        assert_eq!(parse("sort u"), base(false, true, NoNum, false));
+        assert_eq!(parse("sort! u"), base(true, true, NoNum, false));
+        assert_eq!(parse("sort n"), base(false, false, Int, false));
+        assert_eq!(parse("sort f"), base(false, false, Float, false));
+        assert_eq!(parse("sort x"), base(false, false, Hex, false));
+        assert_eq!(parse("sort i"), base(false, false, NoNum, true));
+        assert_eq!(parse("sort! un"), base(true, true, Int, false));
         // A leading range is carried through, and `source` must not match.
         assert_eq!(
             parse("1,3sort"),
@@ -648,7 +651,7 @@
                 range: SubRange::Range(LineAddr::Num(1), LineAddr::Num(3)),
                 reverse: false,
                 unique: false,
-                numeric: false,
+                numeric: NoNum,
                 ignorecase: false,
                 pattern: None,
                 use_match: false,
@@ -663,7 +666,7 @@
                 range: SubRange::WholeFile,
                 reverse: false,
                 unique: false,
-                numeric: false,
+                numeric: NoNum,
                 ignorecase: false,
                 pattern: Some("\\d\\+".into()),
                 use_match: false,
@@ -675,7 +678,7 @@
                 range: SubRange::WholeFile,
                 reverse: false,
                 unique: false,
-                numeric: false,
+                numeric: NoNum,
                 ignorecase: false,
                 pattern: Some("x".into()),
                 use_match: true,

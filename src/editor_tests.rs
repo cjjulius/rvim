@@ -1,4 +1,5 @@
     use super::*;
+    use crate::command::SortNumeric;
     use crossterm::event::KeyEvent;
 
     fn key(c: char) -> KeyEvent {
@@ -2830,11 +2831,11 @@
     #[test]
     fn sort_buffer_ascending_and_reverse() {
         let mut ed = ed_with("banana\napple\ncherry");
-        ed.sort_lines(SubRange::WholeFile, false, false, false, false, None, false);
+        ed.sort_lines(SubRange::WholeFile, false, false, SortNumeric::None, false, None, false);
         assert_eq!(ed.buffer.line(0), Some("apple"));
         assert_eq!(ed.buffer.line(1), Some("banana"));
         assert_eq!(ed.buffer.line(2), Some("cherry"));
-        ed.sort_lines(SubRange::WholeFile, true, false, false, false, None, false);
+        ed.sort_lines(SubRange::WholeFile, true, false, SortNumeric::None, false, None, false);
         assert_eq!(ed.buffer.line(0), Some("cherry"));
         assert_eq!(ed.buffer.line(2), Some("apple"));
     }
@@ -2842,7 +2843,7 @@
     #[test]
     fn sort_buffer_unique_removes_duplicates() {
         let mut ed = ed_with("b\na\nb\nc\na");
-        ed.sort_lines(SubRange::WholeFile, false, true, false, false, None, false);
+        ed.sort_lines(SubRange::WholeFile, false, true, SortNumeric::None, false, None, false);
         assert_eq!(ed.buffer.line_count(), 3);
         assert_eq!(ed.buffer.line(0), Some("a"));
         assert_eq!(ed.buffer.line(1), Some("b"));
@@ -2857,7 +2858,7 @@
             SubRange::Range(LineAddr::Num(2), LineAddr::Num(4)),
             false,
             false,
-            false,
+            SortNumeric::None,
             false,
             None,
             false,
@@ -2872,7 +2873,7 @@
     #[test]
     fn sort_buffer_numeric() {
         let mut ed = ed_with("item 10\nitem 2\nitem 100\nitem 9");
-        ed.sort_lines(SubRange::WholeFile, false, false, true, false, None, false);
+        ed.sort_lines(SubRange::WholeFile, false, false, SortNumeric::Int, false, None, false);
         assert_eq!(ed.buffer.line(0), Some("item 2"));
         assert_eq!(ed.buffer.line(1), Some("item 9"));
         assert_eq!(ed.buffer.line(2), Some("item 10"));
@@ -2880,9 +2881,29 @@
     }
 
     #[test]
+    fn sort_buffer_float() {
+        let mut ed = ed_with("v 1.5\nv 1.25\nv 10.1\nv 1.100");
+        ed.sort_lines(SubRange::WholeFile, false, false, SortNumeric::Float, false, None, false);
+        assert_eq!(ed.buffer.line(0), Some("v 1.100"));
+        assert_eq!(ed.buffer.line(1), Some("v 1.25"));
+        assert_eq!(ed.buffer.line(2), Some("v 1.5"));
+        assert_eq!(ed.buffer.line(3), Some("v 10.1"));
+    }
+
+    #[test]
+    fn sort_buffer_hex() {
+        let mut ed = ed_with("0x1f\n0x2\n0xff\n0x10");
+        ed.sort_lines(SubRange::WholeFile, false, false, SortNumeric::Hex, false, None, false);
+        assert_eq!(ed.buffer.line(0), Some("0x2"));
+        assert_eq!(ed.buffer.line(1), Some("0x10"));
+        assert_eq!(ed.buffer.line(2), Some("0x1f"));
+        assert_eq!(ed.buffer.line(3), Some("0xff"));
+    }
+
+    #[test]
     fn sort_buffer_ignorecase() {
         let mut ed = ed_with("Banana\napple\nCherry");
-        ed.sort_lines(SubRange::WholeFile, false, false, false, true, None, false);
+        ed.sort_lines(SubRange::WholeFile, false, false, SortNumeric::None, true, None, false);
         assert_eq!(ed.buffer.line(0), Some("apple"));
         assert_eq!(ed.buffer.line(1), Some("Banana"));
         assert_eq!(ed.buffer.line(2), Some("Cherry"));
@@ -2892,7 +2913,7 @@
     fn sort_by_text_after_pattern() {
         let mut ed = ed_with("x9\nx1\nx5");
         // Sort by what follows "x".
-        ed.sort_lines(SubRange::WholeFile, false, false, false, false, Some("x".into()), false);
+        ed.sort_lines(SubRange::WholeFile, false, false, SortNumeric::None, false, Some("x".into()), false);
         assert_eq!(ed.buffer.line(0), Some("x1"));
         assert_eq!(ed.buffer.line(1), Some("x5"));
         assert_eq!(ed.buffer.line(2), Some("x9"));
@@ -2902,7 +2923,7 @@
     fn sort_by_matched_text_with_r_flag() {
         let mut ed = ed_with("3-zzz\n1-aaa\n2-mmm");
         // Sort on the matched digit itself (the `r` flag).
-        ed.sort_lines(SubRange::WholeFile, false, false, false, false, Some("\\d".into()), true);
+        ed.sort_lines(SubRange::WholeFile, false, false, SortNumeric::None, false, Some("\\d".into()), true);
         assert_eq!(ed.buffer.line(0), Some("1-aaa"));
         assert_eq!(ed.buffer.line(1), Some("2-mmm"));
         assert_eq!(ed.buffer.line(2), Some("3-zzz"));
