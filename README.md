@@ -580,8 +580,9 @@ even when scrolled.
   characters, the rest one each).
 - **Color columns (`:set colorcolumn=N`)** — highlight one or more columns as
   visual line-length guides (e.g. `:set cc=80,120`, and they work past the end of
-  short lines too); `:set cc=0` turns them off. Pair with `:set textwidth` to see
-  your wrap boundary.
+  short lines too); `:set cc=0` turns them off. Columns can be relative to
+  `textwidth` with `+N` / `-N` (e.g. `:set cc=+1` marks the column just past the
+  wrap boundary and follows `textwidth` as it changes).
 - **Mode indicator (showmode)** — the bottom line shows the active mode as
   `-- INSERT --`, `-- REPLACE --`, `-- VISUAL --`, `-- VISUAL LINE --`, or
   `-- VISUAL BLOCK --`, so you always know which mode you are in. Normal mode
@@ -739,7 +740,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **923 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **924 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

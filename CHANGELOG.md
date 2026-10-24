@@ -61,6 +61,10 @@ All notable changes to rvim are recorded here. Versions follow
 - `:[range]d` and `:[range]y` take an optional register argument, so `:1,5y a`
   yanks those lines into register `a` and `:d b` deletes the current line into `b`.
 
+### UI
+- `:set colorcolumn` accepts `+N` / `-N` offsets relative to `textwidth` (e.g.
+  `:set cc=+1`), resolved at render time so they follow `textwidth` changes.
+
 ### Folding
 - `zr` / `zm` open / close one fold nesting level at a time, and `:set foldlevel=N`
   opens folds up to level N and closes the deeper ones — companions to `zR`/`zM`.

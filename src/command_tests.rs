@@ -336,10 +336,31 @@
 
     #[test]
     fn set_colorcolumn() {
-        assert_eq!(parse("set colorcolumn=80"), ExCommand::SetColorColumn(vec![80]));
-        assert_eq!(parse("set cc=80,120"), ExCommand::SetColorColumn(vec![80, 120]));
-        assert_eq!(parse("set cc=0"), ExCommand::SetColorColumn(vec![]));
-        assert_eq!(parse("set cc="), ExCommand::SetColorColumn(vec![])); // empty clears
+        assert_eq!(
+            parse("set colorcolumn=80"),
+            ExCommand::SetColorColumn { abs: vec![80], rel: vec![] }
+        );
+        assert_eq!(
+            parse("set cc=80,120"),
+            ExCommand::SetColorColumn { abs: vec![80, 120], rel: vec![] }
+        );
+        assert_eq!(
+            parse("set cc=0"),
+            ExCommand::SetColorColumn { abs: vec![], rel: vec![] }
+        );
+        assert_eq!(
+            parse("set cc="),
+            ExCommand::SetColorColumn { abs: vec![], rel: vec![] }
+        );
+        // Relative offsets (+N / -N) resolve against textwidth.
+        assert_eq!(
+            parse("set cc=+1"),
+            ExCommand::SetColorColumn { abs: vec![], rel: vec![1] }
+        );
+        assert_eq!(
+            parse("set cc=80,+1,-2"),
+            ExCommand::SetColorColumn { abs: vec![80], rel: vec![1, -2] }
+        );
     }
 
     #[test]

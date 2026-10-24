@@ -546,6 +546,9 @@ pub struct Editor {
     pub cursorcolumn: bool,
     /// `:set colorcolumn` — 1-based columns to highlight as guides (empty = off).
     pub colorcolumns: Vec<usize>,
+    /// `:set colorcolumn=+N` — offsets relative to `textwidth`, resolved to a
+    /// column at render time (so they follow `textwidth` changes).
+    pub colorcolumns_rel: Vec<isize>,
     pending_replace: bool,
     pending_replace_count: usize,
     /// Command-line `Ctrl-r`: the next key names the register to insert.
@@ -783,6 +786,7 @@ impl Editor {
             cursorline: true,
             cursorcolumn: false,
             colorcolumns: Vec::new(),
+            colorcolumns_rel: Vec::new(),
             pending_replace: false,
             pending_replace_count: 1,
             cmdline_pending_reg: false,
@@ -1375,6 +1379,7 @@ impl Editor {
         ed.cursorline = self.cursorline;
         ed.cursorcolumn = self.cursorcolumn;
         ed.colorcolumns = self.colorcolumns.clone();
+        ed.colorcolumns_rel = self.colorcolumns_rel.clone();
         ed.matchpairs = self.matchpairs.clone();
         ed.splitbelow = self.splitbelow;
         ed.splitright = self.splitright;
@@ -1663,14 +1668,18 @@ impl Editor {
             "modeline" | "ml" => flag(self.modeline, "modeline"),
             "modelines" | "mls" => format!("modelines={}", self.modelines),
             "textwidth" | "tw" => format!("textwidth={}", self.textwidth),
-            "colorcolumn" | "cc" => format!(
-                "colorcolumn={}",
-                self.colorcolumns
-                    .iter()
-                    .map(|c| c.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",")
-            ),
+            "colorcolumn" | "cc" => {
+                let mut parts: Vec<String> =
+                    self.colorcolumns.iter().map(|c| c.to_string()).collect();
+                parts.extend(self.colorcolumns_rel.iter().map(|o| {
+                    if *o >= 0 {
+                        format!("+{o}")
+                    } else {
+                        o.to_string()
+                    }
+                }));
+                format!("colorcolumn={}", parts.join(","))
+            }
             "filetype" | "ft" | "syntax" => format!("filetype={}", self.language.name()),
             "fileformat" | "ff" => format!("fileformat={}", self.buffer.fileformat().name()),
             "foldcolumn" | "fdc" => format!("foldcolumn={}", self.foldcolumn),
@@ -1688,6 +1697,22 @@ impl Editor {
             ),
             other => format!("E518: Unknown option: {other}"),
         }
+    }
+
+    /// The effective `:set colorcolumn` guide columns (1-based): the absolute
+    /// columns plus each relative offset resolved against the current `textwidth`
+    /// (dropped when `textwidth` is 0 or the result is below column 1).
+    pub fn color_columns(&self) -> Vec<usize> {
+        let mut cols = self.colorcolumns.clone();
+        if self.textwidth > 0 {
+            for &off in &self.colorcolumns_rel {
+                let c = self.textwidth as isize + off;
+                if c >= 1 {
+                    cols.push(c as usize);
+                }
+            }
+        }
+        cols
     }
 
     /// The `list` markers `(tab_head, tab_fill, trail, eol)` for rendering.

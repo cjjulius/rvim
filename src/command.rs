@@ -246,9 +246,10 @@ pub enum ExCommand {
     ToggleJoinSpaces(bool),
     /// `:set cursorcolumn` / `:set nocursorcolumn` — highlight the cursor's column.
     ToggleCursorColumn(bool),
-    /// `:set colorcolumn=N[,M...]` — highlight these columns as guides (empty
-    /// disables).
-    SetColorColumn(Vec<usize>),
+    /// `:set colorcolumn=N[,M...]` — highlight columns as guides (empty disables).
+    /// `abs` are absolute 1-based columns; `rel` are offsets relative to
+    /// `textwidth` (e.g. `+1`, `-2`), resolved at render time.
+    SetColorColumn { abs: Vec<usize>, rel: Vec<isize> },
     /// `:set listchars=tab:xy,trail:z` — configure the `:set list` markers.
     SetListchars(String),
     /// `:set matchpairs=(:),{:}` — configure the pairs `%` jumps between.
@@ -1227,14 +1228,27 @@ fn parse_set(rest: &str) -> ExCommand {
                 .strip_prefix("colorcolumn=")
                 .or_else(|| opt.strip_prefix("cc="))
             {
-                // Comma-separated columns; 0/invalid entries are dropped, so
-                // `cc=0` or `cc=` clears.
-                let cols: Vec<usize> = v
-                    .split(',')
-                    .filter_map(|p| p.trim().parse::<usize>().ok())
-                    .filter(|&n| n > 0)
-                    .collect();
-                ExCommand::SetColorColumn(cols)
+                // Comma-separated columns; absolute (`80`) or relative to
+                // textwidth (`+1`, `-2`). `cc=0` / `cc=` clears.
+                let mut abs = Vec::new();
+                let mut rel = Vec::new();
+                for p in v.split(',') {
+                    let p = p.trim();
+                    if let Some(off) = p.strip_prefix('+') {
+                        if let Ok(n) = off.parse::<isize>() {
+                            rel.push(n);
+                        }
+                    } else if p.starts_with('-') {
+                        if let Ok(n) = p.parse::<isize>() {
+                            rel.push(n);
+                        }
+                    } else if let Ok(n) = p.parse::<usize>() {
+                        if n > 0 {
+                            abs.push(n);
+                        }
+                    }
+                }
+                ExCommand::SetColorColumn { abs, rel }
             } else if let Some(v) = opt
                 .strip_prefix("textwidth=")
                 .or_else(|| opt.strip_prefix("tw="))
