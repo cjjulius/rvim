@@ -60,6 +60,9 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(haskell_spec())),
         Box::new(SpecHighlighter::new(zig_spec())),
         Box::new(SpecHighlighter::new(elixir_spec())),
+        Box::new(SpecHighlighter::new(perl_spec())),
+        Box::new(SpecHighlighter::new(ocaml_spec())),
+        Box::new(SpecHighlighter::new(julia_spec())),
     ]
 }
 
@@ -1144,6 +1147,111 @@ const ELIXIR_BUILTINS: &[&str] = &[
     "is_list", "is_map", "is_binary", "length", "hd", "tl", "elem", "spawn", "send", "self",
 ];
 
+// ---- Perl ----------------------------------------------------------------
+
+fn perl_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Perl,
+        multiline_strings: &[],
+        preprocessor: None,
+        line_comments: &["#"],
+        block_comment: None,
+        keywords: PERL_KEYWORDS,
+        types: PERL_TYPES,
+        builtins: PERL_BUILTINS,
+        string_delims: &['"', '\''],
+        case_insensitive: false,
+        // `$scalar`, `@array`, `%hash` sigils.
+        var_sigils: &['$', '@', '%'],
+        detect_calls: true,
+    }
+}
+
+const PERL_KEYWORDS: &[&str] = &[
+    "sub", "my", "our", "local", "use", "no", "require", "package", "if", "elsif", "else", "unless",
+    "while", "until", "for", "foreach", "do", "return", "last", "next", "redo", "and", "or", "not",
+    "eq", "ne", "lt", "gt", "le", "ge", "cmp", "qw", "wantarray", "undef", "defined",
+    "bless", "ref",
+];
+const PERL_TYPES: &[&str] = &["SCALAR", "ARRAY", "HASH", "CODE", "GLOB", "Scalar", "Ref"];
+const PERL_BUILTINS: &[&str] = &[
+    "print", "printf", "say", "sprintf", "push", "pop", "shift", "unshift", "splice", "join",
+    "split", "map", "grep", "sort", "reverse", "keys", "values", "each", "exists", "delete",
+    "scalar", "chomp", "chop", "die", "warn", "open", "close", "chomp", "length", "substr",
+];
+
+// ---- OCaml ---------------------------------------------------------------
+
+fn ocaml_spec() -> LangSpec {
+    LangSpec {
+        language: Language::OCaml,
+        multiline_strings: &[],
+        preprocessor: None,
+        line_comments: &[],
+        block_comment: Some(("(*", "*)")),
+        keywords: OCAML_KEYWORDS,
+        types: OCAML_TYPES,
+        builtins: OCAML_BUILTINS,
+        string_delims: &['"'],
+        case_insensitive: false,
+        var_sigils: &[],
+        detect_calls: true,
+    }
+}
+
+const OCAML_KEYWORDS: &[&str] = &[
+    "let", "rec", "in", "and", "fun", "function", "match", "with", "when", "if", "then", "else",
+    "type", "of", "module", "struct", "sig", "end", "open", "include", "begin", "for", "to",
+    "downto", "while", "do", "done", "try", "raise", "exception", "mutable", "ref", "as", "val",
+    "external", "lazy", "assert", "object", "class", "method", "inherit", "true", "false",
+];
+const OCAML_TYPES: &[&str] = &[
+    "int", "float", "bool", "char", "string", "unit", "list", "array", "option", "ref", "exn",
+    "bytes", "int32", "int64", "nativeint",
+];
+const OCAML_BUILTINS: &[&str] = &[
+    "print_string", "print_endline", "print_int", "printf", "sprintf", "failwith", "ignore",
+    "compare", "min", "max", "incr", "decr", "fst", "snd", "Some", "None", "List", "Array",
+    "String", "Printf",
+];
+
+// ---- Julia ---------------------------------------------------------------
+
+fn julia_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Julia,
+        // Julia triple-quoted strings.
+        multiline_strings: &["\"\"\""],
+        preprocessor: None,
+        line_comments: &["#"],
+        block_comment: Some(("#=", "=#")),
+        keywords: JULIA_KEYWORDS,
+        types: JULIA_TYPES,
+        builtins: JULIA_BUILTINS,
+        string_delims: &['"'],
+        case_insensitive: false,
+        var_sigils: &['@'], // macros: @time, @assert
+        detect_calls: true,
+    }
+}
+
+const JULIA_KEYWORDS: &[&str] = &[
+    "function", "end", "if", "elseif", "else", "while", "for", "in", "return", "break", "continue",
+    "begin", "let", "do", "try", "catch", "finally", "struct", "mutable", "abstract", "primitive",
+    "type", "module", "using", "import", "export", "const", "global", "local", "quote", "where",
+    "macro", "true", "false", "nothing", "missing",
+];
+const JULIA_TYPES: &[&str] = &[
+    "Int", "Int8", "Int16", "Int32", "Int64", "UInt", "Float16", "Float32", "Float64", "Bool",
+    "Char", "String", "Symbol", "Array", "Vector", "Matrix", "Dict", "Set", "Tuple", "Any",
+    "Number", "Real", "Complex", "Nothing",
+];
+const JULIA_BUILTINS: &[&str] = &[
+    "println", "print", "push!", "pop!", "length", "size", "map", "filter", "reduce", "sum", "prod",
+    "sort", "reverse", "zeros", "ones", "rand", "collect", "enumerate", "zip", "typeof", "error",
+    "throw",
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1339,6 +1447,35 @@ mod tests {
         assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // def/do/end
         assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // Enum
         assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // # note
+    }
+
+    #[test]
+    fn perl_highlights_keyword_builtin_var_comment() {
+        let h = SpecHighlighter::new(perl_spec());
+        let toks = h.highlight_line("sub f { my $x = shift; print \"hi\"; } # c");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // sub/my
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // shift/print
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Variable)); // $x
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // # c
+    }
+
+    #[test]
+    fn ocaml_highlights_keyword_type_comment() {
+        let h = SpecHighlighter::new(ocaml_spec());
+        let toks = h.highlight_line("let f (x : int) = (* c *) x + 1");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // let
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // int
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // (* c *)
+    }
+
+    #[test]
+    fn julia_highlights_keyword_type_builtin_comment() {
+        let h = SpecHighlighter::new(julia_spec());
+        let toks = h.highlight_line("function f(x::Int) println(x) end # c");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // function/end
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // Int
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // println
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // # c
     }
 
     #[test]

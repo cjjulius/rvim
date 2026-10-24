@@ -155,6 +155,12 @@ All notable changes to rvim are recorded here. Versions follow
   unchanged.
 
 ### Syntax
+- Perl highlighting (`.pl`, `.pm`): keywords, builtins, `$`/`@`/`%` variables,
+  strings, and `#` comments.
+- OCaml highlighting (`.ml`, `.mli`): keywords, core types, builtins, strings, and
+  `(* *)` comments.
+- Julia highlighting (`.jl`): keywords, core types, builtins, strings (incl. `"""`),
+  `@macros`, and `#` / `#= =#` comments (folds by indentation).
 - Haskell highlighting (`.hs`): keywords, core types/classes, Prelude builtins,
   strings, and `--` / `{- -}` comments (folds by indentation).
 - Zig highlighting (`.zig`): keywords, primitive types, `@builtin` calls, strings,
