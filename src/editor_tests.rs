@@ -5780,6 +5780,20 @@
     }
 
     #[test]
+    fn colorcolumn_relative_follows_textwidth() {
+        let mut ed = ed_with("x");
+        ed.colorcolumns = vec![80];
+        ed.colorcolumns_rel = vec![1, -2];
+        ed.textwidth = 72;
+        let mut cols = ed.color_columns();
+        cols.sort_unstable();
+        assert_eq!(cols, vec![70, 73, 80]); // 72-2, 72+1, and the absolute 80
+        // With no textwidth, relative columns resolve to nothing.
+        ed.textwidth = 0;
+        assert_eq!(ed.color_columns(), vec![80]);
+    }
+
+    #[test]
     fn foldlevel_set_and_zr_zm_wiring() {
         let mut ed = ed_with_two_folds(); // two level-1 folds, currently open
         ed.set_foldlevel(0); // close all

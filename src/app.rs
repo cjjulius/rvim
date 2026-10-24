@@ -1619,14 +1619,10 @@ impl App {
                 self.editor.joinspaces = on;
                 self.editor.message = format!("joinspaces {}", if on { "on" } else { "off" });
             }
-            ExCommand::SetColorColumn(cols) => {
-                let shown = cols
-                    .iter()
-                    .map(|c| c.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                self.editor.colorcolumns = cols;
-                self.editor.message = format!("colorcolumn={shown}");
+            ExCommand::SetColorColumn { abs, rel } => {
+                self.editor.colorcolumns = abs;
+                self.editor.colorcolumns_rel = rel;
+                self.editor.message = self.editor.option_value("colorcolumn");
             }
             ExCommand::MoveLines { range, dest } => {
                 self.editor.move_lines(range, dest);
@@ -2287,7 +2283,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set listchars=tab:xy,trail:z   customise list markers\n\
          \t:set cursorline|nocul  highlight the cursor's line\n\
          \t:set cursorcolumn|nocuc  highlight the cursor's column\n\
-         \t:set colorcolumn=N[,M] highlight guide column(s) (cc=0 off)\n\
+         \t:set colorcolumn=N[,M] highlight guide column(s); +N/-N relative to tw\n\
          \t:set wrapscan|nows     search wraps around the file (default on)\n\
          \t:set ft=<lang>     {langs}\n\
          \t:set mouse|nomouse toggle mouse support\n\
