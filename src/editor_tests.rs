@@ -5780,6 +5780,29 @@
     }
 
     #[test]
+    fn virtualedit_onemore_allows_cursor_past_eol() {
+        let mut ed = ed_with("abc");
+        ed.virtualedit_onemore = true;
+        ed.cursor = Position::new(0, 0);
+        for _ in 0..5 {
+            ed.handle_key(key('l'));
+        }
+        assert_eq!(ed.cursor.col, 3); // one past the last char (len == 3)
+        ed.handle_key(key('x')); // safe no-op at the onemore position
+        assert_eq!(ed.buffer.line(0), Some("abc"));
+    }
+
+    #[test]
+    fn without_virtualedit_cursor_stops_at_last_char() {
+        let mut ed = ed_with("abc");
+        ed.cursor = Position::new(0, 0);
+        for _ in 0..5 {
+            ed.handle_key(key('l'));
+        }
+        assert_eq!(ed.cursor.col, 2);
+    }
+
+    #[test]
     fn colorcolumn_relative_follows_textwidth() {
         let mut ed = ed_with("x");
         ed.colorcolumns = vec![80];

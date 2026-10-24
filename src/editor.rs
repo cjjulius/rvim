@@ -458,6 +458,9 @@ pub struct Editor {
     /// `:set nrformats` contains `alpha` — `Ctrl-a`/`Ctrl-x` also bump a lone
     /// letter (a→b) when no number is found. Default off.
     pub nrformats_alpha: bool,
+    /// `:set virtualedit=onemore`/`all` — allow the cursor one column past the end
+    /// of the line in Normal mode. Default off.
+    pub virtualedit_onemore: bool,
     /// `:set matchpairs` — the (open, close) pairs that `%` jumps between.
     pub matchpairs: Vec<(char, char)>,
     /// Visual width of a tab, and spaces inserted by Tab (`:set tabstop`).
@@ -737,6 +740,7 @@ impl Editor {
             shiftround: false,
             joinspaces: false,
             nrformats_alpha: false,
+            virtualedit_onemore: false,
             matchpairs: vec![('(', ')'), ('[', ']'), ('{', '}')],
             tabstop: 4,
             view_rows: 24,
@@ -1661,6 +1665,10 @@ impl Editor {
                 "nrformats={}",
                 if self.nrformats_alpha { "bin,hex,alpha" } else { "bin,hex" }
             ),
+            "virtualedit" | "ve" => format!(
+                "virtualedit={}",
+                if self.virtualedit_onemore { "onemore" } else { "" }
+            ),
             "matchpairs" | "mps" => self.matchpairs_summary(),
             "tabstop" | "ts" => format!("tabstop={}", self.tabstop),
             "scrolloff" | "so" => format!("scrolloff={}", self.scrolloff),
@@ -1858,7 +1866,7 @@ impl Editor {
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
         "matchpairs", "filetype", "fileformat", "foldmethod", "foldcolumn", "foldlevel", "language",
         "splitbelow", "splitright", "modeline", "modelines", "equalprg", "gdefault",
-        "nrformats", "formatprg",
+        "nrformats", "formatprg", "virtualedit",
     ];
 
     /// A `:set` / `:set all` listing: one option per line with its current value.
@@ -5929,7 +5937,7 @@ impl Editor {
     }
 
     fn move_right(&mut self, n: usize, allow_eol: bool) {
-        let max = if allow_eol {
+        let max = if allow_eol || self.virtualedit_onemore {
             self.cur_len()
         } else {
             self.cur_len().saturating_sub(1)
@@ -9186,7 +9194,11 @@ impl Editor {
             self.cursor.row = rows.saturating_sub(1);
         }
         let len = self.cur_len();
-        let max = if allow_eol || self.mode == Mode::Insert || self.mode == Mode::Replace {
+        let max = if allow_eol
+            || self.virtualedit_onemore
+            || self.mode == Mode::Insert
+            || self.mode == Mode::Replace
+        {
             len
         } else {
             len.saturating_sub(1)
