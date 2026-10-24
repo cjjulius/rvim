@@ -452,6 +452,9 @@ pub struct Editor {
     pub shiftround: bool,
     /// `:set joinspaces` — `J` inserts two spaces after sentence punctuation.
     pub joinspaces: bool,
+    /// `:set nrformats` contains `alpha` — `Ctrl-a`/`Ctrl-x` also bump a lone
+    /// letter (a→b) when no number is found. Default off.
+    pub nrformats_alpha: bool,
     /// `:set matchpairs` — the (open, close) pairs that `%` jumps between.
     pub matchpairs: Vec<(char, char)>,
     /// Visual width of a tab, and spaces inserted by Tab (`:set tabstop`).
@@ -723,6 +726,7 @@ impl Editor {
             equalprg: String::new(),
             shiftround: false,
             joinspaces: false,
+            nrformats_alpha: false,
             matchpairs: vec![('(', ')'), ('[', ']'), ('{', '}')],
             tabstop: 4,
             view_rows: 24,
@@ -1616,6 +1620,10 @@ impl Editor {
             "equalprg" | "ep" => format!("equalprg={}", self.equalprg),
             "shiftround" | "sr" => flag(self.shiftround, "shiftround"),
             "joinspaces" | "js" => flag(self.joinspaces, "joinspaces"),
+            "nrformats" | "nf" => format!(
+                "nrformats={}",
+                if self.nrformats_alpha { "bin,hex,alpha" } else { "bin,hex" }
+            ),
             "matchpairs" | "mps" => self.matchpairs_summary(),
             "tabstop" | "ts" => format!("tabstop={}", self.tabstop),
             "scrolloff" | "so" => format!("scrolloff={}", self.scrolloff),
@@ -1792,6 +1800,7 @@ impl Editor {
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
         "matchpairs", "filetype", "fileformat", "foldmethod", "foldcolumn", "language",
         "splitbelow", "splitright", "modeline", "modelines", "equalprg", "gdefault",
+        "nrformats",
     ];
 
     /// A `:set` / `:set all` listing: one option per line with its current value.
@@ -7229,7 +7238,24 @@ impl Editor {
             }
         }
 
-        let (start, end, radix, prefix_len, _neg) = token?;
+        // No number found: with `:set nrformats=...,alpha`, bump the first lone
+        // letter at/after the cursor instead (a->b, clamped to a-z / A-Z, no wrap).
+        let Some(token) = token else {
+            if self.nrformats_alpha {
+                for k in 0..n {
+                    if k >= from_col && chars[k].is_ascii_alphabetic() {
+                        let base = if chars[k].is_ascii_uppercase() { b'A' } else { b'a' };
+                        let off = (chars[k] as u8 - base) as i64 + amount;
+                        let nc = (base + off.clamp(0, 25) as u8) as char;
+                        let mut new = chars.clone();
+                        new[k] = nc;
+                        return Some((new.into_iter().collect(), k));
+                    }
+                }
+            }
+            return None;
+        };
+        let (start, end, radix, prefix_len, _neg) = token;
         let digits_start = start + prefix_len;
         let body: String = chars[digits_start..end].iter().collect();
         let newtoken = match radix {

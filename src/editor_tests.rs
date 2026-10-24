@@ -1630,6 +1630,35 @@
     }
 
     #[test]
+    fn ctrl_a_alpha_bumps_letter_when_enabled() {
+        let mut ed = ed_with("a) item\nZ end");
+        ed.nrformats_alpha = true;
+        ed.handle_key(ctrl('a')); // a -> b
+        assert_eq!(ed.buffer.line(0), Some("b) item"));
+        // Clamp at the end of the alphabet (no wrap).
+        ed.cursor = Position::new(1, 0);
+        ed.handle_key(ctrl('a')); // Z stays Z
+        assert_eq!(ed.buffer.line(1), Some("Z end"));
+        ed.handle_key(ctrl('x')); // Z -> Y
+        assert_eq!(ed.buffer.line(1), Some("Y end"));
+    }
+
+    #[test]
+    fn ctrl_a_alpha_disabled_by_default() {
+        let mut ed = ed_with("abc");
+        ed.handle_key(ctrl('a')); // no number, alpha off -> unchanged
+        assert_eq!(ed.buffer.line(0), Some("abc"));
+    }
+
+    #[test]
+    fn ctrl_a_number_wins_over_alpha() {
+        let mut ed = ed_with("a 5");
+        ed.nrformats_alpha = true;
+        ed.handle_key(ctrl('a')); // a number is present -> bump it, not the letter
+        assert_eq!(ed.buffer.line(0), Some("a 6"));
+    }
+
+    #[test]
     fn ctrl_a_increments_hex_preserving_width() {
         let mut ed = ed_with("0x0f");
         ed.handle_key(ctrl('a')); // 0x0f + 1 = 0x10 (width kept)
