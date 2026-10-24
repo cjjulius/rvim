@@ -166,6 +166,8 @@ pub enum ExCommand {
     SetFileFormat(String),
     /// `:set foldcolumn=N` (`fdc=`) — width of the fold-indicator column.
     SetFoldColumn(usize),
+    /// `:set foldlevel=N` (`fdl=`) — open folds up to nesting N, close deeper.
+    SetFoldLevel(usize),
     /// `:set splitbelow` / `:set nosplitbelow`.
     ToggleSplitBelow(bool),
     /// `:set splitright` / `:set nosplitright`.
@@ -1171,6 +1173,14 @@ fn parse_set(rest: &str) -> ExCommand {
             {
                 match v.trim().parse::<usize>() {
                     Ok(n) => ExCommand::SetFoldColumn(n),
+                    _ => unknown_set(opt),
+                }
+            } else if let Some(v) = opt
+                .strip_prefix("foldlevel=")
+                .or_else(|| opt.strip_prefix("fdl="))
+            {
+                match v.trim().parse::<usize>() {
+                    Ok(n) => ExCommand::SetFoldLevel(n),
                     _ => unknown_set(opt),
                 }
             } else if let Some(v) = opt

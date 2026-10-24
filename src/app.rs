@@ -1544,6 +1544,10 @@ impl App {
                 self.editor.foldcolumn = n.min(12);
                 self.editor.message = format!("foldcolumn={}", self.editor.foldcolumn);
             }
+            ExCommand::SetFoldLevel(n) => {
+                self.editor.set_foldlevel(n);
+                self.editor.message = format!("foldlevel={n}");
+            }
             ExCommand::ToggleSplitBelow(on) => self.editor.splitbelow = on,
             ExCommand::ToggleSplitRight(on) => self.editor.splitright = on,
             ExCommand::Help => self.open_help(),
@@ -2167,6 +2171,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \tzo / zc / za       open / close / toggle fold under cursor\n\
          \tzO / zC / zA       recursive open / close / toggle (nested folds)\n\
          \tzR / zM            open all / close all folds\n\
+         \tzr / zm            open / close one fold level (:set foldlevel=N)\n\
          \tzd / zE            delete fold under cursor / all folds\n\
          \tzi                 toggle folding on / off\n\
          \tzj / zk            jump to next / previous fold\n\
