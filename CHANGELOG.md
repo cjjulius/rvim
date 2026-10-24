@@ -62,6 +62,8 @@ All notable changes to rvim are recorded here. Versions follow
   yanks those lines into register `a` and `:d b` deletes the current line into `b`.
 
 ### UI
+- The buffer tab bar now scrolls horizontally to keep the active buffer visible
+  when more buffers are open than fit across the screen.
 - `:set colorcolumn` accepts `+N` / `-N` offsets relative to `textwidth` (e.g.
   `:set cc=+1`), resolved at render time so they follow `textwidth` changes.
 

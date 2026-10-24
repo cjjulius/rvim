@@ -308,6 +308,7 @@ Open several files and switch between them:
 
 When more than one buffer is open, a **tab bar** appears across the top of the
 screen listing every buffer (active one highlighted, `+` marks unsaved changes).
+With many buffers open the bar scrolls to keep the active one in view.
 
 `:q` refuses to quit while any open buffer has unsaved changes (use `:q!` to
 override). In Normal mode, `ZZ` writes the buffer and quits (like `:x`) and `ZQ`
@@ -740,7 +741,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **924 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **925 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

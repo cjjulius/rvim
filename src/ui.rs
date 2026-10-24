@@ -588,6 +588,21 @@ fn overlaps_rows(a: &crate::window::Rect, b: &crate::window::Rect) -> bool {
     a.y < b.y + b.h && b.y < a.y + a.h
 }
 
+/// The first tab to show so the active one stays visible when the labels don't
+/// all fit: the smallest start index for which the labels from `start` through
+/// `active` fit within `total` columns (falling back to `active` itself).
+pub fn tabline_start(widths: &[usize], total: usize, active: usize) -> usize {
+    let mut start = 0;
+    while start < active {
+        let sum: usize = widths[start..=active].iter().sum();
+        if sum <= total {
+            break;
+        }
+        start += 1;
+    }
+    start
+}
+
 fn draw_tabline(
     out: &mut impl Write,
     theme: &Theme,
@@ -597,8 +612,14 @@ fn draw_tabline(
     queue!(out, MoveTo(0, 0))?;
     let mut used = 0usize;
     let total = layout.cols as usize;
-    for (i, tab) in tabs.iter().enumerate() {
-        let label = tab_label(i + 1, &tab.name, tab.dirty);
+    // Scroll the tabline so the active buffer stays visible with many open.
+    let labels: Vec<String> =
+        tabs.iter().enumerate().map(|(i, t)| tab_label(i + 1, &t.name, t.dirty)).collect();
+    let widths: Vec<usize> = labels.iter().map(|l| l.chars().count()).collect();
+    let active = tabs.iter().position(|t| t.active).unwrap_or(0);
+    let start = tabline_start(&widths, total, active);
+    for (i, tab) in tabs.iter().enumerate().skip(start) {
+        let label = &labels[i];
         let (fg, bg) = if tab.active {
             (theme.mode_fg, theme.mode_bg)
         } else {
@@ -1956,6 +1977,19 @@ mod tests {
         assert_eq!(tab_label(1, "src/main.rs", false), " 1 main.rs ");
         assert_eq!(tab_label(2, "notes.txt", true), " 2 notes.txt+ ");
         assert_eq!(tab_label(3, "[No Name]", false), " 3 [No Name] ");
+    }
+
+    #[test]
+    fn tabline_start_keeps_active_visible() {
+        let widths = vec![10, 10, 10, 10, 10]; // five 10-wide tabs
+        // Everything fits -> start at 0.
+        assert_eq!(tabline_start(&widths, 50, 4), 0);
+        // Width 25 fits ~2.5 tabs; active=4 needs scrolling so [start..=4] <= 25.
+        assert_eq!(tabline_start(&widths, 25, 4), 3); // tabs 3,4 (20) fit, 2,3,4 (30) don't
+        // Active already near the left fits from 0.
+        assert_eq!(tabline_start(&widths, 25, 1), 0);
+        // A single tab wider than the screen still shows from itself.
+        assert_eq!(tabline_start(&[100], 20, 0), 0);
     }
 
     #[test]
