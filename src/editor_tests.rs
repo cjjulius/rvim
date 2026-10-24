@@ -4000,6 +4000,20 @@
     }
 
     #[test]
+    fn gq_uses_formatprg_when_set() {
+        // With formatprg set, gq filters the lines through it (here, `sort`).
+        let mut ed = ed_with("banana\napple\ncherry");
+        ed.formatprg = "sort".into();
+        ed.cursor = Position::new(0, 0);
+        ed.handle_key(key('g'));
+        ed.handle_key(key('q'));
+        ed.handle_key(key('G')); // gqG -> reflow all lines via sort
+        assert_eq!(ed.buffer.line(0), Some("apple"));
+        assert_eq!(ed.buffer.line(1), Some("banana"));
+        assert_eq!(ed.buffer.line(2), Some("cherry"));
+    }
+
+    #[test]
     fn reflow_joins_and_wraps_range() {
         let mut ed = ed_with("alpha beta\ngamma delta\nepsilon");
         ed.textwidth = 12;

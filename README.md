@@ -227,7 +227,9 @@ its own layout.
 
 **Formatting** — `gq{motion}` / `gqq` / `gqip` (and `gw`) rewrap text to
 `:set textwidth=N`, ideal for comments and prose; with a textwidth set, auto-wrap
-also breaks long lines as you type (`textwidth=0` turns it off).
+also breaks long lines as you type (`textwidth=0` turns it off). Point
+`:set formatprg=<cmd>` at an external formatter (e.g. `fmt`, `par`) and `gq` pipes
+the lines through it instead.
 
 **Undo, info & numbers**
 
@@ -733,7 +735,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **915 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **917 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

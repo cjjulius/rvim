@@ -62,6 +62,8 @@ All notable changes to rvim are recorded here. Versions follow
   yanks those lines into register `a` and `:d b` deletes the current line into `b`.
 
 ### Editing
+- `:set formatprg=<cmd>` routes `gq`/`gw` reflow through an external formatter
+  (e.g. `fmt`, `par`) instead of the built-in wrap — the `gq` parallel to `equalprg`.
 - `:set nrformats=...,alpha` lets `Ctrl-a`/`Ctrl-x` bump a lone letter (a to b,
   clamped to a-z / A-Z, no wrap) when there's no number to change. Numbers still
   take precedence; default off.
