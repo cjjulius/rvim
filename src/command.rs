@@ -323,6 +323,12 @@ pub enum ExCommand {
     Jumps,
     /// `:messages` — list recent status-line messages.
     Messages,
+    /// `:tag [name]` / `Ctrl-]` — jump to a tag (empty name repeats under cursor).
+    Tag(Option<String>),
+    /// `:pop` / `Ctrl-t` — jump back up the tag stack.
+    TagPop,
+    /// `:tags` — list the tag stack.
+    TagsList,
     /// `:changes` — list the change list.
     Changes,
     /// `:delmarks {marks}` — delete marks (`"!"` deletes all lowercase marks).
@@ -552,6 +558,9 @@ pub fn parse(input: &str) -> ExCommand {
         "reg" | "registers" | "display" | "di" => ExCommand::Registers,
         "ju" | "jumps" => ExCommand::Jumps,
         "mes" | "messages" | "message" => ExCommand::Messages,
+        "ta" | "tag" => ExCommand::Tag(arg),
+        "pop" | "po" => ExCommand::TagPop,
+        "tags" => ExCommand::TagsList,
         "changes" => ExCommand::Changes,
         "delmarks!" | "delm!" => ExCommand::DelMarks("!".into()),
         "delmarks" | "delm" => ExCommand::DelMarks(arg.unwrap_or_default()),

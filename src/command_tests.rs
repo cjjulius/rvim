@@ -273,6 +273,14 @@
     }
 
     #[test]
+    fn tag_commands_parse() {
+        assert_eq!(parse("tag foo"), ExCommand::Tag(Some("foo".into())));
+        assert_eq!(parse("ta bar"), ExCommand::Tag(Some("bar".into())));
+        assert_eq!(parse("pop"), ExCommand::TagPop);
+        assert_eq!(parse("tags"), ExCommand::TagsList);
+    }
+
+    #[test]
     fn messages_command_parses() {
         assert_eq!(parse("messages"), ExCommand::Messages);
         assert_eq!(parse("mes"), ExCommand::Messages);

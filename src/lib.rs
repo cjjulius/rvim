@@ -32,6 +32,7 @@ pub mod mode;
 pub mod pattern;
 pub mod plugin;
 pub mod syntax;
+pub mod tags;
 pub mod terminal;
 pub mod theme;
 pub mod ui;

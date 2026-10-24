@@ -452,6 +452,51 @@
     }
 
     #[test]
+    fn tag_jump_and_pop() {
+        let dir = std::env::temp_dir();
+        let src = dir.join(format!("rvim_tagsrc_{}.rs", std::process::id()));
+        std::fs::write(&src, "line1\nfn target() {}\nline3\n").unwrap();
+        let start = dir.join(format!("rvim_tagstart_{}.rs", std::process::id()));
+        std::fs::write(&start, "a\nb\n").unwrap();
+        let mut app = App::new();
+        app.editor = Editor::from_file(start.to_str().unwrap()).unwrap();
+        app.editor.cursor.row = 1;
+        // Inject a tags index pointing at the source file, line 2.
+        let tagline = format!("target\t{}\t2\n", src.display());
+        app.tags = Some(crate::tags::Tags::parse(&tagline));
+        app.run_ex("tag target");
+        assert_eq!(app.editor.buffer.path().unwrap().file_name(), src.file_name());
+        assert_eq!(app.editor.cursor.row, 1); // jumped to line 2
+        app.run_ex("pop");
+        assert_eq!(app.editor.buffer.path().unwrap().file_name(), start.file_name());
+        assert_eq!(app.editor.cursor.row, 1); // back where we were
+        std::fs::remove_file(&src).ok();
+        std::fs::remove_file(&start).ok();
+    }
+
+    #[test]
+    fn tag_jump_by_search_pattern() {
+        let dir = std::env::temp_dir();
+        let src = dir.join(format!("rvim_tagsearch_{}.rs", std::process::id()));
+        std::fs::write(&src, "one\ntwo\nfn widget() {}\n").unwrap();
+        let mut app = App::new();
+        // Address with regex-special chars must still match the line literally.
+        let tagline = format!("widget\t{}\t/^fn widget() {{}}$/\n", src.display());
+        app.tags = Some(crate::tags::Tags::parse(&tagline));
+        app.run_ex("tag widget");
+        assert_eq!(app.editor.cursor.row, 2);
+        std::fs::remove_file(&src).ok();
+    }
+
+    #[test]
+    fn tag_not_found_reports() {
+        let mut app = App::new();
+        app.tags = Some(crate::tags::Tags::parse(""));
+        app.run_ex("tag nope");
+        assert!(app.editor.message.contains("E426"));
+    }
+
+    #[test]
     fn write_append_adds_to_existing_file() {
         let path = std::env::temp_dir().join(format!("rvim_ap_{}.txt", std::process::id()));
         std::fs::write(&path, "existing\n").unwrap();

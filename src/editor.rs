@@ -4705,6 +4705,14 @@ impl Editor {
                     }
                     return Action::None;
                 }
+                // `Ctrl-]` jumps to the tag under the cursor; `Ctrl-t` pops back.
+                KeyCode::Char(']') => {
+                    return match self.word_under_cursor() {
+                        Some(w) => Action::RunEx(format!("tag {w}")),
+                        None => Action::None,
+                    };
+                }
+                KeyCode::Char('t') => return Action::RunEx("pop".into()),
                 _ => {}
             }
         }
