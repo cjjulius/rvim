@@ -1587,6 +1587,10 @@ impl App {
                     list.split(',').any(|t| t.trim() == "alpha");
                 self.editor.message = self.editor.option_value("nrformats");
             }
+            ExCommand::SetFormatprg(cmd) => {
+                self.editor.formatprg = cmd;
+                self.editor.message = self.editor.option_value("formatprg");
+            }
             ExCommand::ToggleWrapScan(on) => {
                 self.editor.wrapscan = on;
                 self.editor.message = format!("wrapscan {}", if on { "on" } else { "off" });
@@ -2258,6 +2262,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set shiftwidth=N  :set tabstop=N  :set scrolloff=N  :set textwidth=N\n\
          \t:set shiftround|nosr   :set joinspaces|nojs   :set matchpairs=(:),<:>\n\
          \t:set equalprg=<cmd>    filter `=` lines through an external formatter\n\
+         \t:set formatprg=<cmd>   filter `gq` lines through an external formatter\n\
          \t:set paste|nopaste     :set readonly|noro (:w! overrides)\n\
          \t:set autowrite|noaw    save a named buffer when switching away\n\
          \t:set autoread|noar     reload the file when it changes on disk\n\

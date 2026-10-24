@@ -448,6 +448,9 @@ pub struct Editor {
     /// `:set equalprg` — external program the `=` operator filters lines through;
     /// empty means use the built-in brace indenter.
     pub equalprg: String,
+    /// `:set formatprg` — external program `gq`/`gw` filters lines through; empty
+    /// means use the built-in reflow.
+    pub formatprg: String,
     /// `:set shiftround` — round `>`/`<` indent to a multiple of `shiftwidth`.
     pub shiftround: bool,
     /// `:set joinspaces` — `J` inserts two spaces after sentence punctuation.
@@ -724,6 +727,7 @@ impl Editor {
             expandtab: true,
             shiftwidth: 4,
             equalprg: String::new(),
+            formatprg: String::new(),
             shiftround: false,
             joinspaces: false,
             nrformats_alpha: false,
@@ -1618,6 +1622,7 @@ impl Editor {
             "cursorcolumn" | "cuc" => flag(self.cursorcolumn, "cursorcolumn"),
             "shiftwidth" | "sw" => format!("shiftwidth={}", self.shiftwidth),
             "equalprg" | "ep" => format!("equalprg={}", self.equalprg),
+            "formatprg" | "fp" => format!("formatprg={}", self.formatprg),
             "shiftround" | "sr" => flag(self.shiftround, "shiftround"),
             "joinspaces" | "js" => flag(self.joinspaces, "joinspaces"),
             "nrformats" | "nf" => format!(
@@ -1800,7 +1805,7 @@ impl Editor {
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
         "matchpairs", "filetype", "fileformat", "foldmethod", "foldcolumn", "language",
         "splitbelow", "splitright", "modeline", "modelines", "equalprg", "gdefault",
-        "nrformats",
+        "nrformats", "formatprg",
     ];
 
     /// A `:set` / `:set all` listing: one option per line with its current value.
@@ -5500,6 +5505,10 @@ impl Editor {
     fn reflow_lines(&mut self, a: usize, b: usize) {
         let last = self.buffer.line_count().saturating_sub(1);
         let (a, b) = (a.min(last), b.min(last));
+        if !self.formatprg.is_empty() {
+            self.reflow_via_formatprg(a, b);
+            return;
+        }
         let width = if self.textwidth == 0 { 79 } else { self.textwidth };
         // Preserve the indent of the first line.
         let first = self.buffer.line(a).unwrap_or("");
@@ -5548,6 +5557,37 @@ impl Editor {
         self.move_first_nonblank();
         self.clamp_cursor(false);
         self.scroll_into_view();
+    }
+
+    /// `gq` with `:set formatprg` set — filter rows `a..=b` through the external
+    /// formatter and replace them with its output.
+    fn reflow_via_formatprg(&mut self, a: usize, b: usize) {
+        let cmd = self.formatprg.clone();
+        let eol = if cfg!(windows) { "\r\n" } else { "\n" };
+        let mut input = String::new();
+        for row in a..=b {
+            input.push_str(self.buffer.line(row).unwrap_or(""));
+            input.push_str(eol);
+        }
+        let Some(output) = Self::run_shell_filter(&cmd, &input) else {
+            self.message = format!("E485: Can't run: {cmd}");
+            return;
+        };
+        let mut lines: Vec<String> = output
+            .split('\n')
+            .map(|l| l.trim_end_matches('\r').to_string())
+            .collect();
+        if lines.last().map(|s| s.is_empty()).unwrap_or(false) {
+            lines.pop();
+        }
+        self.checkpoint();
+        let produced = lines.len();
+        self.splice_lines(a, b, &lines);
+        self.cursor.row = a.min(self.buffer.line_count().saturating_sub(1));
+        self.move_first_nonblank();
+        self.clamp_cursor(false);
+        self.scroll_into_view();
+        self.message = format!("formatted {produced} line(s) via {cmd}");
     }
 
     /// Toggle line comments over an inclusive row range using the current

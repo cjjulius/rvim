@@ -287,6 +287,13 @@
     }
 
     #[test]
+    fn set_formatprg() {
+        assert_eq!(parse("set formatprg=fmt"), ExCommand::SetFormatprg("fmt".into()));
+        assert_eq!(parse("set fp=par"), ExCommand::SetFormatprg("par".into()));
+        assert_eq!(parse("set formatprg="), ExCommand::SetFormatprg(String::new()));
+    }
+
+    #[test]
     fn set_nrformats() {
         assert_eq!(
             parse("set nrformats=bin,hex,alpha"),

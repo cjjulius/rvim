@@ -147,6 +147,9 @@ pub enum ExCommand {
     /// `:set nrformats=<list>` — number formats for `Ctrl-a`/`Ctrl-x` (only the
     /// `alpha` token changes behavior; bin/hex are always recognized).
     SetNrformats(String),
+    /// `:set formatprg=<cmd>` — external program `gq` filters through (empty uses
+    /// the built-in reflow).
+    SetFormatprg(String),
     /// `:set textwidth=N` — wrap column for `gq` reflow (0 disables).
     SetTextWidth(usize),
     /// `:set ft=<lang>`
@@ -1136,6 +1139,11 @@ fn parse_set(rest: &str) -> ExCommand {
                 .or_else(|| opt.strip_prefix("nf="))
             {
                 ExCommand::SetNrformats(v.trim().to_string())
+            } else if let Some(v) = opt
+                .strip_prefix("formatprg=")
+                .or_else(|| opt.strip_prefix("fp="))
+            {
+                ExCommand::SetFormatprg(v.trim().to_string())
             } else if let Some(v) = opt
                 .strip_prefix("language=")
                 .or_else(|| opt.strip_prefix("lang="))
