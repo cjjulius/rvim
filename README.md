@@ -236,7 +236,7 @@ also breaks long lines as you type (`textwidth=0` turns it off).
 | `u` / `Ctrl-r` | undo / redo (counted: `3u`); `:earlier [N]` / `:later [N]` step by N changes |
 | `U` | restore the most recently changed line (toggles) |
 | `Ctrl-g` / `g Ctrl-g` / `ga` | file info / word-char-byte counts / character code under cursor |
-| `Ctrl-a` / `Ctrl-x` | increment / decrement the number (hex, binary, negatives; counted) |
+| `Ctrl-a` / `Ctrl-x` | increment / decrement the number (hex, binary, negatives; counted). `:set nrformats=bin,hex,alpha` also bumps a letter (a to b) |
 | `g Ctrl-a` / `g Ctrl-x` (visual) | turn a column of numbers into a 1, 2, 3 … sequence |
 
 **Visual mode** — select with `v` (characters), `V` (lines), or `Ctrl-v` (block), then:
@@ -733,7 +733,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **911 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **915 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

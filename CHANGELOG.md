@@ -61,6 +61,11 @@ All notable changes to rvim are recorded here. Versions follow
 - `:[range]d` and `:[range]y` take an optional register argument, so `:1,5y a`
   yanks those lines into register `a` and `:d b` deletes the current line into `b`.
 
+### Editing
+- `:set nrformats=...,alpha` lets `Ctrl-a`/`Ctrl-x` bump a lone letter (a to b,
+  clamped to a-z / A-Z, no wrap) when there's no number to change. Numbers still
+  take precedence; default off.
+
 ### Search
 - `:sort` gains float (`f`) and hex (`x`) numeric modes alongside decimal (`n`),
   so `:sort f` orders by floating-point value and `:sort x` by hex (optional `0x`).

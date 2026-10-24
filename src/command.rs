@@ -144,6 +144,9 @@ pub enum ExCommand {
     /// `:set equalprg=<cmd>` — external program the `=` operator filters through
     /// (empty uses the built-in indenter).
     SetEqualprg(String),
+    /// `:set nrformats=<list>` — number formats for `Ctrl-a`/`Ctrl-x` (only the
+    /// `alpha` token changes behavior; bin/hex are always recognized).
+    SetNrformats(String),
     /// `:set textwidth=N` — wrap column for `gq` reflow (0 disables).
     SetTextWidth(usize),
     /// `:set ft=<lang>`
@@ -1128,6 +1131,11 @@ fn parse_set(rest: &str) -> ExCommand {
                 .or_else(|| opt.strip_prefix("ep="))
             {
                 ExCommand::SetEqualprg(v.trim().to_string())
+            } else if let Some(v) = opt
+                .strip_prefix("nrformats=")
+                .or_else(|| opt.strip_prefix("nf="))
+            {
+                ExCommand::SetNrformats(v.trim().to_string())
             } else if let Some(v) = opt
                 .strip_prefix("language=")
                 .or_else(|| opt.strip_prefix("lang="))

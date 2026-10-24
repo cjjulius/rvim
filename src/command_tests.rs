@@ -287,6 +287,15 @@
     }
 
     #[test]
+    fn set_nrformats() {
+        assert_eq!(
+            parse("set nrformats=bin,hex,alpha"),
+            ExCommand::SetNrformats("bin,hex,alpha".into())
+        );
+        assert_eq!(parse("set nf=bin,hex"), ExCommand::SetNrformats("bin,hex".into()));
+    }
+
+    #[test]
     fn set_equalprg() {
         assert_eq!(
             parse("set equalprg=clang-format"),

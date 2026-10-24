@@ -1582,6 +1582,11 @@ impl App {
                 self.editor.equalprg = cmd;
                 self.editor.message = self.editor.option_value("equalprg");
             }
+            ExCommand::SetNrformats(list) => {
+                self.editor.nrformats_alpha =
+                    list.split(',').any(|t| t.trim() == "alpha");
+                self.editor.message = self.editor.option_value("nrformats");
+            }
             ExCommand::ToggleWrapScan(on) => {
                 self.editor.wrapscan = on;
                 self.editor.message = format!("wrapscan {}", if on { "on" } else { "off" });
@@ -2201,6 +2206,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \tu / Ctrl-r          undo / redo (counted; also :earlier N / :later N)\n\
          \t.  <n>.            repeat last change (n times)\n\
          \tCtrl-a / Ctrl-x    increment / decrement number (dec / 0x hex / 0b bin)\n\
+         \t                   (:set nrformats=...,alpha also bumps a letter a->b)\n\
          \n\
          SEARCH\n\
          \t/pat  ?pat         search fwd / back (regex)  n / N  next / prev\n\
