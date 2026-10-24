@@ -79,6 +79,9 @@ pub enum Language {
     Haskell,
     Zig,
     Elixir,
+    Perl,
+    OCaml,
+    Julia,
 }
 
 /// One language's metadata, driving `name`, `from_name`, `line_comment_token`,
@@ -128,6 +131,9 @@ const LANG_TABLE: &[LangInfo] = &[
     LangInfo { lang: Language::Haskell, name: "haskell", aliases: &["hs"], extensions: &["hs"], comment: Some("--") },
     LangInfo { lang: Language::Zig, name: "zig", aliases: &[], extensions: &["zig"], comment: Some("//") },
     LangInfo { lang: Language::Elixir, name: "elixir", aliases: &["ex", "exs"], extensions: &["ex", "exs"], comment: Some("#") },
+    LangInfo { lang: Language::Perl, name: "perl", aliases: &["pl", "pm"], extensions: &["pl", "pm"], comment: Some("#") },
+    LangInfo { lang: Language::OCaml, name: "ocaml", aliases: &["ml"], extensions: &["ml", "mli"], comment: None },
+    LangInfo { lang: Language::Julia, name: "julia", aliases: &["jl"], extensions: &["jl"], comment: Some("#") },
 ];
 
 impl Language {
@@ -164,6 +170,7 @@ pub fn prefers_indent_folds(lang: Language) -> bool {
             | Language::Shell
             | Language::Haskell
             | Language::Elixir
+            | Language::Julia
     )
 }
 
@@ -858,7 +865,7 @@ mod tests {
             Language::TypeScript, Language::Kotlin, Language::Ruby, Language::Lua,
             Language::CSharp, Language::Swift, Language::Php, Language::Scala,
             Language::Dart, Language::R, Language::Haskell, Language::Zig,
-            Language::Elixir,
+            Language::Elixir, Language::Perl, Language::OCaml, Language::Julia,
         ];
         for lang in all {
             match lang {
@@ -869,7 +876,8 @@ mod tests {
                 | Language::Yaml | Language::TypeScript | Language::Kotlin | Language::Ruby
                 | Language::Lua | Language::CSharp | Language::Swift | Language::Php
                 | Language::Scala | Language::Dart | Language::R | Language::Haskell
-                | Language::Zig | Language::Elixir => {}
+                | Language::Zig | Language::Elixir | Language::Perl | Language::OCaml
+                | Language::Julia => {}
             }
             assert!(
                 LANG_TABLE.iter().any(|e| e.lang == lang),
