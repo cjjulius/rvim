@@ -169,6 +169,10 @@ All notable changes to rvim are recorded here. Versions follow
   unchanged.
 
 ### Syntax
+- PowerShell highlighting (`.ps1`, `.psm1`, `.psd1`): keywords and word operators
+  (`-eq`, `-match`, …), `[type]` names, `$variables`, common cmdlet aliases,
+  single- and double-quoted strings, and `#` / `<# #>` comments. Case-insensitive,
+  matching the language.
 - Perl highlighting (`.pl`, `.pm`): keywords, builtins, `$`/`@`/`%` variables,
   strings, and `#` comments.
 - OCaml highlighting (`.ml`, `.mli`): keywords, core types, builtins, strings, and
