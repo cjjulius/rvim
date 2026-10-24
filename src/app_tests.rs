@@ -31,6 +31,16 @@
     }
 
     #[test]
+    fn run_ex_toggle_errorbells() {
+        let mut app = App::new();
+        assert!(!app.editor.errorbells); // default off
+        app.run_ex("set errorbells");
+        assert!(app.editor.errorbells);
+        app.run_ex("set noeb");
+        assert!(!app.editor.errorbells);
+    }
+
+    #[test]
     fn run_ex_goto_line() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("a\nb\nc\nd");

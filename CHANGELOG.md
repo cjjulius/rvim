@@ -130,6 +130,9 @@ All notable changes to rvim are recorded here. Versions follow
   file in a split stays independent.
 
 ### Accessibility
+- `:set errorbells` (`eb`) rings the terminal bell when an error message appears,
+  an audible cue for errors. Off by default; terminals can render it as a visual
+  flash via their own bell setting.
 - `:set list` now flags non-breaking spaces with their own `listchars` `nbsp:`
   marker (shown by default), and an optional `space:` marker reveals every
   ordinary space — making invisible characters visible.

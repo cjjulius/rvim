@@ -569,6 +569,10 @@ even when scrolled.
 ### Accessibility & navigation
 - **High-contrast theme** (`:theme high-contrast`) — pure black/white chrome with
   a colorblind-safe Okabe–Ito token palette for maximum legibility.
+- **Error bell (`:set errorbells`)** — ring the terminal bell whenever an error
+  message appears, an audible cue for anything your eyes might miss. Off by
+  default; `:set noerrorbells` (`noeb`) turns it back off. Many terminals can
+  render this as a screen flash through their own visual-bell setting.
 - **Relative line numbers** (`:set relativenumber` / `:set rnu`) — hybrid mode:
   the cursor line shows its absolute number (left-aligned to stand out), every
   other line shows its distance, so `12j` / `8k` jumps are countable at a glance.
@@ -745,7 +749,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **938 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **940 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

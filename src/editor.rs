@@ -441,6 +441,9 @@ pub struct Editor {
     pub showmode: bool,
     pub showcmd: bool,
     pub ruler: bool,
+    /// `:set errorbells` — ring the terminal bell on an error message (an
+    /// accessibility cue). Default off, matching vim.
+    pub errorbells: bool,
     /// Insert spaces instead of a tab character (`:set expandtab`).
     pub expandtab: bool,
     /// Columns inserted/removed by `>>`/`<<` and `=` (`:set shiftwidth`).
@@ -733,6 +736,7 @@ impl Editor {
             showmode: true,
             showcmd: true,
             ruler: true,
+            errorbells: false,
             expandtab: true,
             shiftwidth: 4,
             equalprg: String::new(),
@@ -1649,6 +1653,7 @@ impl Editor {
             "showmode" | "smd" => flag(self.showmode, "showmode"),
             "showcmd" | "sc" => flag(self.showcmd, "showcmd"),
             "ruler" | "ru" => flag(self.ruler, "ruler"),
+            "errorbells" | "eb" => flag(self.errorbells, "errorbells"),
             "expandtab" | "et" => flag(self.expandtab, "expandtab"),
             "list" => flag(self.list, "list"),
             "listchars" | "lcs" => self.listchars_summary(),
@@ -1861,7 +1866,7 @@ impl Editor {
     const OPTION_NAMES: &'static [&'static str] = &[
         "number", "relativenumber", "hlsearch", "ignorecase", "smartcase",
         "incsearch", "autoindent", "smartindent", "paste", "readonly", "autowrite", "autoread", "title", "backup", "showmode",
-        "showcmd", "ruler", "expandtab", "list", "wrapscan", "cursorline",
+        "showcmd", "ruler", "errorbells", "expandtab", "list", "wrapscan", "cursorline",
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
         "matchpairs", "filetype", "fileformat", "foldmethod", "foldcolumn", "foldlevel", "language",
@@ -3264,9 +3269,9 @@ impl Editor {
     /// `:set` option names offered for Tab completion (toggles, their `no`
     /// variants, and value options by bare name).
     const SET_OPTIONS: &'static [&'static str] = &[
-        "all", "autoindent", "colorcolumn", "cursorcolumn", "cursorline", "expandtab",
+        "all", "autoindent", "colorcolumn", "cursorcolumn", "cursorline", "errorbells", "expandtab",
         "filetype", "hlsearch", "ignorecase", "incsearch", "list", "listchars", "noautoindent",
-        "nocursorcolumn", "nocursorline", "noexpandtab", "nohlsearch",
+        "nocursorcolumn", "nocursorline", "noerrorbells", "noexpandtab", "nohlsearch",
         "noignorecase", "noincsearch", "nolist", "nonumber", "nopaste", "noreadonly",
         "norelativenumber", "joinspaces", "matchpairs", "nojoinspaces", "noshiftround",
         "nosmartcase", "nowrapscan", "number", "paste", "readonly", "relativenumber",
