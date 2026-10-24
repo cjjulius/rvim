@@ -53,6 +53,8 @@ All notable changes to rvim are recorded here. Versions follow
   and split status lines).
 
 ### Ex commands
+- `:[range]w >>file` appends the lines (or the whole buffer) to a file, creating
+  it if needed — the buffer is not modified.
 - `:[addr]r {file|!cmd}` reads a file or command output after line `addr` instead
   of only below the cursor, so `:0r` prepends and `:$r` appends.
 - `:[range]w !cmd` pipes the lines (or the whole buffer) to a shell command's

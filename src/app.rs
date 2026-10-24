@@ -1320,6 +1320,7 @@ impl App {
                 }
             }
             ExCommand::WriteRange { range, file } => self.write_range(range, file),
+            ExCommand::WriteAppend { range, file } => self.write_append(range, &file),
             ExCommand::WriteFilter { range, cmd } => {
                 if cmd.is_empty() {
                     self.notify("E471: Argument required");
@@ -1796,6 +1797,33 @@ impl App {
         match std::fs::write(&file, out) {
             Ok(()) => self.editor.message = format!("\"{file}\" {} lines written", b - a + 1),
             Err(e) => self.editor.message = format!("E212: write failed: {e}"),
+        }
+    }
+
+    /// `:[range]w >>file` — append the range's lines (or the whole buffer) to a
+    /// file, creating it if needed. The buffer is not modified.
+    fn write_append(&mut self, range: Option<command::SubRange>, file: &str) {
+        if file.is_empty() {
+            self.notify("E471: Argument required");
+            return;
+        }
+        let (a, b) = match range {
+            Some(r) => self.editor.range_rows(r),
+            None => (0, self.editor.buffer.line_count().saturating_sub(1)),
+        };
+        let mut out = String::new();
+        for row in a..=b {
+            out.push_str(self.editor.buffer.line(row).unwrap_or(""));
+            out.push('\n');
+        }
+        let result = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(file)
+            .and_then(|mut f| std::io::Write::write_all(&mut f, out.as_bytes()));
+        match result {
+            Ok(()) => self.editor.message = format!("\"{file}\" {} lines appended", b - a + 1),
+            Err(e) => self.editor.message = format!("E212: append failed: {e}"),
         }
     }
 
@@ -2282,6 +2310,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:retab [N]             normalise tabs/spaces to tabstop (set to N)\n\
          \t!{{motion}} / :range!cmd  filter lines through a shell command\n\
          \t:[range]w !cmd      pipe lines to a command, show its output (no change)\n\
+         \t:[range]w >>file    append lines to a file\n\
          \t:set ignorecase|noic   :set smartcase|noscs   (search case)\n\
          \t:set gdefault|nogd     :s substitutes all matches on a line by default\n\
          \t:set incsearch|nois    preview match while typing /?\n\
