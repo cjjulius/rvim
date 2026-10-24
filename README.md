@@ -342,7 +342,7 @@ Grouped by what they do. Most line commands accept a leading range such as
 - `:d` / `:y` delete or yank (add a letter to target a register, e.g. `:1,5y a`); `:>` / `:<` shift the indent.
 - `:j[oin][!]` joins lines (`!` keeps the whitespace).
 - `:ce[nter]` / `:ri[ght]` / `:le[ft]` align lines to `textwidth`.
-- `:sort[!] [u][n][i] [/pat/ [r]]` sorts (reverse, unique, numeric, ignore-case, or by the text after a pattern).
+- `:sort[!] [u][n|f|x][i] [/pat/ [r]]` sorts — reverse, unique, numeric (`n` decimal, `f` float, `x` hex), ignore-case, or by the text after a pattern.
 - `:put [reg]` inserts a register as lines; `:normal {keys}` runs Normal-mode keys on each line.
 - `:retab [N]` normalises tabs and spaces; `:[range]!cmd` filters lines through a shell command.
 - `:[range]w !cmd` pipes the lines to a command's input and shows its output without changing the buffer (e.g. `:%w !wc`).
@@ -733,7 +733,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **909 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **911 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

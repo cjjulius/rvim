@@ -6,7 +6,7 @@
 //! an [`Action`] the [`crate::app::App`] executes.
 
 use crate::buffer::{Buffer, LineEnding, Position};
-use crate::command::{AlignKind, HistoryKind, LineAddr, SubRange, SubstituteSpec};
+use crate::command::{AlignKind, HistoryKind, LineAddr, SortNumeric, SubRange, SubstituteSpec};
 use crate::fold::Folds;
 use crate::menu::{MenuOutcome, MenuState};
 use crate::mode::Mode;
@@ -7922,7 +7922,7 @@ impl Editor {
         range: SubRange,
         reverse: bool,
         unique: bool,
-        numeric: bool,
+        numeric: SortNumeric,
         ignorecase: bool,
         pattern: Option<String>,
         use_match: bool,
@@ -7952,15 +7952,17 @@ impl Editor {
                 None => line.to_string(),
             }
         };
-        if numeric {
-            lines.sort_by_key(|l| first_number(&key_of(l)));
-        } else if ignorecase {
-            lines.sort_by_key(|l| key_of(l).to_lowercase());
-        } else {
-            lines.sort_by_key(|l| key_of(l));
+        match numeric {
+            SortNumeric::Int => lines.sort_by_key(|l| first_number(&key_of(l))),
+            SortNumeric::Hex => lines.sort_by_key(|l| first_hex(&key_of(l))),
+            SortNumeric::Float => {
+                lines.sort_by(|a, b| first_float(&key_of(a)).total_cmp(&first_float(&key_of(b))))
+            }
+            SortNumeric::None if ignorecase => lines.sort_by_key(|l| key_of(l).to_lowercase()),
+            SortNumeric::None => lines.sort_by_key(|l| key_of(l)),
         }
         if unique {
-            if ignorecase && !numeric {
+            if ignorecase && numeric == SortNumeric::None {
                 lines.dedup_by(|x, y| x.to_lowercase() == y.to_lowercase());
             } else {
                 lines.dedup();
@@ -9301,6 +9303,72 @@ fn first_number(line: &str) -> i64 {
         }
     }
     0
+}
+
+/// First hexadecimal integer on the line for `:sort x` (an optional `0x`/`0X`
+/// prefix, then hex digits). 0 when there is none.
+fn first_hex(line: &str) -> i64 {
+    let bytes = line.as_bytes();
+    // Prefer an explicit `0x` prefix anywhere on the line.
+    if let Some(p) = line.find("0x").or_else(|| line.find("0X")) {
+        let rest = &line[p + 2..];
+        let end = rest.find(|c: char| !c.is_ascii_hexdigit()).unwrap_or(rest.len());
+        if end > 0 {
+            return i64::from_str_radix(&rest[..end], 16).unwrap_or(0);
+        }
+    }
+    // Otherwise the first run of hex digits.
+    for i in 0..bytes.len() {
+        if bytes[i].is_ascii_hexdigit() {
+            let mut j = i;
+            while j < bytes.len() && bytes[j].is_ascii_hexdigit() {
+                j += 1;
+            }
+            return i64::from_str_radix(&line[i..j], 16).unwrap_or(0);
+        }
+    }
+    0
+}
+
+/// First floating-point number on the line for `:sort f` (optional sign, digits
+/// with an optional fractional part and exponent). 0.0 when there is none.
+fn first_float(line: &str) -> f64 {
+    let bytes = line.as_bytes();
+    for i in 0..bytes.len() {
+        if !bytes[i].is_ascii_digit() {
+            continue;
+        }
+        let start = if i > 0 && (bytes[i - 1] == b'-' || bytes[i - 1] == b'+') {
+            i - 1
+        } else {
+            i
+        };
+        let mut j = i;
+        while j < bytes.len() && bytes[j].is_ascii_digit() {
+            j += 1;
+        }
+        if j < bytes.len() && bytes[j] == b'.' {
+            j += 1;
+            while j < bytes.len() && bytes[j].is_ascii_digit() {
+                j += 1;
+            }
+        }
+        // Optional exponent (e.g. 1.5e-3).
+        if j < bytes.len() && (bytes[j] == b'e' || bytes[j] == b'E') {
+            let mut k = j + 1;
+            if k < bytes.len() && (bytes[k] == b'-' || bytes[k] == b'+') {
+                k += 1;
+            }
+            if k < bytes.len() && bytes[k].is_ascii_digit() {
+                while k < bytes.len() && bytes[k].is_ascii_digit() {
+                    k += 1;
+                }
+                j = k;
+            }
+        }
+        return line[start..j].parse::<f64>().unwrap_or(0.0);
+    }
+    0.0
 }
 
 /// Order two positions into `(earlier, later)`.

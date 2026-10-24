@@ -18,6 +18,21 @@ pub enum LineAddr {
     Mark(char),
 }
 
+/// How `:sort` interprets each line's key: as text, or as a number in one of
+/// several bases (`n` decimal, `f` float, `x` hex).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SortNumeric {
+    /// Plain lexicographic sort (no numeric flag).
+    #[default]
+    None,
+    /// `n` — decimal integers.
+    Int,
+    /// `f` — floating-point numbers.
+    Float,
+    /// `x` — hexadecimal integers (optional `0x` prefix).
+    Hex,
+}
+
 /// The line range a `:s` command applies to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SubRange {
@@ -235,7 +250,7 @@ pub enum ExCommand {
         range: SubRange,
         reverse: bool,
         unique: bool,
-        numeric: bool,
+        numeric: SortNumeric,
         ignorecase: bool,
         /// Optional `/pattern/` to derive the sort key from.
         pattern: Option<String>,
@@ -932,11 +947,20 @@ fn parse_sort(trimmed: &str) -> Option<ExCommand> {
     } else {
         parse_range(range_str)?
     };
+    let numeric = if flagstr.contains('n') {
+        SortNumeric::Int
+    } else if flagstr.contains('f') {
+        SortNumeric::Float
+    } else if flagstr.contains('x') {
+        SortNumeric::Hex
+    } else {
+        SortNumeric::None
+    };
     Some(ExCommand::Sort {
         range,
         reverse,
         unique: flagstr.contains('u'),
-        numeric: flagstr.contains('n'),
+        numeric,
         ignorecase: flagstr.contains('i'),
         pattern: pattern.filter(|p| !p.is_empty()),
         use_match: flagstr.contains('r'),
