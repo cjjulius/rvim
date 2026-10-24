@@ -349,6 +349,7 @@ Grouped by what they do. Most line commands accept a leading range such as
 - `:put [reg]` inserts a register as lines; `:normal {keys}` runs Normal-mode keys on each line.
 - `:retab [N]` normalises tabs and spaces; `:[range]!cmd` filters lines through a shell command.
 - `:[range]w !cmd` pipes the lines to a command's input and shows its output without changing the buffer (e.g. `:%w !wc`).
+- `:[range]w >>file` appends the lines (or the whole buffer) to a file, creating it if needed.
 
 **Marks, registers, history**
 
@@ -742,7 +743,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **928 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **930 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

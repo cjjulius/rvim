@@ -87,6 +87,8 @@ pub enum ExCommand {
     /// `:[range]w !cmd` — pipe the lines to a shell command's stdin and show its
     /// output, without modifying the buffer (`range: None` means the whole file).
     WriteFilter { range: Option<SubRange>, cmd: String },
+    /// `:[range]w >>file` — append the lines (or the whole buffer) to `file`.
+    WriteAppend { range: Option<SubRange>, file: String },
     /// `:q` / `:q!`
     Quit { force: bool },
     /// `:wq [file]` / `:x` (and `:wq!` / `:x!`, which force past `:set readonly`)
@@ -424,6 +426,11 @@ pub fn parse(input: &str) -> ExCommand {
                 range: None,
                 cmd: a[1..].trim().to_string(),
             },
+            // `:w >>file` — append the whole buffer to a file.
+            Some(a) if a.starts_with(">>") => ExCommand::WriteAppend {
+                range: None,
+                file: a[2..].trim().to_string(),
+            },
             _ => ExCommand::Write { path: arg, force: false },
         },
         "w!" | "write!" => ExCommand::Write { path: arg, force: true },
@@ -713,6 +720,13 @@ fn parse_write_range(trimmed: &str) -> Option<ExCommand> {
         return Some(ExCommand::WriteFilter {
             range: Some(range),
             cmd: cmd.trim().to_string(),
+        });
+    }
+    // `:[range]w >>file` appends the lines to a file.
+    if let Some(f) = file.strip_prefix(">>") {
+        return Some(ExCommand::WriteAppend {
+            range: Some(range),
+            file: f.trim().to_string(),
         });
     }
     Some(ExCommand::WriteRange {

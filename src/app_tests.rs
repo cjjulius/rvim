@@ -452,6 +452,22 @@
     }
 
     #[test]
+    fn write_append_adds_to_existing_file() {
+        let path = std::env::temp_dir().join(format!("rvim_ap_{}.txt", std::process::id()));
+        std::fs::write(&path, "existing\n").unwrap();
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("new1\nnew2");
+        app.run_ex(&format!("w >>{}", path.display()));
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content, "existing\nnew1\nnew2\n");
+        // Appending to a range only writes those lines.
+        app.run_ex(&format!("1w >>{}", path.display()));
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content, "existing\nnew1\nnew2\nnew1\n");
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
     fn write_range_writes_only_those_lines() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("l1\nl2\nl3\nl4");

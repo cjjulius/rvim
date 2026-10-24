@@ -117,6 +117,23 @@
     }
 
     #[test]
+    fn write_append_parses() {
+        assert_eq!(
+            parse("w >>log.txt"),
+            ExCommand::WriteAppend { range: None, file: "log.txt".into() }
+        );
+        assert_eq!(
+            parse("%w >>out"),
+            ExCommand::WriteAppend { range: Some(SubRange::WholeFile), file: "out".into() }
+        );
+        // A plain write is unaffected.
+        assert_eq!(
+            parse("w file"),
+            ExCommand::Write { path: Some("file".into()), force: false }
+        );
+    }
+
+    #[test]
     fn write_filter_parses() {
         assert_eq!(
             parse("w !wc"),
