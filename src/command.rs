@@ -147,6 +147,9 @@ pub enum ExCommand {
     /// `:set nrformats=<list>` — number formats for `Ctrl-a`/`Ctrl-x` (only the
     /// `alpha` token changes behavior; bin/hex are always recognized).
     SetNrformats(String),
+    /// `:set virtualedit=<list>` — only `onemore`/`all` are honored (cursor one
+    /// past end of line in Normal mode).
+    SetVirtualEdit(String),
     /// `:set formatprg=<cmd>` — external program `gq` filters through (empty uses
     /// the built-in reflow).
     SetFormatprg(String),
@@ -1142,6 +1145,11 @@ fn parse_set(rest: &str) -> ExCommand {
                 .or_else(|| opt.strip_prefix("nf="))
             {
                 ExCommand::SetNrformats(v.trim().to_string())
+            } else if let Some(v) = opt
+                .strip_prefix("virtualedit=")
+                .or_else(|| opt.strip_prefix("ve="))
+            {
+                ExCommand::SetVirtualEdit(v.trim().to_string())
             } else if let Some(v) = opt
                 .strip_prefix("formatprg=")
                 .or_else(|| opt.strip_prefix("fp="))

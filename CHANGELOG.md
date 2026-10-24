@@ -72,6 +72,8 @@ All notable changes to rvim are recorded here. Versions follow
   opens folds up to level N and closes the deeper ones — companions to `zR`/`zM`.
 
 ### Editing
+- `:set virtualedit=onemore` (or `all`) lets the cursor rest one column past the
+  end of a line in Normal mode, so `l`/`$` can reach the true end. Default off.
 - `:set formatprg=<cmd>` routes `gq`/`gw` reflow through an external formatter
   (e.g. `fmt`, `par`) instead of the built-in wrap — the `gq` parallel to `equalprg`.
 - `:set nrformats=...,alpha` lets `Ctrl-a`/`Ctrl-x` bump a lone letter (a to b,

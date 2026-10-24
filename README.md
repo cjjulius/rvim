@@ -367,7 +367,8 @@ Grouped by what they do. Most line commands accept a leading range such as
   - Indent: `expandtab`, `shiftwidth=N`, `tabstop=N`, `shiftround`, `smartindent`.
   - Joining: `joinspaces` (two spaces after a sentence when you press `J`).
   - Other: `scrolloff=N`, `textwidth=N`, `matchpairs`, `mouse`, `title` (show the
-    file name in the terminal window title), `backup` (keep a `~` copy on save).
+    file name in the terminal window title), `backup` (keep a `~` copy on save),
+    `virtualedit=onemore` (let the cursor rest one past the end of a line).
   - Status line: `showmode`, `showcmd`, `ruler` (all on by default; turn off to
     trim the bottom line).
 
@@ -741,7 +742,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **925 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **928 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

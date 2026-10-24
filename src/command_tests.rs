@@ -300,6 +300,16 @@
     }
 
     #[test]
+    fn set_virtualedit() {
+        assert_eq!(
+            parse("set virtualedit=onemore"),
+            ExCommand::SetVirtualEdit("onemore".into())
+        );
+        assert_eq!(parse("set ve=all"), ExCommand::SetVirtualEdit("all".into()));
+        assert_eq!(parse("set ve="), ExCommand::SetVirtualEdit(String::new()));
+    }
+
+    #[test]
     fn set_nrformats() {
         assert_eq!(
             parse("set nrformats=bin,hex,alpha"),
