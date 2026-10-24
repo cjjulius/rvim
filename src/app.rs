@@ -99,6 +99,10 @@ pub struct App {
     /// Last window title pushed to the terminal (for `:set title`), so it is only
     /// re-sent when it changes.
     last_title: String,
+    /// Lazily-loaded ctags index (from `./tags`) for `:tag` / `Ctrl-]`.
+    tags: Option<crate::tags::Tags>,
+    /// The tag stack: positions to return to with `:pop` / `Ctrl-t`.
+    tag_stack: Vec<(String, usize, usize)>,
     /// Recent status-line messages, oldest first, for `:messages`. Captured once
     /// per frame when the message changes, so transient notes can be recalled.
     message_log: Vec<String>,
@@ -130,9 +134,57 @@ impl App {
             alternate: None,
             user_commands: HashMap::new(),
             last_title: String::new(),
+            tags: None,
+            tag_stack: Vec::new(),
             message_log: Vec::new(),
             last_logged_msg: String::new(),
         }
+    }
+
+    /// Jump to a tag by name (`:tag` / `Ctrl-]`). Loads `./tags` on first use,
+    /// pushes the current position onto the tag stack, then opens the tag's file
+    /// and moves to its address (a line number or a `/pattern/` search).
+    fn tag_jump(&mut self, name: &str) {
+        if name.is_empty() {
+            self.notify("E471: Argument required");
+            return;
+        }
+        if self.tags.is_none() {
+            let text = std::fs::read_to_string("tags").unwrap_or_default();
+            self.tags = Some(crate::tags::Tags::parse(&text));
+        }
+        let Some(entry) = self.tags.as_ref().and_then(|t| t.find(name)).cloned() else {
+            self.editor.message = format!("E426: tag not found: {name}");
+            return;
+        };
+        // Remember where we were so Ctrl-t can return.
+        if let Some(p) = self.editor.buffer.path().map(|p| p.display().to_string()) {
+            self.tag_stack
+                .push((p, self.editor.cursor.row, self.editor.cursor.col));
+        }
+        match crate::tags::parse_address(&entry.address) {
+            Some(crate::tags::Address::Line(n)) => self.edit_file(&entry.file, Some(n)),
+            Some(crate::tags::Address::Search(pat)) => {
+                self.edit_file(&entry.file, None);
+                // ctags patterns are literal line text (with `^`/`$` anchors), which
+                // may contain regex metacharacters — match them literally.
+                let body = pat.trim_start_matches('^').trim_end_matches('$');
+                self.editor
+                    .search_from_start(&format!("^{}", regex::escape(body)));
+            }
+            None => self.edit_file(&entry.file, None),
+        }
+        self.editor.message = format!("tag: {name}");
+    }
+
+    /// `:pop` / `Ctrl-t` — return to the position before the last tag jump.
+    fn tag_pop(&mut self) {
+        let Some((file, row, col)) = self.tag_stack.pop() else {
+            self.notify("E73: tag stack empty");
+            return;
+        };
+        self.edit_file(&file, None);
+        self.editor.set_cursor_clamped(row, col);
     }
 
     /// Record the current status message for `:messages` if it changed. Called
@@ -1397,6 +1449,19 @@ impl App {
                 let text = self.messages_listing();
                 self.open_scratch(&text, "messages —", "messages — :bd to close");
             }
+            ExCommand::Tag(name) => self.tag_jump(name.as_deref().unwrap_or("")),
+            ExCommand::TagPop => self.tag_pop(),
+            ExCommand::TagsList => {
+                let mut body = String::from("tag stack — :bd to close\n\n");
+                if self.tag_stack.is_empty() {
+                    body.push_str("  (empty)\n");
+                } else {
+                    for (i, (file, row, _)) in self.tag_stack.iter().enumerate() {
+                        body.push_str(&format!("  {}  {}:{}\n", i + 1, file, row + 1));
+                    }
+                }
+                self.open_scratch(&body, "tags —", "tag stack — :bd to close");
+            }
             ExCommand::Changes => {
                 let text = self.editor.changes_listing();
                 self.open_scratch(&text, "changes —", "changes — :bd to close");
@@ -2254,6 +2319,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \tgd / gD            go to definition (nearest above / first in file)\n\
          \tgf / gF            open the file name under the cursor (gF: at :line)\n\
          \tgx                 open the web URL under the cursor in your browser\n\
+         \tCtrl-] / Ctrl-t    jump to the tag under cursor / back (needs a tags file)\n\
          \tgn / gN            select next / prev match (cgn + . to repeat)\n\
          \t&  / g&            repeat last :s on current line / whole file\n\
          \tm<x> `<x> '<x>     set mark / jump exact / jump line   `` prev pos\n\
@@ -2283,6 +2349,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \tCtrl-^ / :b#       switch to the alternate (last) buffer\n\
          \t:marks :reg :jumps list marks / registers / jump list\n\
          \t:messages          recall recent status-line messages\n\
+         \t:tag <name>  :pop  :tags   jump to a tag / back / list the tag stack\n\
          \t:changes           list the change list (g; / g, navigate it)\n\
          \t:delmarks a b / !  delete the named marks (! clears all a-z marks)\n\
          \t:history [:|/|all] list command-line / search history\n\
