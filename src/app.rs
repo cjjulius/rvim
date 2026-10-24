@@ -15,7 +15,7 @@ use crossterm::event::{
     self, Event, KeyCode, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind,
 };
 use std::collections::HashMap;
-use std::io::{self, BufWriter};
+use std::io::{self, BufWriter, Write};
 
 /// How many recent status messages `:messages` keeps.
 const MESSAGE_LOG_CAP: usize = 200;
@@ -369,6 +369,7 @@ impl App {
         ed.modelines = self.editor.modelines;
         ed.autowrite = self.editor.autowrite;
         ed.autoread = self.editor.autoread;
+        ed.errorbells = self.editor.errorbells;
     }
 
     /// `:e <file>` — edit a file, switching to it if already open.
@@ -1094,8 +1095,18 @@ impl App {
                     if self.editor.mode != Mode::Command {
                         self.editor.message.clear();
                     }
+                    let msg_before = self.editor.message.clone();
                     let action = self.editor.handle_key(key);
                     self.apply_editor_action(action);
+                    // `:set errorbells` — ring the terminal bell when this keystroke
+                    // produced a fresh error message (vim-coded `E<n>:`).
+                    if self.editor.errorbells
+                        && self.editor.message != msg_before
+                        && ui::is_error_message(&self.editor.message)
+                    {
+                        let _ = out.write_all(b"\x07");
+                        let _ = out.flush();
+                    }
                 }
                 Event::Mouse(m) => self.handle_mouse(m, &layout),
                 Event::Resize(_, _) => { /* redrawn next loop */ }
@@ -1545,6 +1556,7 @@ impl App {
             ExCommand::ToggleShowMode(on) => self.editor.showmode = on,
             ExCommand::ToggleShowCmd(on) => self.editor.showcmd = on,
             ExCommand::ToggleRuler(on) => self.editor.ruler = on,
+            ExCommand::ToggleErrorBells(on) => self.editor.errorbells = on,
             ExCommand::ToggleExpandTab(on) => {
                 self.editor.expandtab = on;
             }
@@ -2368,6 +2380,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set virtualedit=onemore  let the cursor sit one past end of line\n\
          \t:set autowrite|noaw    save a named buffer when switching away\n\
          \t:set autoread|noar     reload the file when it changes on disk\n\
+         \t:set errorbells|noeb   ring the terminal bell on error messages\n\
          \t:set language=<code>   UI language (en, vi, fr)\n\
          \t:cd [dir]  :pwd        change / show the working directory\n\
          \t:set sidescrolloff=N   horizontal context columns\n\

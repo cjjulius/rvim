@@ -416,6 +416,14 @@
     }
 
     #[test]
+    fn set_errorbells() {
+        assert_eq!(parse("set errorbells"), ExCommand::ToggleErrorBells(true));
+        assert_eq!(parse("set eb"), ExCommand::ToggleErrorBells(true));
+        assert_eq!(parse("set noerrorbells"), ExCommand::ToggleErrorBells(false));
+        assert_eq!(parse("set noeb"), ExCommand::ToggleErrorBells(false));
+    }
+
+    #[test]
     fn align_parse() {
         assert_eq!(
             parse("center 10"),
