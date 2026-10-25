@@ -66,6 +66,7 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(powershell_spec())),
         Box::new(SpecHighlighter::new(hcl_spec())),
         Box::new(SpecHighlighter::new(protobuf_spec())),
+        Box::new(SpecHighlighter::new(graphql_spec())),
     ]
 }
 
@@ -1384,6 +1385,32 @@ const PROTOBUF_TYPES: &[&str] = &[
     "fixed64", "sfixed32", "sfixed64", "bool", "string", "bytes",
 ];
 
+// ---- GraphQL -------------------------------------------------------------
+
+fn graphql_spec() -> LangSpec {
+    LangSpec {
+        language: Language::GraphQl,
+        // GraphQL block strings use triple double-quotes.
+        multiline_strings: &["\"\"\""],
+        preprocessor: None,
+        line_comments: &["#"],
+        block_comment: None,
+        keywords: GRAPHQL_KEYWORDS,
+        types: GRAPHQL_TYPES,
+        builtins: &[],
+        string_delims: &['"'],
+        case_insensitive: false,
+        var_sigils: &['$'], // query variables: $id, $input
+        detect_calls: false,
+    }
+}
+
+const GRAPHQL_KEYWORDS: &[&str] = &[
+    "type", "interface", "enum", "union", "input", "scalar", "schema", "directive", "extend",
+    "implements", "query", "mutation", "subscription", "fragment", "on", "true", "false", "null",
+];
+const GRAPHQL_TYPES: &[&str] = &["Int", "Float", "String", "Boolean", "ID"];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1662,6 +1689,27 @@ mod tests {
         assert!(toks
             .iter()
             .any(|t| t.kind == TokenKind::Variable && &line[t.start..t.end] == "$_"));
+    }
+
+    #[test]
+    fn graphql_highlights_keyword_type_var_comment() {
+        let h = SpecHighlighter::new(graphql_spec());
+        let toks = h.highlight_line("type Query { user(id: ID!): String } # c");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // type
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // ID/String
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // # c
+        let toks2 = h.highlight_line("query Get($id: ID!) { user(id: $id) { name } }");
+        assert!(toks2.iter().any(|t| t.kind == TokenKind::Keyword)); // query
+        assert!(toks2.iter().any(|t| t.kind == TokenKind::Variable)); // $id
+    }
+
+    #[test]
+    fn graphql_block_string_spans_lines() {
+        let h = SpecHighlighter::new(graphql_spec());
+        let (_t, s) = h.highlight_line_stateful("\"\"\"docs for the field", LineState::Normal);
+        assert_eq!(s, LineState::MultiStr(0)); // block string stays open
+        let (_t2, s2) = h.highlight_line_stateful("still docs\"\"\"", s);
+        assert_eq!(s2, LineState::Normal); // and closes
     }
 
     #[test]

@@ -187,6 +187,9 @@ All notable changes to rvim are recorded here. Versions follow
   unchanged.
 
 ### Syntax
+- GraphQL highlighting (`.graphql`, `.gql`): keywords (`type`, `interface`,
+  `query`, `mutation`, `fragment`, …), the built-in scalar types, `$variables`,
+  `#` comments and triple-quote block strings.
 - Protobuf highlighting (`.proto`): keywords (`message`, `service`, `rpc`,
   `repeated`, …), scalar types, strings, numbers and `//` / `/* */` comments.
 - HCL / Terraform highlighting (`.tf`, `.tfvars`, `.hcl`): block keywords

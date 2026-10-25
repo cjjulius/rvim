@@ -1,0 +1,33 @@
+# GraphQL sample for rvim syntax highlighting.
+
+"""
+A registered user of the system.
+Block strings (triple quotes) can document a type.
+"""
+type User {
+  id: ID!
+  name: String!
+  emails: [String!]!
+  role: Role
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+input UserFilter {
+  active: Boolean
+}
+
+type Query {
+  user(id: ID!): User
+  users(filter: UserFilter): [User!]!
+}
+
+query GetUser($id: ID!) {
+  user(id: $id) {
+    name
+    emails
+  }
+}
