@@ -187,6 +187,8 @@ All notable changes to rvim are recorded here. Versions follow
   unchanged.
 
 ### Syntax
+- Protobuf highlighting (`.proto`): keywords (`message`, `service`, `rpc`,
+  `repeated`, …), scalar types, strings, numbers and `//` / `/* */` comments.
 - HCL / Terraform highlighting (`.tf`, `.tfvars`, `.hcl`): block keywords
   (`resource`, `variable`, `module`, …), core types, built-in functions, strings,
   and `#` / `//` / `/* */` comments.
