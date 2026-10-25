@@ -29,3 +29,13 @@ locals {
 output "bucket_count" {
   value = length(aws_s3_bucket.this) // one per name
 }
+
+# Heredocs span lines until a line that is just the terminator tag.
+locals {
+  policy = <<-EOT
+    {
+      "Version": "2012-10-17",
+      "Statement": []
+    }
+  EOT
+}

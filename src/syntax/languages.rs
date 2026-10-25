@@ -1695,6 +1695,25 @@ mod tests {
     }
 
     #[test]
+    fn hcl_heredoc_spans_lines_until_tag() {
+        let h = SpecHighlighter::new(hcl_spec());
+        // `<<EOT` opens; content runs until a line that is just the tag.
+        let (t0, s0) = h.highlight_line_stateful("user_data = <<EOT", LineState::Normal);
+        assert!(matches!(s0, LineState::HeredocTag(_)));
+        assert!(t0.iter().any(|t| t.kind == TokenKind::String)); // the <<EOT opener
+        let (t1, s1) = h.highlight_line_stateful("echo ${hello} world", s0);
+        assert!(matches!(s1, LineState::HeredocTag(_))); // still inside
+        assert!(t1.iter().all(|t| t.kind == TokenKind::String));
+        let (_t2, s2) = h.highlight_line_stateful("EOT", s1);
+        assert_eq!(s2, LineState::Normal); // the tag line closes it
+        // Indented form `<<-EOT` closes on an indented tag line too.
+        let (_t3, s3) = h.highlight_line_stateful("x = <<-EOT", LineState::Normal);
+        assert!(matches!(s3, LineState::HeredocTag(_)));
+        let (_t4, s4) = h.highlight_line_stateful("    EOT", s3);
+        assert_eq!(s4, LineState::Normal);
+    }
+
+    #[test]
     fn hcl_type_in_variable_block_and_slash_comment() {
         let h = SpecHighlighter::new(hcl_spec());
         let toks = h.highlight_line("variable \"x\" { type = string } // note");

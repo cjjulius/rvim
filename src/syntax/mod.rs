@@ -274,6 +274,32 @@ pub enum LineState {
     /// Inside a here-string/heredoc opened with `heredocs()[idx]` — an asymmetric
     /// open/close pair (e.g. PowerShell `@"` … `"@`), closed at the line's start.
     Heredoc(usize),
+    /// Inside a heredoc with a caller-defined terminator (e.g. HCL `<<EOF` … `EOF`),
+    /// closed by a line whose only content is the captured tag.
+    HeredocTag(HeredocTag),
+}
+
+/// A heredoc terminator captured inline (ASCII identifier), so [`LineState`] stays
+/// `Copy` and cheap to compare for the block-state memoization. Tags longer than
+/// the inline capacity are truncated (a rare case that only loses highlighting).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct HeredocTag {
+    buf: [u8; 23],
+    len: u8,
+}
+
+impl HeredocTag {
+    fn new(s: &str) -> Self {
+        let b = s.as_bytes();
+        let n = b.len().min(23);
+        let mut buf = [0u8; 23];
+        buf[..n].copy_from_slice(&b[..n]);
+        HeredocTag { buf, len: n as u8 }
+    }
+
+    fn as_str(&self) -> &str {
+        std::str::from_utf8(&self.buf[..self.len as usize]).unwrap_or("")
+    }
 }
 
 /// The interface every highlighter implements.
@@ -449,6 +475,25 @@ impl SpecHighlighter {
             _ => &[],
         }
     }
+
+    /// If `rest` begins an HCL heredoc (`<<TAG` or `<<-TAG`), return its terminator
+    /// tag. The tag is the identifier right after `<<`/`<<-`. Only HCL has these.
+    fn dynamic_heredoc_open(&self, rest: &str) -> Option<HeredocTag> {
+        if self.spec.language != Language::Hcl {
+            return None;
+        }
+        let after = rest.strip_prefix("<<")?;
+        let after = after.strip_prefix('-').unwrap_or(after);
+        let tag: String = after
+            .chars()
+            .take_while(|c| is_ident_continue(*c))
+            .collect();
+        // A valid tag starts with a letter/underscore and is non-empty.
+        if tag.is_empty() || !tag.starts_with(|c: char| is_ident_start(c)) {
+            return None;
+        }
+        Some(HeredocTag::new(&tag))
+    }
 }
 
 impl Highlighter for SpecHighlighter {
@@ -456,6 +501,7 @@ impl Highlighter for SpecHighlighter {
         self.spec.block_comment.is_some()
             || !self.spec.multiline_strings.is_empty()
             || !self.heredocs().is_empty()
+            || self.spec.language == Language::Hcl
     }
 
     fn fast_block_state(&self, line: &str, state: LineState) -> Option<LineState> {
@@ -477,7 +523,8 @@ impl Highlighter for SpecHighlighter {
                 .multiline_strings
                 .iter()
                 .any(|d| line.contains(d))
-            || self.heredocs().iter().any(|(open, _)| line.contains(open));
+            || self.heredocs().iter().any(|(open, _)| line.contains(open))
+            || (self.spec.language == Language::Hcl && line.contains("<<"));
         if has_delim {
             None
         } else {
@@ -553,6 +600,16 @@ impl Highlighter for SpecHighlighter {
                         tokens.push(Token::new(0, end_byte, TokenKind::String));
                         return (tokens, LineState::Heredoc(idx));
                     }
+                }
+            }
+            LineState::HeredocTag(tag) => {
+                // Resuming a caller-tagged heredoc: it closes on a line whose only
+                // content (ignoring surrounding whitespace, for `<<-`) is the tag.
+                if line.trim() == tag.as_str() {
+                    tokens.push(Token::new(0, end_byte, TokenKind::String));
+                } else {
+                    tokens.push(Token::new(0, end_byte, TokenKind::String));
+                    return (tokens, LineState::HeredocTag(tag));
                 }
             }
         }
@@ -654,6 +711,14 @@ impl Highlighter for SpecHighlighter {
             {
                 tokens.push(Token::new(start_b, end_byte, TokenKind::String));
                 return (tokens, LineState::Heredoc(idx));
+            }
+
+            // Caller-tagged heredoc (HCL `<<TAG` / `<<-TAG`): the opener and the
+            // rest of the line are string content; the next line continues inside
+            // until a line that is just the tag.
+            if let Some(tag) = self.dynamic_heredoc_open(rest) {
+                tokens.push(Token::new(start_b, end_byte, TokenKind::String));
+                return (tokens, LineState::HeredocTag(tag));
             }
 
             // Strings.
