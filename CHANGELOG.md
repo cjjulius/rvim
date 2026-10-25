@@ -135,6 +135,9 @@ All notable changes to rvim are recorded here. Versions follow
   file in a split stays independent.
 
 ### Accessibility
+- `:set visualbell` (`vb`) flashes the screen on an error instead of beeping — a
+  silent, visible cue for sound-off or hearing-impaired use. Off by default; takes
+  precedence over `errorbells` when both are set.
 - `:set errorbells` (`eb`) rings the terminal bell when an error message appears,
   an audible cue for errors. Off by default; terminals can render it as a visual
   flash via their own bell setting.

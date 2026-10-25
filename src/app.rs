@@ -20,6 +20,9 @@ use std::io::{self, BufWriter, Write};
 /// How many recent status messages `:messages` keeps.
 const MESSAGE_LOG_CAP: usize = 200;
 
+/// How long the `:set visualbell` screen flash stays inverted, in milliseconds.
+const VISUAL_BELL_MS: u64 = 80;
+
 /// Split a `:set` argument list into individual options. A backslash escapes the
 /// next character, so a value may contain spaces (vim's `equalprg=a\ b`) or a
 /// literal backslash (`\\`); the escaping backslashes are removed. Returns the
@@ -466,6 +469,7 @@ impl App {
         ed.autowrite = self.editor.autowrite;
         ed.autoread = self.editor.autoread;
         ed.errorbells = self.editor.errorbells;
+        ed.visualbell = self.editor.visualbell;
     }
 
     /// `:e <file>` — edit a file, switching to it if already open.
@@ -1194,14 +1198,25 @@ impl App {
                     let msg_before = self.editor.message.clone();
                     let action = self.editor.handle_key(key);
                     self.apply_editor_action(action);
-                    // `:set errorbells` — ring the terminal bell when this keystroke
-                    // produced a fresh error message (vim-coded `E<n>:`).
-                    if self.editor.errorbells
-                        && self.editor.message != msg_before
+                    // Error cue: on a fresh error message (vim-coded `E<n>:`), flash
+                    // the screen (`:set visualbell`) or ring the terminal bell
+                    // (`:set errorbells`). Visualbell takes precedence so it works on
+                    // its own as a silent, visible cue.
+                    if self.editor.message != msg_before
                         && ui::is_error_message(&self.editor.message)
                     {
-                        let _ = out.write_all(b"\x07");
-                        let _ = out.flush();
+                        if self.editor.visualbell {
+                            // DECSCNM reverse-video flash — the classic terminal
+                            // visual bell, restored after a brief pause.
+                            let _ = out.write_all(b"\x1b[?5h");
+                            let _ = out.flush();
+                            std::thread::sleep(std::time::Duration::from_millis(VISUAL_BELL_MS));
+                            let _ = out.write_all(b"\x1b[?5l");
+                            let _ = out.flush();
+                        } else if self.editor.errorbells {
+                            let _ = out.write_all(b"\x07");
+                            let _ = out.flush();
+                        }
                     }
                 }
                 Event::Mouse(m) => self.handle_mouse(m, &layout),
@@ -1655,6 +1670,7 @@ impl App {
             ExCommand::ToggleShowCmd(on) => self.editor.showcmd = on,
             ExCommand::ToggleRuler(on) => self.editor.ruler = on,
             ExCommand::ToggleErrorBells(on) => self.editor.errorbells = on,
+            ExCommand::ToggleVisualBell(on) => self.editor.visualbell = on,
             ExCommand::ToggleExpandTab(on) => {
                 self.editor.expandtab = on;
             }
@@ -2480,6 +2496,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set autowrite|noaw    save a named buffer when switching away\n\
          \t:set autoread|noar     reload the file when it changes on disk\n\
          \t:set errorbells|noeb   ring the terminal bell on error messages\n\
+         \t:set visualbell|novb   flash the screen on errors instead of beeping\n\
          \t:set language=<code>   UI language (en, vi, fr)\n\
          \t:cd [dir]  :pwd        change / show the working directory\n\
          \t:set sidescrolloff=N   horizontal context columns\n\
