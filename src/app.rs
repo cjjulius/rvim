@@ -111,6 +111,9 @@ pub struct App {
     tag_matches: Vec<crate::tags::TagEntry>,
     tag_match_idx: usize,
     tag_match_name: String,
+    /// Global (uppercase `A`-`Z`) marks: mark -> (file path, row, col). Unlike the
+    /// per-buffer lowercase marks, these persist across buffers and reopen the file.
+    global_marks: HashMap<char, (String, usize, usize)>,
     /// Recent status-line messages, oldest first, for `:messages`. Captured once
     /// per frame when the message changes, so transient notes can be recalled.
     message_log: Vec<String>,
@@ -147,6 +150,7 @@ impl App {
             tag_matches: Vec::new(),
             tag_match_idx: 0,
             tag_match_name: String::new(),
+            global_marks: HashMap::new(),
             message_log: Vec::new(),
             last_logged_msg: String::new(),
         }
@@ -1415,6 +1419,36 @@ impl App {
             Action::OpenScratch { title, body } => {
                 self.open_scratch(&body, &title, &title);
             }
+            Action::SetGlobalMark(c) => self.set_global_mark(c),
+            Action::JumpGlobalMark { mark, line_wise } => self.jump_global_mark(mark, line_wise),
+        }
+    }
+
+    /// `m{A-Z}` — record a global mark at the cursor, tagged with the current file.
+    fn set_global_mark(&mut self, mark: char) {
+        match self.editor.buffer.path().map(|p| p.display().to_string()) {
+            Some(file) => {
+                self.global_marks
+                    .insert(mark, (file, self.editor.cursor.row, self.editor.cursor.col));
+            }
+            None => self.editor.message = "E name: cannot set a global mark in an unnamed buffer".into(),
+        }
+    }
+
+    /// `` `{A-Z} `` / `'{A-Z}` — jump to a global mark, opening its file if needed.
+    fn jump_global_mark(&mut self, mark: char, line_wise: bool) {
+        let Some((file, row, col)) = self.global_marks.get(&mark).cloned() else {
+            self.editor.message = format!("E20: Mark not set: {mark}");
+            return;
+        };
+        let here = self.editor.buffer.path().map(|p| p.display().to_string());
+        if here.as_deref() != Some(file.as_str()) {
+            self.edit_file(&file, None);
+        }
+        if line_wise {
+            self.editor.goto_line(row + 1);
+        } else {
+            self.editor.set_cursor_clamped(row, col);
         }
     }
 
@@ -1556,7 +1590,16 @@ impl App {
             ExCommand::BufferDelete => self.buffer_delete(),
             ExCommand::BufferAlternate => self.switch_alternate(),
             ExCommand::Marks => {
-                let text = self.editor.marks_listing();
+                let mut text = self.editor.marks_listing();
+                if !self.global_marks.is_empty() {
+                    let mut names: Vec<&char> = self.global_marks.keys().collect();
+                    names.sort();
+                    text.push_str("\nglobal marks\n");
+                    for name in names {
+                        let (file, row, _) = &self.global_marks[name];
+                        text.push_str(&format!("  {}  {}:{}\n", name, file, row + 1));
+                    }
+                }
                 self.open_scratch(&text, "marks —", "marks — :bd to close");
             }
             ExCommand::Registers => {
@@ -2449,6 +2492,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \tgn / gN            select next / prev match (cgn + . to repeat)\n\
          \t&  / g&            repeat last :s on current line / whole file\n\
          \tm<x> `<x> '<x>     set mark / jump exact / jump line   `` prev pos\n\
+         \tm<A-Z>  `<A-Z>     global marks: jump across files (reopens the file)\n\
          \t`[ `]              start / end of the last change / yank / put\n\
          \tCtrl-o / Ctrl-i    jump list: older / newer position\n\
          \tg; / g,            change list: older / newer edit position\n\

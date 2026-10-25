@@ -938,6 +938,26 @@
     }
 
     #[test]
+    fn uppercase_marks_return_global_actions() {
+        let mut ed = ed_with("l0\nl1\nl2");
+        ed.cursor = Position::new(1, 0);
+        // Setting an uppercase mark is handled by the app (global), not stored here.
+        ed.handle_key(key('m'));
+        let set = ed.handle_key(key('A'));
+        assert_eq!(set, Action::SetGlobalMark('A'));
+        // Jumping to it asks the app to open the file and move.
+        ed.handle_key(key('`'));
+        let jump = ed.handle_key(key('A'));
+        assert_eq!(jump, Action::JumpGlobalMark { mark: 'A', line_wise: false });
+        ed.handle_key(key('\''));
+        let jump_line = ed.handle_key(key('A'));
+        assert_eq!(jump_line, Action::JumpGlobalMark { mark: 'A', line_wise: true });
+        // A lowercase mark is still stored locally (no app action).
+        ed.handle_key(key('m'));
+        assert_eq!(ed.handle_key(key('b')), Action::None);
+    }
+
+    #[test]
     fn mark_jump_line_lands_on_first_nonblank() {
         let mut ed = ed_with("l0\n  indented\nl2");
         ed.cursor = Position::new(1, 5);

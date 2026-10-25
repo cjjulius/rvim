@@ -26,6 +26,12 @@ pub enum Action {
     /// Open a read-only scratch buffer showing `body`, with a `title` marker (for
     /// listings produced from Normal mode, e.g. `[I`).
     OpenScratch { title: String, body: String },
+    /// Set a global (uppercase `A`-`Z`) mark at the cursor, recorded by the app
+    /// with the current file so it can be jumped to from any buffer.
+    SetGlobalMark(char),
+    /// Jump to a global mark, opening its file if needed. `line_wise` lands on the
+    /// line's first non-blank (`'A`) rather than the exact column (`` `A ``).
+    JumpGlobalMark { mark: char, line_wise: bool },
 }
 
 /// A yank/delete register.
@@ -4637,15 +4643,29 @@ impl Editor {
             return Action::None;
         }
 
-        // Mark letter after `m` / `` ` `` / `'`.
+        // Mark letter after `m` / `` ` `` / `'`. Uppercase `A`-`Z` are global marks
+        // (file + position), handled by the app so a jump can cross files.
         if let Some(pm) = self.pending_mark.take() {
             if let KeyCode::Char(c) = key.code {
                 match pm {
                     PendingMark::Set => {
+                        if c.is_ascii_uppercase() {
+                            return Action::SetGlobalMark(c);
+                        }
                         self.marks.insert(c, self.cursor);
                     }
-                    PendingMark::JumpExact => self.jump_to_mark(c, false),
-                    PendingMark::JumpLine => self.jump_to_mark(c, true),
+                    PendingMark::JumpExact => {
+                        if c.is_ascii_uppercase() {
+                            return Action::JumpGlobalMark { mark: c, line_wise: false };
+                        }
+                        self.jump_to_mark(c, false);
+                    }
+                    PendingMark::JumpLine => {
+                        if c.is_ascii_uppercase() {
+                            return Action::JumpGlobalMark { mark: c, line_wise: true };
+                        }
+                        self.jump_to_mark(c, true);
+                    }
                 }
             }
             return Action::None;

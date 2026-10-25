@@ -20,6 +20,9 @@ All notable changes to rvim are recorded here. Versions follow
   kept with a `W12` warning rather than clobbered. Default off.
 
 ### Navigation
+- Global marks: `m<A-Z>` records a mark tied to the current file, and `` `<A-Z> `` /
+  `'<A-Z>` jumps to it from any buffer, reopening the file if needed — lowercase
+  marks stay per-buffer as before.
 - Tag navigation: `Ctrl-]` jumps to the definition of the tag under the cursor and
   `Ctrl-t` jumps back, using a `ctags`-generated `tags` file in the working
   directory. `:tag <name>`, `:pop`, and `:tags` (the tag stack) are available too.
