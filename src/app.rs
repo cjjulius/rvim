@@ -622,6 +622,12 @@ impl App {
         }
         if let Some(cur) = &current {
             out.push_str(&format!("edit {cur}\n"));
+        }
+        // Options apply to the now-focused buffer, so set them after the edits.
+        for opt in self.editor.session_options() {
+            out.push_str(&format!("set {opt}\n"));
+        }
+        if let Some(_cur) = &current {
             out.push_str(&format!("{}\n", self.editor.cursor.row + 1));
         }
         match std::fs::write(path, out) {
