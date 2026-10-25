@@ -563,6 +563,7 @@ then tokenized and color-coded:
 | PowerShell            | `.ps1`, `.psm1`, `.psd1`            |
 | HCL / Terraform       | `.tf`, `.tfvars`, `.hcl`            |
 | Protobuf              | `.proto`                            |
+| GraphQL               | `.graphql`, `.gql`                  |
 | YAML                  | `.yaml`, `.yml`                     |
 
 A generic `.sql` file can be pinned to a dialect with a first-line hint such as
@@ -756,7 +757,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **961 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **963 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

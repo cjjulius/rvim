@@ -85,6 +85,7 @@ pub enum Language {
     PowerShell,
     Hcl,
     Protobuf,
+    GraphQl,
 }
 
 /// One language's metadata, driving `name`, `from_name`, `line_comment_token`,
@@ -140,6 +141,7 @@ const LANG_TABLE: &[LangInfo] = &[
     LangInfo { lang: Language::PowerShell, name: "powershell", aliases: &["ps1", "pwsh", "ps"], extensions: &["ps1", "psm1", "psd1"], comment: Some("#") },
     LangInfo { lang: Language::Hcl, name: "hcl", aliases: &["terraform", "tf"], extensions: &["tf", "tfvars", "hcl"], comment: Some("#") },
     LangInfo { lang: Language::Protobuf, name: "protobuf", aliases: &["proto", "proto3"], extensions: &["proto"], comment: Some("//") },
+    LangInfo { lang: Language::GraphQl, name: "graphql", aliases: &["gql"], extensions: &["graphql", "gql"], comment: Some("#") },
 ];
 
 impl Language {
@@ -1002,7 +1004,7 @@ mod tests {
             Language::CSharp, Language::Swift, Language::Php, Language::Scala,
             Language::Dart, Language::R, Language::Haskell, Language::Zig,
             Language::Elixir, Language::Perl, Language::OCaml, Language::Julia,
-            Language::PowerShell, Language::Hcl, Language::Protobuf,
+            Language::PowerShell, Language::Hcl, Language::Protobuf, Language::GraphQl,
         ];
         for lang in all {
             match lang {
@@ -1015,7 +1017,7 @@ mod tests {
                 | Language::Scala | Language::Dart | Language::R | Language::Haskell
                 | Language::Zig | Language::Elixir | Language::Perl | Language::OCaml
                 | Language::Julia | Language::PowerShell | Language::Hcl
-                | Language::Protobuf => {}
+                | Language::Protobuf | Language::GraphQl => {}
             }
             assert!(
                 LANG_TABLE.iter().any(|e| e.lang == lang),
