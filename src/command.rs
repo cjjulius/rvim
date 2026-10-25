@@ -33,6 +33,15 @@ pub enum SortNumeric {
     Hex,
 }
 
+/// Which way to move through the list of matches for the current tag.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TagMove {
+    Next,
+    Prev,
+    First,
+    Last,
+}
+
 /// The line range a `:s` command applies to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SubRange {
@@ -330,6 +339,11 @@ pub enum ExCommand {
     TagPop,
     /// `:tags` — list the tag stack.
     TagsList,
+    /// `:tnext` / `:tprevious` / `:tfirst` / `:tlast` — move within the list of
+    /// matches for the current tag.
+    TagMatch(TagMove),
+    /// `:tselect [name]` — list every match for a tag so one can be chosen.
+    TagSelect(Option<String>),
     /// `:changes` — list the change list.
     Changes,
     /// `:delmarks {marks}` — delete marks (`"!"` deletes all lowercase marks).
@@ -562,6 +576,11 @@ pub fn parse(input: &str) -> ExCommand {
         "ta" | "tag" => ExCommand::Tag(arg),
         "pop" | "po" => ExCommand::TagPop,
         "tags" => ExCommand::TagsList,
+        "tn" | "tnext" => ExCommand::TagMatch(TagMove::Next),
+        "tp" | "tprevious" | "tprev" | "tN" | "tNext" => ExCommand::TagMatch(TagMove::Prev),
+        "tf" | "tfirst" | "tr" | "trewind" => ExCommand::TagMatch(TagMove::First),
+        "tl" | "tlast" => ExCommand::TagMatch(TagMove::Last),
+        "ts" | "tselect" | "tsel" => ExCommand::TagSelect(arg),
         "changes" => ExCommand::Changes,
         "delmarks!" | "delm!" => ExCommand::DelMarks("!".into()),
         "delmarks" | "delm" => ExCommand::DelMarks(arg.unwrap_or_default()),

@@ -56,6 +56,11 @@ impl Tags {
         self.map.get(name).and_then(|v| v.first())
     }
 
+    /// Every definition for `name`, in file order (empty if the tag is unknown).
+    pub fn find_all(&self, name: &str) -> &[TagEntry] {
+        self.map.get(name).map(|v| v.as_slice()).unwrap_or(&[])
+    }
+
     /// Number of distinct tag names.
     pub fn len(&self) -> usize {
         self.map.len()
@@ -109,6 +114,17 @@ mod tests {
             Some(&TagEntry { file: "src/geo.rs".into(), address: "42".into() })
         );
         assert!(tags.find("missing").is_none());
+        assert!(tags.find_all("missing").is_empty());
+    }
+
+    #[test]
+    fn find_all_returns_every_definition_in_order() {
+        let text = "f\ta.rs\t1\nf\tb.rs\t2\nf\tc.rs\t3\n";
+        let tags = Tags::parse(text);
+        let all = tags.find_all("f");
+        assert_eq!(all.len(), 3);
+        assert_eq!(all[0].file, "a.rs");
+        assert_eq!(all[2].file, "c.rs");
     }
 
     #[test]

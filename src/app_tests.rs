@@ -41,6 +41,37 @@
     }
 
     #[test]
+    fn tag_match_move_cycles_and_bounds() {
+        use crate::tags::TagEntry;
+        let mut app = App::new();
+        app.tag_matches = vec![
+            TagEntry { file: "a.rs".into(), address: "1".into() },
+            TagEntry { file: "b.rs".into(), address: "1".into() },
+            TagEntry { file: "c.rs".into(), address: "1".into() },
+        ];
+        app.tag_match_name = "f".into();
+        app.tag_match_move(crate::command::TagMove::Next);
+        assert_eq!(app.tag_match_idx, 1);
+        app.tag_match_move(crate::command::TagMove::Last);
+        assert_eq!(app.tag_match_idx, 2);
+        app.tag_match_move(crate::command::TagMove::Next); // already last
+        assert_eq!(app.tag_match_idx, 2);
+        assert!(app.editor.message.contains("beyond last"));
+        app.tag_match_move(crate::command::TagMove::First);
+        assert_eq!(app.tag_match_idx, 0);
+        app.tag_match_move(crate::command::TagMove::Prev); // already first
+        assert_eq!(app.tag_match_idx, 0);
+        assert!(app.editor.message.contains("before first"));
+    }
+
+    #[test]
+    fn tag_match_move_without_matches_reports() {
+        let mut app = App::new();
+        app.tag_match_move(crate::command::TagMove::Next);
+        assert!(app.editor.message.contains("tag stack empty"));
+    }
+
+    #[test]
     fn run_ex_goto_line() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("a\nb\nc\nd");

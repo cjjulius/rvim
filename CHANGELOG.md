@@ -23,7 +23,10 @@ All notable changes to rvim are recorded here. Versions follow
 - Tag navigation: `Ctrl-]` jumps to the definition of the tag under the cursor and
   `Ctrl-t` jumps back, using a `ctags`-generated `tags` file in the working
   directory. `:tag <name>`, `:pop`, and `:tags` (the tag stack) are available too.
-  The address can be a line number or a `/pattern/` (matched literally).
+  The address can be a line number or a `/pattern/` (matched literally). When a tag
+  has several definitions, `:tnext` / `:tprev` / `:tfirst` / `:tlast` step through
+  them and `:tselect [name]` lists them all so you can pick one; a jump reports
+  `tag N of M`.
 - `[I` / `]I` list every line containing the word under the cursor (whole file, or
   from the next line on) with line numbers, in a scratch buffer — a quick "find
   uses". Whole-word match only.

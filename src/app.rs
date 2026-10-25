@@ -103,6 +103,11 @@ pub struct App {
     tags: Option<crate::tags::Tags>,
     /// The tag stack: positions to return to with `:pop` / `Ctrl-t`.
     tag_stack: Vec<(String, usize, usize)>,
+    /// Every match for the most recent `:tag`, with the currently-selected index,
+    /// so `:tnext` / `:tprev` / `:tselect` can move between same-named definitions.
+    tag_matches: Vec<crate::tags::TagEntry>,
+    tag_match_idx: usize,
+    tag_match_name: String,
     /// Recent status-line messages, oldest first, for `:messages`. Captured once
     /// per frame when the message changes, so transient notes can be recalled.
     message_log: Vec<String>,
@@ -136,6 +141,9 @@ impl App {
             last_title: String::new(),
             tags: None,
             tag_stack: Vec::new(),
+            tag_matches: Vec::new(),
+            tag_match_idx: 0,
+            tag_match_name: String::new(),
             message_log: Vec::new(),
             last_logged_msg: String::new(),
         }
@@ -149,19 +157,41 @@ impl App {
             self.notify("E471: Argument required");
             return;
         }
-        if self.tags.is_none() {
-            let text = std::fs::read_to_string("tags").unwrap_or_default();
-            self.tags = Some(crate::tags::Tags::parse(&text));
-        }
-        let Some(entry) = self.tags.as_ref().and_then(|t| t.find(name)).cloned() else {
+        self.load_tags();
+        let matches: Vec<crate::tags::TagEntry> = self
+            .tags
+            .as_ref()
+            .map(|t| t.find_all(name).to_vec())
+            .unwrap_or_default();
+        if matches.is_empty() {
             self.editor.message = format!("E426: tag not found: {name}");
             return;
-        };
+        }
         // Remember where we were so Ctrl-t can return.
         if let Some(p) = self.editor.buffer.path().map(|p| p.display().to_string()) {
             self.tag_stack
                 .push((p, self.editor.cursor.row, self.editor.cursor.col));
         }
+        self.tag_matches = matches;
+        self.tag_match_idx = 0;
+        self.tag_match_name = name.to_string();
+        self.goto_current_tag_match();
+    }
+
+    /// Lazily read and parse `./tags` once.
+    fn load_tags(&mut self) {
+        if self.tags.is_none() {
+            let text = std::fs::read_to_string("tags").unwrap_or_default();
+            self.tags = Some(crate::tags::Tags::parse(&text));
+        }
+    }
+
+    /// Open the file for the currently-selected tag match and move to its address.
+    /// Does not touch the tag stack (the original position is already recorded).
+    fn goto_current_tag_match(&mut self) {
+        let Some(entry) = self.tag_matches.get(self.tag_match_idx).cloned() else {
+            return;
+        };
         match crate::tags::parse_address(&entry.address) {
             Some(crate::tags::Address::Line(n)) => self.edit_file(&entry.file, Some(n)),
             Some(crate::tags::Address::Search(pat)) => {
@@ -174,7 +204,73 @@ impl App {
             }
             None => self.edit_file(&entry.file, None),
         }
-        self.editor.message = format!("tag: {name}");
+        let total = self.tag_matches.len();
+        self.editor.message = if total > 1 {
+            format!("tag {} of {}: {}", self.tag_match_idx + 1, total, self.tag_match_name)
+        } else {
+            format!("tag: {}", self.tag_match_name)
+        };
+    }
+
+    /// `:tnext` / `:tprev` / `:tfirst` / `:tlast` — move within the match list.
+    fn tag_match_move(&mut self, mv: crate::command::TagMove) {
+        use crate::command::TagMove;
+        let total = self.tag_matches.len();
+        if total == 0 {
+            self.notify("E73: tag stack empty");
+            return;
+        }
+        let next = match mv {
+            TagMove::Next => {
+                if self.tag_match_idx + 1 >= total {
+                    self.notify("E428: Cannot go beyond last matching tag");
+                    return;
+                }
+                self.tag_match_idx + 1
+            }
+            TagMove::Prev => {
+                if self.tag_match_idx == 0 {
+                    self.notify("E425: Cannot go before first matching tag");
+                    return;
+                }
+                self.tag_match_idx - 1
+            }
+            TagMove::First => 0,
+            TagMove::Last => total - 1,
+        };
+        self.tag_match_idx = next;
+        self.goto_current_tag_match();
+    }
+
+    /// `:tselect [name]` — list every match for the tag so one can be chosen.
+    fn tag_select(&mut self, name: Option<&str>) {
+        // A bare `:tselect` reuses the current tag; a name loads its matches.
+        if let Some(name) = name.filter(|n| !n.is_empty()) {
+            self.load_tags();
+            let matches: Vec<crate::tags::TagEntry> = self
+                .tags
+                .as_ref()
+                .map(|t| t.find_all(name).to_vec())
+                .unwrap_or_default();
+            if matches.is_empty() {
+                self.editor.message = format!("E426: tag not found: {name}");
+                return;
+            }
+            self.tag_matches = matches;
+            self.tag_match_idx = 0;
+            self.tag_match_name = name.to_string();
+        }
+        if self.tag_matches.is_empty() {
+            self.notify("E73: tag stack empty");
+            return;
+        }
+        let mut body = format!("tags matching \"{}\" — :bd to close\n\n", self.tag_match_name);
+        body.push_str("  use :tnext / :tprev / :tfirst / :tlast to move\n\n");
+        for (i, e) in self.tag_matches.iter().enumerate() {
+            let cur = if i == self.tag_match_idx { '>' } else { ' ' };
+            body.push_str(&format!("{} {}  {}  {}\n", cur, i + 1, e.file, e.address));
+        }
+        self.open_scratch(&body, "tags matching", "tag matches — :bd to close");
     }
 
     /// `:pop` / `Ctrl-t` — return to the position before the last tag jump.
@@ -1473,6 +1569,8 @@ impl App {
                 }
                 self.open_scratch(&body, "tags —", "tag stack — :bd to close");
             }
+            ExCommand::TagMatch(mv) => self.tag_match_move(mv),
+            ExCommand::TagSelect(name) => self.tag_select(name.as_deref()),
             ExCommand::Changes => {
                 let text = self.editor.changes_listing();
                 self.open_scratch(&text, "changes —", "changes — :bd to close");
@@ -2362,6 +2460,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:marks :reg :jumps list marks / registers / jump list\n\
          \t:messages          recall recent status-line messages\n\
          \t:tag <name>  :pop  :tags   jump to a tag / back / list the tag stack\n\
+         \t:tnext :tprev :tselect     move among same-named tag matches / list them\n\
          \t:changes           list the change list (g; / g, navigate it)\n\
          \t:delmarks a b / !  delete the named marks (! clears all a-z marks)\n\
          \t:history [:|/|all] list command-line / search history\n\
