@@ -1906,6 +1906,29 @@ impl Editor {
         out
     }
 
+    /// Option values (as `:set` arguments) for options changed from their defaults
+    /// and worth saving in a session. Per-buffer/content options (filetype,
+    /// fileformat, folding), transient ones (readonly, paste, backup) and options
+    /// whose values may contain spaces (equalprg, formatprg) are left out.
+    pub fn session_options(&self) -> Vec<String> {
+        const SKIP: &[&str] = &[
+            "filetype", "fileformat", "foldmethod", "foldlevel", "foldcolumn",
+            "readonly", "paste", "backup", "equalprg", "formatprg",
+        ];
+        let default = Editor::new();
+        let mut out = Vec::new();
+        for name in Self::OPTION_NAMES {
+            if SKIP.contains(name) {
+                continue;
+            }
+            let val = self.option_value(name);
+            if val != default.option_value(name) {
+                out.push(val);
+            }
+        }
+        out
+    }
+
     /// The prefix character shown before the command line (`:`, `/`, `?`).
     pub fn cmdline_prefix(&self) -> char {
         match self.line_kind {

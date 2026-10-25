@@ -4679,6 +4679,19 @@
     }
 
     #[test]
+    fn session_options_lists_changes_and_skips_per_buffer() {
+        let mut ed = ed_with("hi");
+        ed.shiftwidth = 2;
+        ed.language = Language::Rust; // per-buffer: must be excluded
+        let opts = ed.session_options();
+        assert!(opts.iter().any(|o| o == "shiftwidth=2"));
+        // filetype is per-buffer and should not be saved in a session.
+        assert!(!opts.iter().any(|o| o.starts_with("filetype")));
+        // An unchanged default is not listed.
+        assert!(!opts.iter().any(|o| o == "nonumber"));
+    }
+
+    #[test]
     fn changelist_empty_reports_message() {
         let mut ed = ed_with("hi");
         ed.handle_key(key('g'));

@@ -126,6 +126,8 @@
         app.run_ex(&format!("e {}", fa.display()));
         app.run_ex(&format!("e {}", fb.display()));
         app.run_ex("theme cobalt");
+        app.run_ex("set nonumber"); // default is on, so this differs
+        app.run_ex("set shiftwidth=8"); // default is 4
         app.editor.cursor = crate::buffer::Position::new(1, 0);
         app.run_ex(&format!("mksession! {}", session.display()));
 
@@ -133,13 +135,18 @@
         assert!(written.contains("theme cobalt"));
         assert!(written.contains("rvim_sess_a.txt"));
         assert!(written.contains("rvim_sess_b.txt"));
+        assert!(written.contains("set nonumber"));
+        assert!(written.contains("set shiftwidth=8"));
 
-        // A fresh app that sources the session lands on the focused file + line.
+        // A fresh app that sources the session lands on the focused file + line,
+        // with the theme and options restored.
         let mut restored = App::new();
         restored.run_ex(&format!("source {}", session.display()));
         assert!(restored.editor.buffer.path().unwrap().ends_with("rvim_sess_b.txt"));
         assert_eq!(restored.editor.cursor.row, 1);
         assert_eq!(restored.themes.current().name, "cobalt");
+        assert!(!restored.editor.show_line_numbers);
+        assert_eq!(restored.editor.shiftwidth, 8);
 
         for p in [&fa, &fb, &session] {
             let _ = std::fs::remove_file(p);

@@ -165,8 +165,9 @@ All notable changes to rvim are recorded here. Versions follow
 
 ### Files
 - `:mksession[!] [file]` writes a session file (default `Session.vim`) of
-  ex-commands that reopen the current buffers, restore the theme and land on the
-  cursor line; replay it with `:source <file>`. Window splits are not saved yet.
+  ex-commands that reopen the current buffers, restore the theme, re-apply changed
+  options and land on the cursor line; replay it with `:source <file>`. Window
+  splits are not saved yet.
 - `:enew` opens a new empty, unnamed buffer in the current window; the previous
   buffer stays in the list (`:bn`/`:bp`) when it has a name or unsaved changes.
 - `:cd [dir]` changes the working directory (with `~` expansion; no argument goes
