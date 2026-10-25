@@ -269,6 +269,9 @@ pub enum LineState {
     Block,
     /// Inside a multi-line string opened with `multiline_strings[idx]`.
     MultiStr(usize),
+    /// Inside a here-string/heredoc opened with `heredocs()[idx]` — an asymmetric
+    /// open/close pair (e.g. PowerShell `@"` … `"@`), closed at the line's start.
+    Heredoc(usize),
 }
 
 /// The interface every highlighter implements.
@@ -432,9 +435,25 @@ fn is_punct_char(c: char) -> bool {
     matches!(c, '(' | ')' | '[' | ']' | '{' | '}' | ',' | ';' | ':' | '.')
 }
 
+impl SpecHighlighter {
+    /// Asymmetric here-string/heredoc delimiters `(open, close)` for the language,
+    /// where the close is matched at the start of a line. Kept as a language-keyed
+    /// method (not a `LangSpec` field) so the common languages that have none pay
+    /// nothing and need no spec change.
+    fn heredocs(&self) -> &'static [(&'static str, &'static str)] {
+        match self.spec.language {
+            // PowerShell here-strings: expandable `@" … "@` and literal `@' … '@`.
+            Language::PowerShell => &[("@\"", "\"@"), ("@'", "'@")],
+            _ => &[],
+        }
+    }
+}
+
 impl Highlighter for SpecHighlighter {
     fn has_multiline(&self) -> bool {
-        self.spec.block_comment.is_some() || !self.spec.multiline_strings.is_empty()
+        self.spec.block_comment.is_some()
+            || !self.spec.multiline_strings.is_empty()
+            || !self.heredocs().is_empty()
     }
 
     fn fast_block_state(&self, line: &str, state: LineState) -> Option<LineState> {
@@ -455,7 +474,8 @@ impl Highlighter for SpecHighlighter {
                 .spec
                 .multiline_strings
                 .iter()
-                .any(|d| line.contains(d));
+                .any(|d| line.contains(d))
+            || self.heredocs().iter().any(|(open, _)| line.contains(open));
         if has_delim {
             None
         } else {
@@ -512,6 +532,24 @@ impl Highlighter for SpecHighlighter {
                             tokens.push(Token::new(0, end_byte, TokenKind::String));
                             return (tokens, LineState::MultiStr(idx));
                         }
+                    }
+                }
+            }
+            LineState::Heredoc(idx) => {
+                // Resuming a here-string: it closes only on a line whose first
+                // non-blank content is the closing delimiter; otherwise the whole
+                // line is string content and we stay in the here-string.
+                if let Some(&(_open, close)) = self.heredocs().get(idx) {
+                    let indent = line.len() - line.trim_start().len();
+                    if line[indent..].starts_with(close) {
+                        let end = indent + close.len();
+                        tokens.push(Token::new(0, end, TokenKind::String));
+                        while i < chars.len() && chars[i].0 < end {
+                            i += 1;
+                        }
+                    } else {
+                        tokens.push(Token::new(0, end_byte, TokenKind::String));
+                        return (tokens, LineState::Heredoc(idx));
                     }
                 }
             }
@@ -602,6 +640,18 @@ impl Highlighter for SpecHighlighter {
                         return (tokens, LineState::MultiStr(idx));
                     }
                 }
+            }
+
+            // Here-strings / heredocs (asymmetric open/close, e.g. PowerShell
+            // `@"` … `"@`). The opener runs to end of line; the next line begins
+            // inside the here-string until its closing delimiter at a line start.
+            if let Some(idx) = self
+                .heredocs()
+                .iter()
+                .position(|(open, _)| rest.starts_with(open))
+            {
+                tokens.push(Token::new(start_b, end_byte, TokenKind::String));
+                return (tokens, LineState::Heredoc(idx));
             }
 
             // Strings.

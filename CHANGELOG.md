@@ -195,6 +195,7 @@ All notable changes to rvim are recorded here. Versions follow
   double-quoted strings, and `#` / `<# #>` comments. Case-insensitive, matching the
   language. Full `Verb-Noun` cmdlets (e.g. `Get-ChildItem`, `Write-Output`) are
   highlighted as a single token, while operators like `-eq` stay separate.
+  Multi-line here-strings (`@" … "@` and `@' … '@`) are highlighted too.
 - Perl highlighting (`.pl`, `.pm`): keywords, builtins, `$`/`@`/`%` variables,
   strings, and `#` comments.
 - OCaml highlighting (`.ml`, `.mli`): keywords, core types, builtins, strings, and
