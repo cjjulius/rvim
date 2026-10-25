@@ -187,6 +187,7 @@ With no prefix, the unnamed register is used. `"+y` copies across programs and
 | Feature | Keys |
 |---------|------|
 | Set / jump to mark (exact / line) | `m<x>` / `` `<x> `` / `'<x>` |
+| Global marks (across files) | `m<A-Z>` sets, `` `<A-Z> `` jumps — reopens the file if needed |
 | Back to previous spot | `` `` `` / `''` (also set by `G`, `gg`, searches) |
 | Auto marks | `` `. `` last change, `` `^ `` last insert, `` `[ `` `` `] `` last changed text |
 | Resume insert at last spot | `gi` |
@@ -752,7 +753,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **948 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **951 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

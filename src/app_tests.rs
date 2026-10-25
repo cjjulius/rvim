@@ -82,6 +82,37 @@
     }
 
     #[test]
+    fn global_marks_cross_buffers() {
+        let dir = std::env::temp_dir();
+        let fa = dir.join("rvim_mark_a.txt");
+        let fb = dir.join("rvim_mark_b.txt");
+        std::fs::write(&fa, "one\ntwo\nthree\n").unwrap();
+        std::fs::write(&fb, "alpha\nbeta\n").unwrap();
+
+        let mut app = App::new();
+        app.run_ex(&format!("e {}", fa.display()));
+        app.editor.cursor = crate::buffer::Position::new(2, 0); // "three"
+        app.set_global_mark('A');
+
+        // Move to the other file, then jump back to the global mark.
+        app.run_ex(&format!("e {}", fb.display()));
+        assert!(app.editor.buffer.path().unwrap().ends_with("rvim_mark_b.txt"));
+        app.jump_global_mark('A', false);
+        assert!(app.editor.buffer.path().unwrap().ends_with("rvim_mark_a.txt"));
+        assert_eq!(app.editor.cursor.row, 2);
+
+        let _ = std::fs::remove_file(&fa);
+        let _ = std::fs::remove_file(&fb);
+    }
+
+    #[test]
+    fn global_mark_unset_reports() {
+        let mut app = App::new();
+        app.jump_global_mark('Z', false);
+        assert!(app.editor.message.contains("Mark not set"));
+    }
+
+    #[test]
     fn run_ex_goto_line() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("a\nb\nc\nd");
