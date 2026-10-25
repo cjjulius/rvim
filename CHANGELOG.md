@@ -187,6 +187,9 @@ All notable changes to rvim are recorded here. Versions follow
   unchanged.
 
 ### Syntax
+- HCL / Terraform highlighting (`.tf`, `.tfvars`, `.hcl`): block keywords
+  (`resource`, `variable`, `module`, …), core types, built-in functions, strings,
+  and `#` / `//` / `/* */` comments.
 - PowerShell highlighting (`.ps1`, `.psm1`, `.psd1`): keywords and word operators
   (`-eq`, `-match`, …), `[type]` names, `$variables`, cmdlets, single- and
   double-quoted strings, and `#` / `<# #>` comments. Case-insensitive, matching the
