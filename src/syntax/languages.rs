@@ -64,6 +64,7 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(ocaml_spec())),
         Box::new(SpecHighlighter::new(julia_spec())),
         Box::new(SpecHighlighter::new(powershell_spec())),
+        Box::new(SpecHighlighter::new(hcl_spec())),
     ]
 }
 
@@ -1312,6 +1313,47 @@ const POWERSHELL_BUILTINS: &[&str] = &[
     "Set-Variable", "Write-Progress", "New-Variable",
 ];
 
+// ---- HCL / Terraform -----------------------------------------------------
+
+fn hcl_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Hcl,
+        multiline_strings: &[],
+        preprocessor: None,
+        // HCL allows `#` and `//` line comments and `/* */` blocks.
+        line_comments: &["#", "//"],
+        block_comment: Some(("/*", "*/")),
+        keywords: HCL_KEYWORDS,
+        types: HCL_TYPES,
+        builtins: HCL_BUILTINS,
+        string_delims: &['"'],
+        case_insensitive: false,
+        var_sigils: &[],
+        detect_calls: true,
+    }
+}
+
+const HCL_KEYWORDS: &[&str] = &[
+    "resource", "variable", "provider", "module", "output", "data", "locals", "terraform",
+    "backend", "provisioner", "connection", "lifecycle", "dynamic", "content", "depends_on",
+    "count", "for_each", "each", "for", "in", "if", "else", "endfor", "endif", "var", "local",
+    "path", "self", "true", "false", "null",
+];
+const HCL_TYPES: &[&str] = &[
+    "string", "number", "bool", "list", "map", "set", "object", "tuple", "any", "null",
+];
+const HCL_BUILTINS: &[&str] = &[
+    "length", "lookup", "merge", "concat", "element", "contains", "keys", "values", "zipmap",
+    "flatten", "join", "split", "format", "formatlist", "replace", "regex", "regexall", "lower",
+    "upper", "title", "trim", "trimspace", "trimprefix", "trimsuffix", "substr", "chomp", "indent",
+    "file", "fileexists", "fileset", "filebase64", "templatefile", "jsonencode", "jsondecode",
+    "yamlencode", "yamldecode", "base64encode", "base64decode", "coalesce", "coalescelist",
+    "compact", "distinct", "range", "setproduct", "slice", "sort", "toset", "tolist", "tomap",
+    "tostring", "tonumber", "tobool", "can", "try", "abs", "ceil", "floor", "max", "min", "pow",
+    "signum", "cidrhost", "cidrnetmask", "cidrsubnet", "cidrsubnets", "timestamp", "timeadd",
+    "formatdate", "uuid", "md5", "sha1", "sha256", "base64sha256",
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1571,6 +1613,27 @@ mod tests {
         assert!(toks
             .iter()
             .any(|t| t.kind == TokenKind::Variable && &line[t.start..t.end] == "$_"));
+    }
+
+    #[test]
+    fn hcl_highlights_keyword_type_builtin_string_comment() {
+        let h = SpecHighlighter::new(hcl_spec());
+        let toks = h.highlight_line(
+            "resource \"aws_s3_bucket\" \"b\" { count = length(var.names) } # c",
+        );
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // resource/count/var
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // length
+        assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "aws_s3_bucket"
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // # c
+    }
+
+    #[test]
+    fn hcl_type_in_variable_block_and_slash_comment() {
+        let h = SpecHighlighter::new(hcl_spec());
+        let toks = h.highlight_line("variable \"x\" { type = string } // note");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // variable/type
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // string
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // // note
     }
 
     #[test]
