@@ -336,6 +336,7 @@ Grouped by what they do. Most line commands accept a leading range such as
 - `:set autoread` reloads a file when it changes on disk and you have no unsaved edits, handy when a build tool or another program rewrites it under you. Background buffers refresh too; if a changed file has unsaved edits, your copy is kept and a warning is shown instead.
 - `:<n>` jumps to line `n`.
 - `:command Name expansion` defines a shortcut (the name must start with a capital), e.g. `:command W w` makes `:W` save; `:delcommand Name` removes one and `:command` lists them.
+- `:mksession [file]` saves your open files, theme and cursor line to a small script (default `Session.vim`, `!` to overwrite); `:source <file>` replays it to pick up where you left off. Window splits are not saved yet.
 
 **Search and replace**
 
@@ -753,7 +754,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **951 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **954 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

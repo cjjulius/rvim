@@ -808,6 +808,13 @@
     }
 
     #[test]
+    fn mksession_command() {
+        assert_eq!(parse("mksession"), ExCommand::MkSession { file: None, force: false });
+        assert_eq!(parse("mks s.vim"), ExCommand::MkSession { file: Some("s.vim".into()), force: false });
+        assert_eq!(parse("mksession! s.vim"), ExCommand::MkSession { file: Some("s.vim".into()), force: true });
+    }
+
+    #[test]
     fn substitute_current_line() {
         assert_eq!(
             parse("s/foo/bar/"),

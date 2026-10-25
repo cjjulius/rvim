@@ -590,6 +590,46 @@ impl App {
         self.activate_window(original);
     }
 
+    /// `:mksession[!] [file]` — write a session file of ex-commands that reopen the
+    /// current buffers, restore the theme and land on the current cursor line.
+    /// Replay it with `:source <file>`. Window splits and options are not saved.
+    fn make_session(&mut self, file: Option<&str>, force: bool) {
+        let path = file.unwrap_or("Session.vim");
+        if !force && std::path::Path::new(path).exists() {
+            self.editor.message = format!("E189: \"{path}\" exists (add ! to override)");
+            return;
+        }
+        // Background buffers first, then the focused one last so it is current on
+        // restore; skip unnamed/scratch buffers and de-duplicate shared paths.
+        let current = self.editor.buffer.path().map(|p| p.display().to_string());
+        let mut files: Vec<String> = Vec::new();
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for ed in &self.others {
+            if let Some(p) = ed.buffer.path().map(|p| p.display().to_string()) {
+                if Some(&p) != current.as_ref() && seen.insert(p.clone()) {
+                    files.push(p);
+                }
+            }
+        }
+        if current.is_none() && files.is_empty() {
+            self.editor.message = "E: no named buffers to save".into();
+            return;
+        }
+        let mut out = String::from("\" rvim session file — restore with :source\n");
+        out.push_str(&format!("theme {}\n", self.themes.current().name));
+        for f in &files {
+            out.push_str(&format!("edit {f}\n"));
+        }
+        if let Some(cur) = &current {
+            out.push_str(&format!("edit {cur}\n"));
+            out.push_str(&format!("{}\n", self.editor.cursor.row + 1));
+        }
+        match std::fs::write(path, out) {
+            Ok(()) => self.editor.message = format!("session written to \"{path}\""),
+            Err(e) => self.editor.message = format!("E: can't write {path}: {e}"),
+        }
+    }
+
     fn buffer_next(&mut self) {
         if self.others.is_empty() {
             self.notify("only one buffer");
@@ -2002,6 +2042,7 @@ impl App {
                     self.editor.message = format!("{affected} line(s) affected");
                 }
             }
+            ExCommand::MkSession { file, force } => self.make_session(file.as_deref(), force),
             ExCommand::Source(path) => match std::fs::read_to_string(&path) {
                 Ok(text) => {
                     let cmds = crate::config::parse_config(&text);
@@ -2514,6 +2555,8 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:e <file>          open file     :enew  new empty buffer\n\
          \t:[addr]r <file>    read file (or !cmd) below cursor (:0r top, :$r end)\n\
          \t:e / :e!            reload current file (! discards changes)\n\
+         \t:mksession[!] [file]  save a session; restore it with :source <file>\n\
+         \t:source <file>      run ex-commands from a file (config or session)\n\
          \t:ls :bn :bp :b<n>  list / next / prev / goto buffer   :bd close\n\
          \t  (:n / :N are aliases for :bn / :bp)\n\
          \tCtrl-^ / :b#       switch to the alternate (last) buffer\n\

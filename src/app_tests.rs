@@ -113,6 +113,54 @@
     }
 
     #[test]
+    fn mksession_writes_and_sources_back() {
+        let dir = std::env::temp_dir();
+        let fa = dir.join("rvim_sess_a.txt");
+        let fb = dir.join("rvim_sess_b.txt");
+        let session = dir.join("rvim_Session.vim");
+        std::fs::write(&fa, "a1\na2\na3\n").unwrap();
+        std::fs::write(&fb, "b1\nb2\n").unwrap();
+
+        // Open both files (fb ends up focused) and pick a theme, then save.
+        let mut app = App::new();
+        app.run_ex(&format!("e {}", fa.display()));
+        app.run_ex(&format!("e {}", fb.display()));
+        app.run_ex("theme cobalt");
+        app.editor.cursor = crate::buffer::Position::new(1, 0);
+        app.run_ex(&format!("mksession! {}", session.display()));
+
+        let written = std::fs::read_to_string(&session).unwrap();
+        assert!(written.contains("theme cobalt"));
+        assert!(written.contains("rvim_sess_a.txt"));
+        assert!(written.contains("rvim_sess_b.txt"));
+
+        // A fresh app that sources the session lands on the focused file + line.
+        let mut restored = App::new();
+        restored.run_ex(&format!("source {}", session.display()));
+        assert!(restored.editor.buffer.path().unwrap().ends_with("rvim_sess_b.txt"));
+        assert_eq!(restored.editor.cursor.row, 1);
+        assert_eq!(restored.themes.current().name, "cobalt");
+
+        for p in [&fa, &fb, &session] {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+
+    #[test]
+    fn mksession_refuses_existing_without_force() {
+        let dir = std::env::temp_dir();
+        let session = dir.join("rvim_Session_exists.vim");
+        std::fs::write(&session, "old\n").unwrap();
+        let mut app = App::new();
+        app.run_ex(&format!("e {}", dir.join("rvim_sess_x.txt").display()));
+        app.run_ex(&format!("mksession {}", session.display()));
+        assert!(app.editor.message.contains("exists"));
+        // The existing file is untouched.
+        assert_eq!(std::fs::read_to_string(&session).unwrap(), "old\n");
+        let _ = std::fs::remove_file(&session);
+    }
+
+    #[test]
     fn run_ex_goto_line() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("a\nb\nc\nd");
