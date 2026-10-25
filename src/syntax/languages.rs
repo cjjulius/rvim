@@ -1293,10 +1293,23 @@ const POWERSHELL_TYPES: &[&str] = &[
     "scriptblock", "type", "pscredential", "ipaddress", "ordered", "nullable", "bigint",
 ];
 const POWERSHELL_BUILTINS: &[&str] = &[
-    // Common terse cmdlet aliases (full Verb-Noun names tokenize across `-`).
+    // Common terse cmdlet aliases.
     "echo", "write", "cat", "ls", "dir", "gci", "cd", "pwd", "cls", "gc", "sc", "gm", "gcm", "gal",
     "iwr", "irm", "cp", "cpi", "mv", "mi", "rm", "ri", "ni", "del", "type", "sort", "select",
     "where", "measure", "group", "tee", "ft", "fl", "pushd", "popd",
+    // Full Verb-Noun cmdlets (highlighted as one token — see the hyphen-join rule).
+    "Write-Host", "Write-Output", "Write-Error", "Write-Warning", "Write-Verbose", "Write-Debug",
+    "Get-ChildItem", "Get-Content", "Set-Content", "Add-Content", "Get-Item", "Set-Item",
+    "New-Item", "Remove-Item", "Copy-Item", "Move-Item", "Rename-Item", "Test-Path", "Join-Path",
+    "Split-Path", "Resolve-Path", "Get-Command", "Get-Help", "Get-Member", "Get-Module",
+    "Import-Module", "Export-ModuleMember", "Select-Object", "Where-Object", "ForEach-Object",
+    "Sort-Object", "Measure-Object", "Group-Object", "Compare-Object", "Format-Table",
+    "Format-List", "Out-File", "Out-Null", "Out-String", "Out-Host", "Read-Host",
+    "Invoke-Expression", "Invoke-Command", "Invoke-WebRequest", "Invoke-RestMethod",
+    "Start-Process", "Stop-Process", "Get-Process", "Start-Sleep", "Get-Date", "Set-Location",
+    "Get-Location", "New-Object", "ConvertTo-Json", "ConvertFrom-Json", "ConvertTo-Csv",
+    "ConvertFrom-Csv", "Export-Csv", "Import-Csv", "Select-String", "Get-Variable",
+    "Set-Variable", "Write-Progress", "New-Variable",
 ];
 
 #[cfg(test)]
@@ -1536,6 +1549,28 @@ mod tests {
         assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin)); // echo
         assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "hi"
         assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // # c
+    }
+
+    #[test]
+    fn powershell_hyphenated_cmdlets_are_one_token() {
+        let h = SpecHighlighter::new(powershell_spec());
+        let line = "Get-ChildItem -Path $p | Where-Object { $_ -eq 1 }";
+        let toks = h.highlight_line(line);
+        // The full Verb-Noun cmdlet is a single Builtin token.
+        assert!(toks
+            .iter()
+            .any(|t| t.kind == TokenKind::Builtin && &line[t.start..t.end] == "Get-ChildItem"));
+        assert!(toks
+            .iter()
+            .any(|t| t.kind == TokenKind::Builtin && &line[t.start..t.end] == "Where-Object"));
+        // The `-eq` operator is not merged into a cmdlet: `eq` stays a keyword.
+        assert!(toks
+            .iter()
+            .any(|t| t.kind == TokenKind::Keyword && &line[t.start..t.end] == "eq"));
+        // `$_` remains a variable.
+        assert!(toks
+            .iter()
+            .any(|t| t.kind == TokenKind::Variable && &line[t.start..t.end] == "$_"));
     }
 
     #[test]

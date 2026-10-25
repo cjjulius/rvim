@@ -29,4 +29,7 @@ function Get-Average {
 
 $values = @(3, 7, 11, 5)
 $result = Get-Average -Numbers $values -Round
-echo "average: $result"
+Write-Output "average: $result"
+
+# Built-in cmdlets are highlighted as single Verb-Noun tokens.
+Get-ChildItem -Path . | Where-Object { $_.Length -gt 0 } | Sort-Object Name
