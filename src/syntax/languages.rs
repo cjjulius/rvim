@@ -1594,6 +1594,25 @@ mod tests {
     }
 
     #[test]
+    fn powershell_here_string_spans_lines() {
+        let h = SpecHighlighter::new(powershell_spec());
+        // Expandable here-string `@" … "@`.
+        let (t0, s0) = h.highlight_line_stateful("$x = @\"", LineState::Normal);
+        assert_eq!(s0, LineState::Heredoc(0));
+        assert!(t0.iter().any(|t| t.kind == TokenKind::String)); // the @" opener
+        let (t1, s1) = h.highlight_line_stateful("some $literal text", s0);
+        assert_eq!(s1, LineState::Heredoc(0)); // still inside
+        assert!(t1.iter().all(|t| t.kind == TokenKind::String)); // whole line is string
+        let (_t2, s2) = h.highlight_line_stateful("\"@", s1);
+        assert_eq!(s2, LineState::Normal); // closes at line start
+        // Literal here-string `@' … '@` uses the second delimiter.
+        let (_t3, s3) = h.highlight_line_stateful("$y = @'", LineState::Normal);
+        assert_eq!(s3, LineState::Heredoc(1));
+        let (_t4, s4) = h.highlight_line_stateful("'@", s3);
+        assert_eq!(s4, LineState::Normal);
+    }
+
+    #[test]
     fn powershell_hyphenated_cmdlets_are_one_token() {
         let h = SpecHighlighter::new(powershell_spec());
         let line = "Get-ChildItem -Path $p | Where-Object { $_ -eq 1 }";

@@ -33,3 +33,10 @@ Write-Output "average: $result"
 
 # Built-in cmdlets are highlighted as single Verb-Noun tokens.
 Get-ChildItem -Path . | Where-Object { $_.Length -gt 0 } | Sort-Object Name
+
+# Here-strings span multiple lines until the closing delimiter at column 0.
+$banner = @"
+  rvim $result
+  (expandable here-string)
+"@
+Write-Output $banner
