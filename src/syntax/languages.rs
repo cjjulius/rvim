@@ -65,6 +65,7 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(julia_spec())),
         Box::new(SpecHighlighter::new(powershell_spec())),
         Box::new(SpecHighlighter::new(hcl_spec())),
+        Box::new(SpecHighlighter::new(protobuf_spec())),
     ]
 }
 
@@ -1354,6 +1355,35 @@ const HCL_BUILTINS: &[&str] = &[
     "formatdate", "uuid", "md5", "sha1", "sha256", "base64sha256",
 ];
 
+// ---- Protobuf ------------------------------------------------------------
+
+fn protobuf_spec() -> LangSpec {
+    LangSpec {
+        language: Language::Protobuf,
+        multiline_strings: &[],
+        preprocessor: None,
+        line_comments: &["//"],
+        block_comment: Some(("/*", "*/")),
+        keywords: PROTOBUF_KEYWORDS,
+        types: PROTOBUF_TYPES,
+        builtins: &[],
+        string_delims: &['"', '\''],
+        case_insensitive: false,
+        var_sigils: &[],
+        detect_calls: false,
+    }
+}
+
+const PROTOBUF_KEYWORDS: &[&str] = &[
+    "syntax", "package", "import", "public", "weak", "option", "message", "enum", "service",
+    "rpc", "returns", "stream", "oneof", "map", "reserved", "extend", "extensions", "group",
+    "repeated", "optional", "required", "to", "max", "true", "false",
+];
+const PROTOBUF_TYPES: &[&str] = &[
+    "double", "float", "int32", "int64", "uint32", "uint64", "sint32", "sint64", "fixed32",
+    "fixed64", "sfixed32", "sfixed64", "bool", "string", "bytes",
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1632,6 +1662,24 @@ mod tests {
         assert!(toks
             .iter()
             .any(|t| t.kind == TokenKind::Variable && &line[t.start..t.end] == "$_"));
+    }
+
+    #[test]
+    fn protobuf_highlights_keyword_type_string_comment() {
+        let h = SpecHighlighter::new(protobuf_spec());
+        let toks = h.highlight_line("message Foo { repeated string names = 1; } // c");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // message/repeated
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Type)); // string
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Number)); // 1
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Comment)); // // c
+    }
+
+    #[test]
+    fn protobuf_highlights_service_and_syntax_line() {
+        let h = SpecHighlighter::new(protobuf_spec());
+        let toks = h.highlight_line("syntax = \"proto3\"; service S { rpc Get(Req) returns (Res); }");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // syntax/service/rpc/returns
+        assert!(toks.iter().any(|t| t.kind == TokenKind::String)); // "proto3"
     }
 
     #[test]

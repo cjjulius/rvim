@@ -1,0 +1,25 @@
+// Protobuf sample for rvim syntax highlighting.
+syntax = "proto3";
+
+package example.v1;
+
+import "google/protobuf/timestamp.proto";
+
+/* A record and the service that serves it. */
+message User {
+  int64 id = 1;
+  string name = 2;
+  repeated string emails = 3;
+  bool active = 4;
+}
+
+enum Role {
+  ROLE_UNKNOWN = 0;
+  ROLE_ADMIN = 1;
+  ROLE_MEMBER = 2;
+}
+
+service Users {
+  rpc GetUser(GetUserRequest) returns (User);
+  rpc ListUsers(ListUsersRequest) returns (stream User);
+}
