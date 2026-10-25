@@ -139,6 +139,7 @@ pub enum ExCommand {
     ToggleShowCmd(bool),
     ToggleRuler(bool),
     ToggleErrorBells(bool),
+    ToggleVisualBell(bool),
     /// `:set expandtab` / `:set noexpandtab`
     ToggleExpandTab(bool),
     /// `:set shiftwidth=N`
@@ -1163,6 +1164,8 @@ fn parse_set(rest: &str) -> ExCommand {
         "noruler" | "noru" => ExCommand::ToggleRuler(false),
         "errorbells" | "eb" => ExCommand::ToggleErrorBells(true),
         "noerrorbells" | "noeb" => ExCommand::ToggleErrorBells(false),
+        "visualbell" | "vb" => ExCommand::ToggleVisualBell(true),
+        "novisualbell" | "novb" => ExCommand::ToggleVisualBell(false),
         "splitbelow" | "sb" => ExCommand::ToggleSplitBelow(true),
         "nosplitbelow" | "nosb" => ExCommand::ToggleSplitBelow(false),
         "splitright" | "spr" => ExCommand::ToggleSplitRight(true),

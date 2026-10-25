@@ -41,6 +41,16 @@
     }
 
     #[test]
+    fn run_ex_toggle_visualbell() {
+        let mut app = App::new();
+        assert!(!app.editor.visualbell); // default off
+        app.run_ex("set visualbell");
+        assert!(app.editor.visualbell);
+        app.run_ex("set novb");
+        assert!(!app.editor.visualbell);
+    }
+
+    #[test]
     fn tag_match_move_cycles_and_bounds() {
         use crate::tags::TagEntry;
         let mut app = App::new();

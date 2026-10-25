@@ -444,6 +444,9 @@ pub struct Editor {
     /// `:set errorbells` — ring the terminal bell on an error message (an
     /// accessibility cue). Default off, matching vim.
     pub errorbells: bool,
+    /// `:set visualbell` — flash the screen on an error instead of beeping (a
+    /// silent, visible cue; takes precedence over `errorbells`). Default off.
+    pub visualbell: bool,
     /// Insert spaces instead of a tab character (`:set expandtab`).
     pub expandtab: bool,
     /// Columns inserted/removed by `>>`/`<<` and `=` (`:set shiftwidth`).
@@ -737,6 +740,7 @@ impl Editor {
             showcmd: true,
             ruler: true,
             errorbells: false,
+            visualbell: false,
             expandtab: true,
             shiftwidth: 4,
             equalprg: String::new(),
@@ -1654,6 +1658,7 @@ impl Editor {
             "showcmd" | "sc" => flag(self.showcmd, "showcmd"),
             "ruler" | "ru" => flag(self.ruler, "ruler"),
             "errorbells" | "eb" => flag(self.errorbells, "errorbells"),
+            "visualbell" | "vb" => flag(self.visualbell, "visualbell"),
             "expandtab" | "et" => flag(self.expandtab, "expandtab"),
             "list" => flag(self.list, "list"),
             "listchars" | "lcs" => self.listchars_summary(),
@@ -1866,7 +1871,7 @@ impl Editor {
     const OPTION_NAMES: &'static [&'static str] = &[
         "number", "relativenumber", "hlsearch", "ignorecase", "smartcase",
         "incsearch", "autoindent", "smartindent", "paste", "readonly", "autowrite", "autoread", "title", "backup", "showmode",
-        "showcmd", "ruler", "errorbells", "expandtab", "list", "wrapscan", "cursorline",
+        "showcmd", "ruler", "errorbells", "visualbell", "expandtab", "list", "wrapscan", "cursorline",
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
         "matchpairs", "filetype", "fileformat", "foldmethod", "foldcolumn", "foldlevel", "language",
@@ -3270,6 +3275,7 @@ impl Editor {
     /// variants, and value options by bare name).
     const SET_OPTIONS: &'static [&'static str] = &[
         "all", "autoindent", "colorcolumn", "cursorcolumn", "cursorline", "errorbells", "expandtab",
+        "visualbell", "novisualbell",
         "filetype", "hlsearch", "ignorecase", "incsearch", "list", "listchars", "noautoindent",
         "nocursorcolumn", "nocursorline", "noerrorbells", "noexpandtab", "nohlsearch",
         "noignorecase", "noincsearch", "nolist", "nonumber", "nopaste", "noreadonly",

@@ -437,6 +437,14 @@
     }
 
     #[test]
+    fn set_visualbell() {
+        assert_eq!(parse("set visualbell"), ExCommand::ToggleVisualBell(true));
+        assert_eq!(parse("set vb"), ExCommand::ToggleVisualBell(true));
+        assert_eq!(parse("set novisualbell"), ExCommand::ToggleVisualBell(false));
+        assert_eq!(parse("set novb"), ExCommand::ToggleVisualBell(false));
+    }
+
+    #[test]
     fn align_parse() {
         assert_eq!(
             parse("center 10"),
