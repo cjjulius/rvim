@@ -281,6 +281,19 @@
     }
 
     #[test]
+    fn tag_match_commands_parse() {
+        use crate::command::TagMove;
+        assert_eq!(parse("tnext"), ExCommand::TagMatch(TagMove::Next));
+        assert_eq!(parse("tn"), ExCommand::TagMatch(TagMove::Next));
+        assert_eq!(parse("tprev"), ExCommand::TagMatch(TagMove::Prev));
+        assert_eq!(parse("tN"), ExCommand::TagMatch(TagMove::Prev));
+        assert_eq!(parse("tfirst"), ExCommand::TagMatch(TagMove::First));
+        assert_eq!(parse("tlast"), ExCommand::TagMatch(TagMove::Last));
+        assert_eq!(parse("tselect foo"), ExCommand::TagSelect(Some("foo".into())));
+        assert_eq!(parse("ts"), ExCommand::TagSelect(None));
+    }
+
+    #[test]
     fn messages_command_parses() {
         assert_eq!(parse("messages"), ExCommand::Messages);
         assert_eq!(parse("mes"), ExCommand::Messages);
