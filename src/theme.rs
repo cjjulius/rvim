@@ -74,6 +74,7 @@ impl ThemeRegistry {
                 paper(),
                 dracula(),
                 solarized_dark(),
+                solarized_light(),
             ],
             current: 0,
         }
@@ -481,6 +482,47 @@ pub fn solarized_dark() -> Theme {
     }
 }
 
+/// The Solarized Light palette: a warm `base3` paper tone with the same precise
+/// accents as Solarized Dark, for bright rooms and glare-prone screens (the light
+/// companion to `solarized-dark`).
+pub fn solarized_light() -> Theme {
+    Theme {
+        name: "solarized-light".into(),
+        bg: rgb(253, 246, 227),          // base3
+        fg: rgb(101, 123, 131),          // base00
+        cursor_line_bg: rgb(238, 232, 213), // base2
+        selection_bg: rgb(238, 232, 213),
+        search_bg: rgb(238, 232, 180),
+        cur_search_bg: rgb(224, 190, 90), // amber
+        color_column_bg: rgb(238, 232, 213),
+        gutter_bg: rgb(253, 246, 227),
+        gutter_fg: rgb(147, 161, 161),   // base1
+        current_line_nr_fg: rgb(88, 110, 117), // base01
+        status_bg: rgb(238, 232, 213),
+        status_fg: rgb(88, 110, 117),
+        mode_bg: rgb(38, 139, 210),      // blue
+        mode_fg: rgb(253, 246, 227),     // base3
+        message_fg: rgb(101, 123, 131),
+        error_fg: rgb(220, 50, 47),      // red
+        tokens: token_map(&[
+            (TokenKind::Keyword, rgb(133, 153, 0)),       // green
+            (TokenKind::Type, rgb(181, 137, 0)),          // yellow
+            (TokenKind::Function, rgb(38, 139, 210)),     // blue
+            (TokenKind::Builtin, rgb(38, 139, 210)),
+            (TokenKind::String, rgb(42, 161, 152)),       // cyan
+            (TokenKind::Char, rgb(42, 161, 152)),
+            (TokenKind::Number, rgb(211, 54, 130)),       // magenta
+            (TokenKind::Comment, rgb(147, 161, 161)),     // base1
+            (TokenKind::Operator, rgb(133, 153, 0)),
+            (TokenKind::Punctuation, rgb(101, 123, 131)),
+            (TokenKind::Preprocessor, rgb(203, 75, 22)),  // orange
+            (TokenKind::Label, rgb(108, 113, 196)),       // violet
+            (TokenKind::Register, rgb(42, 161, 152)),
+            (TokenKind::Variable, rgb(101, 123, 131)),
+        ]),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -491,7 +533,7 @@ mod tests {
         assert_eq!(r.current().name, "matrix");
         assert_eq!(
             r.names(),
-            vec!["matrix", "retrowave", "cobalt", "high-contrast", "gruvbox", "nord", "paper", "dracula", "solarized-dark"]
+            vec!["matrix", "retrowave", "cobalt", "high-contrast", "gruvbox", "nord", "paper", "dracula", "solarized-dark", "solarized-light"]
         );
     }
 
@@ -535,6 +577,7 @@ mod tests {
         assert_eq!(r.cycle(), "paper");
         assert_eq!(r.cycle(), "dracula");
         assert_eq!(r.cycle(), "solarized-dark");
+        assert_eq!(r.cycle(), "solarized-light");
         assert_eq!(r.cycle(), "matrix");
     }
 
@@ -557,6 +600,14 @@ mod tests {
         let mut r = ThemeRegistry::with_builtins();
         assert!(r.set_current("dracula"));
         assert_eq!(r.current().bg, rgb(40, 42, 54));
+        assert_ne!(r.current().token_color(TokenKind::Keyword), r.current().fg);
+    }
+
+    #[test]
+    fn solarized_light_is_selectable() {
+        let mut r = ThemeRegistry::with_builtins();
+        assert!(r.set_current("solarized-light"));
+        assert_eq!(r.current().bg, rgb(253, 246, 227)); // base3 paper tone
         assert_ne!(r.current().token_color(TokenKind::Keyword), r.current().fg);
     }
 

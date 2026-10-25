@@ -505,7 +505,7 @@ Mappings are non-recursive; `:nunmap {key}` removes one and bare `:nnoremap`
 lists them. Put them in `~/.rvimrc` to make them permanent.
 
 ### Color theming
-Nine built-in themes, switchable live with `:theme <name>` (or cycle with a
+Ten built-in themes, switchable live with `:theme <name>` (or cycle with a
 bare `:theme`):
 
 | Theme            | Vibe                                              |
@@ -517,6 +517,7 @@ bare `:theme`):
 | `nord`           | cool, muted arctic palette                          |
 | `dracula`        | soft dark with vivid pink, purple and green accents |
 | `solarized-dark` | the classic low-contrast blue-grey Solarized palette |
+| `solarized-light`| the Solarized light companion: warm paper tone for bright rooms |
 | `paper`          | light theme: dark text on a warm paper background, for bright rooms |
 | `high-contrast`  | **accessibility:** pure black/white, colorblind-safe (Okabe–Ito) token palette |
 
@@ -750,7 +751,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **944 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **945 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
