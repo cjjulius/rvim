@@ -663,9 +663,24 @@ impl Highlighter for SpecHighlighter {
 
             // Identifiers / keywords.
             if is_ident_start(c) {
+                // PowerShell cmdlets are `Verb-Noun`: allow an interior hyphen when
+                // it joins two identifier parts (so `Get-ChildItem` is one token,
+                // while an operator like `-eq` or a parameter `-Path` is not).
+                let join_hyphen = matches!(self.spec.language, Language::PowerShell);
                 let mut j = i + 1;
-                while j < chars.len() && is_ident_continue(chars[j].1) {
-                    j += 1;
+                loop {
+                    match chars.get(j) {
+                        Some(&(_, ch)) if is_ident_continue(ch) => j += 1,
+                        Some(&(_, '-'))
+                            if join_hyphen
+                                && chars
+                                    .get(j + 1)
+                                    .is_some_and(|&(_, n)| is_ident_continue(n)) =>
+                        {
+                            j += 1
+                        }
+                        _ => break,
+                    }
                 }
                 let end_b = byte_at(j);
                 let word = &line[start_b..end_b];
