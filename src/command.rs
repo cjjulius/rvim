@@ -208,6 +208,13 @@ pub enum ExCommand {
     MkSession { file: Option<String>, force: bool },
     /// `:TOhtml [file]` — export the buffer to a syntax-highlighted HTML file.
     ToHtml(Option<String>),
+    /// `:grep <pattern> [paths…]` — search files for a pattern into the quickfix list.
+    Grep(String),
+    /// `:copen` — show the quickfix list; `:cnext`/`:cprev` step; `:cc [n]` jumps.
+    QfOpen,
+    QfNext,
+    QfPrev,
+    QfJump(Option<usize>),
     /// `:[range]&` / `:[range]&&` — repeat the last `:s` over the range. `&&` keeps
     /// the previous flags; `&` drops them.
     RepeatSubstitute { range: SubRange, keep_flags: bool },
@@ -563,6 +570,15 @@ pub fn parse(input: &str) -> ExCommand {
                 args: String::new(),
             },
         },
+        "grep" | "gr" | "vimgrep" | "vimg" => match arg {
+            Some(a) => ExCommand::Grep(a),
+            None => ExCommand::Passthrough { name: word.to_string(), args: String::new() },
+        },
+        "copen" | "cope" | "cw" | "cwindow" => ExCommand::QfOpen,
+        "cnext" | "cn" => ExCommand::QfNext,
+        "cprevious" | "cprev" | "cp" | "cN" | "cNext" => ExCommand::QfPrev,
+        "cc" => ExCommand::QfJump(arg.as_deref().and_then(|a| a.trim().parse().ok())),
+        "cfirst" | "crewind" | "cr" => ExCommand::QfJump(Some(1)),
         "mksession" | "mks" => ExCommand::MkSession { file: arg, force: false },
         "mksession!" | "mks!" => ExCommand::MkSession { file: arg, force: true },
         "TOhtml" | "tohtml" => ExCommand::ToHtml(arg),

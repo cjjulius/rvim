@@ -815,6 +815,16 @@
     }
 
     #[test]
+    fn grep_and_quickfix_commands_parse() {
+        assert_eq!(parse("grep TODO src"), ExCommand::Grep("TODO src".into()));
+        assert_eq!(parse("copen"), ExCommand::QfOpen);
+        assert_eq!(parse("cnext"), ExCommand::QfNext);
+        assert_eq!(parse("cp"), ExCommand::QfPrev);
+        assert_eq!(parse("cc 3"), ExCommand::QfJump(Some(3)));
+        assert_eq!(parse("cc"), ExCommand::QfJump(None));
+    }
+
+    #[test]
     fn repeat_substitute_parses() {
         use crate::command::SubRange;
         assert_eq!(
