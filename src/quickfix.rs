@@ -18,6 +18,9 @@ pub struct QfEntry {
 const MAX_MATCHES: usize = 1000;
 /// Files larger than this are skipped (likely data/binaries, not source).
 const MAX_FILE_BYTES: u64 = 2_000_000;
+/// Maximum directory recursion depth — bounds pathological trees and breaks any
+/// symlink cycle (since `metadata` follows symlinks).
+const MAX_DEPTH: usize = 64;
 
 /// Search each path in `paths` (a file, or a directory searched recursively) for
 /// `pattern`, returning the matches in traversal order. Non-UTF-8 / oversized
@@ -28,7 +31,7 @@ pub fn grep(pattern: &str, paths: &[PathBuf], ignorecase: bool) -> Result<Vec<Qf
         .ok_or_else(|| format!("E486: invalid pattern: {pattern}"))?;
     let mut out = Vec::new();
     for p in paths {
-        walk(p, &re, &mut out);
+        walk(p, &re, &mut out, 0);
         if out.len() >= MAX_MATCHES {
             break;
         }
@@ -41,7 +44,7 @@ fn is_noise(name: &str) -> bool {
     name.starts_with('.') || name == "target" || name == "node_modules"
 }
 
-fn walk(path: &Path, re: &regex::Regex, out: &mut Vec<QfEntry>) {
+fn walk(path: &Path, re: &regex::Regex, out: &mut Vec<QfEntry>, depth: usize) {
     if out.len() >= MAX_MATCHES {
         return;
     }
@@ -49,6 +52,9 @@ fn walk(path: &Path, re: &regex::Regex, out: &mut Vec<QfEntry>) {
         return;
     };
     if meta.is_dir() {
+        if depth >= MAX_DEPTH {
+            return; // too deep (or a symlink cycle) — stop descending
+        }
         let Ok(rd) = std::fs::read_dir(path) else {
             return;
         };
@@ -60,7 +66,7 @@ fn walk(path: &Path, re: &regex::Regex, out: &mut Vec<QfEntry>) {
                     continue;
                 }
             }
-            walk(&child, re, out);
+            walk(&child, re, out, depth + 1);
             if out.len() >= MAX_MATCHES {
                 return;
             }
