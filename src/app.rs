@@ -2639,7 +2639,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set autoread|noar     reload the file when it changes on disk\n\
          \t:set errorbells|noeb   ring the terminal bell on error messages\n\
          \t:set visualbell|novb   flash the screen on errors instead of beeping\n\
-         \t:set language=<code>   UI language (en, vi, fr)\n\
+         \t:set language=<code>   UI language (en, vi, fr, de)\n\
          \t:cd [dir]  :pwd        change / show the working directory\n\
          \t:set sidescrolloff=N   horizontal context columns\n\
          \t:set modeline|noml     apply a file's vim: options (:set modelines=N)\n\
