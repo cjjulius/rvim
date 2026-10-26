@@ -16,6 +16,7 @@ pub enum Locale {
     English,
     Vietnamese,
     French,
+    German,
 }
 
 impl Locale {
@@ -25,6 +26,7 @@ impl Locale {
             "en" | "english" => Some(Locale::English),
             "vi" | "vn" | "vietnamese" => Some(Locale::Vietnamese),
             "fr" | "french" | "français" | "francais" => Some(Locale::French),
+            "de" | "german" | "deutsch" => Some(Locale::German),
             _ => None,
         }
     }
@@ -35,6 +37,7 @@ impl Locale {
             Locale::English => "en",
             Locale::Vietnamese => "vi",
             Locale::French => "fr",
+            Locale::German => "de",
         }
     }
 
@@ -44,12 +47,13 @@ impl Locale {
             Locale::English => "English",
             Locale::Vietnamese => "Tiếng Việt",
             Locale::French => "Français",
+            Locale::German => "Deutsch",
         }
     }
 
     /// Every selectable locale, in display order.
     pub fn all() -> &'static [Locale] {
-        &[Locale::English, Locale::Vietnamese, Locale::French]
+        &[Locale::English, Locale::Vietnamese, Locale::French, Locale::German]
     }
 }
 
@@ -60,6 +64,7 @@ pub fn tr(locale: Locale, s: &'static str) -> &'static str {
         Locale::English => s,
         Locale::Vietnamese => vi(s).unwrap_or(s),
         Locale::French => fr(s).unwrap_or(s),
+        Locale::German => de(s).unwrap_or(s),
     }
 }
 
@@ -299,6 +304,124 @@ fn fr(s: &str) -> Option<&'static str> {
     })
 }
 
+/// German translations of rvim's UI strings. Returns `None` for anything not (yet)
+/// translated so [`tr`] can fall back to English.
+fn de(s: &str) -> Option<&'static str> {
+    Some(match s {
+        // Menu-bar titles.
+        "File" => "Datei",
+        "Buffers" => "Puffer",
+        "Edit" => "Bearbeiten",
+        "View" => "Ansicht",
+        "Window" => "Fenster",
+        "Language" => "Sprache",
+        "Tools" => "Werkzeuge",
+        "Help" => "Hilfe",
+        // File menu.
+        "Write" => "Schreiben",
+        "Write As…" => "Schreiben als…",
+        "Write & Quit" => "Schreiben und beenden",
+        "Save & Quit" => "Speichern und beenden",
+        "Quit" => "Beenden",
+        "Quit Without Saving" => "Ohne Speichern beenden",
+        "Open File…" => "Datei öffnen…",
+        "Read File…" => "Datei einlesen…",
+        "Source Script…" => "Skript ausführen…",
+        // Buffers menu.
+        "List Buffers" => "Puffer auflisten",
+        "Next Buffer" => "Nächster Puffer",
+        "Previous Buffer" => "Vorheriger Puffer",
+        "Go To Buffer…" => "Gehe zu Puffer…",
+        "Close Buffer" => "Puffer schließen",
+        // Edit menu.
+        "Substitute (line)…" => "Ersetzen (Zeile)…",
+        "Substitute (file)…" => "Ersetzen (Datei)…",
+        "Sort Lines" => "Zeilen sortieren",
+        "Sort Descending" => "Sortieren (absteigend)",
+        "Sort Unique" => "Sortieren (eindeutig)",
+        "Go To Line…" => "Gehe zu Zeile…",
+        "Clear Search Highlight" => "Suchhervorhebung löschen",
+        // View menu + submenus.
+        "Theme" => "Thema",
+        "Line Numbers" => "Zeilennummern",
+        "Folding" => "Faltung",
+        "Options" => "Optionen",
+        "Absolute On" => "Absolut: An",
+        "Absolute Off" => "Absolut: Aus",
+        "Relative On" => "Relativ: An",
+        "Relative Off" => "Relativ: Aus",
+        "Method: Manual" => "Methode: Manuell",
+        "Method: Indent" => "Methode: Einrückung",
+        "Method: Marker" => "Methode: Markierung",
+        "Method: Syntax" => "Methode: Syntax",
+        "Fold Column On" => "Faltspalte: An",
+        "Fold Column Off" => "Faltspalte: Aus",
+        "Mouse On" => "Maus: An",
+        "Mouse Off" => "Maus: Aus",
+        "Search Highlight On" => "Suchhervorhebung: An",
+        "Search Highlight Off" => "Suchhervorhebung: Aus",
+        "Auto-indent On" => "Auto-Einrückung: An",
+        "Auto-indent Off" => "Auto-Einrückung: Aus",
+        "Smart-indent On" => "Intelligente Einrückung: An",
+        "Smart-indent Off" => "Intelligente Einrückung: Aus",
+        "Show Whitespace On" => "Leerzeichen anzeigen: An",
+        "Show Whitespace Off" => "Leerzeichen anzeigen: Aus",
+        "Cursor Line On" => "Cursorzeile: An",
+        "Cursor Line Off" => "Cursorzeile: Aus",
+        // Window menu.
+        "Split" => "Teilen",
+        "Vertical Split" => "Vertikal teilen",
+        "Split File…" => "Mit Datei teilen…",
+        "Close Window" => "Fenster schließen",
+        "Only This Window" => "Nur dieses Fenster",
+        // Language menu.
+        "Set Filetype" => "Dateityp festlegen",
+        "Plain Text" => "Klartext",
+        // Help menu.
+        "Version" => "Version",
+        // Status-line scroll indicator.
+        "Top" => "Oben",
+        "Bot" => "Unten",
+        "All" => "Alles",
+        // Common status / error messages.
+        "paste" => "einfügen",
+        "nopaste" => "kein Einfügen",
+        "readonly" => "schreibgeschützt",
+        "noreadonly" => "nicht schreibgeschützt",
+        "only one buffer" => "nur ein Puffer",
+        "E32: No file name" => "E32: Kein Dateiname",
+        "E444: Cannot close last window" => "E444: Letztes Fenster kann nicht geschlossen werden",
+        "E37: No write since last change (add ! to override)" => {
+            "E37: Nicht gespeicherte Änderungen (! zum Erzwingen anhängen)"
+        }
+        "E45: 'readonly' option is set (add ! to override)" => {
+            "E45: Option 'readonly' ist gesetzt (! zum Erzwingen anhängen)"
+        }
+        // Templated messages (`{...}` placeholders are filled after translation).
+        "\"{path}\" {lines} lines" => "\"{path}\" {lines} Zeilen",
+        "\"{path}\" {lines} lines --reloaded--" => "\"{path}\" {lines} Zeilen --neu geladen--",
+        "\"{name}\" {bytes}B written" => "\"{name}\" {bytes} B geschrieben",
+        "{count} buffer(s) done" => "{count} Puffer verarbeitet",
+        "already editing \"{path}\"" => "\"{path}\" wird bereits bearbeitet",
+        "\"{path}\" (buffer switched)" => "\"{path}\" (Puffer gewechselt)",
+        "buffer closed; now \"{name}\"" => "Puffer geschlossen; jetzt \"{name}\"",
+        "E86: Buffer {n} does not exist" => "E86: Puffer {n} existiert nicht",
+        "E492: Not an editor command: {name}" => "E492: Kein Editor-Befehl: {name}",
+        "theme: {name}" => "Thema: {name}",
+        "filetype: {name}" => "Dateityp: {name}",
+        "Unknown filetype '{name}'" => "Unbekannter Dateityp '{name}'",
+        "language: {name}" => "Sprache: {name}",
+        "E474: Unknown language '{code}'" => "E474: Unbekannte Sprache '{code}'",
+        // Mode indicators.
+        "-- INSERT --" => "-- EINFÜGEN --",
+        "-- REPLACE --" => "-- ERSETZEN --",
+        "-- VISUAL --" => "-- VISUELL --",
+        "-- VISUAL LINE --" => "-- VISUELL ZEILE --",
+        "-- VISUAL BLOCK --" => "-- VISUELL BLOCK --",
+        _ => return None,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -310,7 +433,21 @@ mod tests {
         assert_eq!(Locale::from_code("EN"), Some(Locale::English));
         assert_eq!(Locale::from_code("fr"), Some(Locale::French));
         assert_eq!(Locale::from_code("French"), Some(Locale::French));
+        assert_eq!(Locale::from_code("de"), Some(Locale::German));
+        assert_eq!(Locale::from_code("Deutsch"), Some(Locale::German));
         assert_eq!(Locale::from_code("xx"), None);
+    }
+
+    #[test]
+    fn german_translates_with_english_fallback() {
+        assert_eq!(tr(Locale::German, "File"), "Datei");
+        assert_eq!(tr(Locale::German, "-- INSERT --"), "-- EINFÜGEN --");
+        assert_eq!(tr(Locale::German, "Top"), "Oben");
+        assert_eq!(tr(Locale::German, "theme: {name}"), "Thema: {name}");
+        assert_eq!(Locale::German.code(), "de");
+        assert_eq!(Locale::German.display_name(), "Deutsch");
+        // Untranslated strings fall back to English.
+        assert_eq!(tr(Locale::German, "Not translated yet"), "Not translated yet");
     }
 
     #[test]

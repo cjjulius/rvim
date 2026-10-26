@@ -126,7 +126,7 @@ All notable changes to rvim are recorded here. Versions follow
   filetype / language confirmations, and the unknown-command/buffer/filetype/
   language errors. (Rare messages carrying OS error text, and `:help`, stay English.)
 - The UI can be localized: `:set language=vi` (Vietnamese), `:set language=fr`
-  (French), `:set language=en` (English). Covers menus, mode indicators, the
+  (French), `:set language=de` (German), `:set language=en` (English). Covers menus, mode indicators, the
   status-line scroll indicator (`Top`/`Bot`/`All`) and common messages. The English
   text is the translation key and untranslated strings fall back to English, so
   coverage and new languages can grow incrementally.
