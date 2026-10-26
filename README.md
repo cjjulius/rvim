@@ -181,6 +181,9 @@ paragraph objects take counts (`d3iw`, `d2ap`), and the count may lead instead
 With no prefix, the unnamed register is used. `"+y` copies across programs and
 `"+p` pastes; rvim uses your platform's clipboard tool (`wl-clipboard`/`xclip`/
 `xsel` on Linux), or set `RVIM_CLIPBOARD` to a file path for a shared fallback.
+Prefer plain `y`/`d`/`p` to talk to the system clipboard directly? `:set
+clipboard=unnamed` routes the unnamed register through it (`:set clipboard=` turns
+it back off).
 
 **Marks, jumps & history**
 
@@ -765,7 +768,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **976 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **978 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

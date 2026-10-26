@@ -42,6 +42,9 @@ All notable changes to rvim are recorded here. Versions follow
   like `&` in a query string are safe; other schemes are declined.
 
 ### Editing
+- `:set clipboard=unnamed` makes the unnamed register the system clipboard, so plain
+  `y`/`d`/`p` copy and paste across programs without the `"+` prefix. `:set clipboard=`
+  turns it off.
 - `=` reindent operator: `==`, `=G`, `=ip`, `=i{`, and visual-mode `=` re-space
   lines to their brace nesting (honoring `shiftwidth`/`expandtab`), so `gg=G`
   tidies a whole file. Braces inside strings and `//` / `/* */` comments are

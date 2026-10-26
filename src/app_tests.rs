@@ -41,6 +41,17 @@
     }
 
     #[test]
+    fn run_ex_set_clipboard_unnamed() {
+        let mut app = App::new();
+        assert!(!app.editor.clipboard_unnamed); // default off
+        app.run_ex("set clipboard=unnamed");
+        assert!(app.editor.clipboard_unnamed);
+        assert_eq!(app.editor.option_value("clipboard"), "clipboard=unnamed");
+        app.run_ex("set clipboard=");
+        assert!(!app.editor.clipboard_unnamed);
+    }
+
+    #[test]
     fn run_ex_toggle_visualbell() {
         let mut app = App::new();
         assert!(!app.editor.visualbell); // default off

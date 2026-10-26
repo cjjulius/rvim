@@ -474,6 +474,7 @@ impl App {
         ed.autoread = self.editor.autoread;
         ed.errorbells = self.editor.errorbells;
         ed.visualbell = self.editor.visualbell;
+        ed.clipboard_unnamed = self.editor.clipboard_unnamed;
     }
 
     /// `:e <file>` — edit a file, switching to it if already open.
@@ -1901,6 +1902,10 @@ impl App {
                 self.editor.keywordprg = cmd;
                 self.editor.message = self.editor.option_value("keywordprg");
             }
+            ExCommand::SetClipboardUnnamed(on) => {
+                self.editor.clipboard_unnamed = on;
+                self.editor.message = self.editor.option_value("clipboard");
+            }
             ExCommand::SetNrformats(list) => {
                 self.editor.nrformats_alpha =
                     list.split(',').any(|t| t.trim() == "alpha");
@@ -2556,6 +2561,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t\"_dd               black-hole register (delete, keep registers)\n\
          \t\"%p                paste the current file name (% register)\n\
          \t\"+y \"+p            system clipboard (\"* = PRIMARY selection on X11)\n\
+         \t:set clipboard=unnamed  make plain y/d/p use the system clipboard\n\
          \tJ / gJ             join lines (with / without space)\n\
          \tu / Ctrl-r          undo / redo (counted; also :earlier N / :later N)\n\
          \t.  <n>.            repeat last change (n times)\n\

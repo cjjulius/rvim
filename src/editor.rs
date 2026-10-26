@@ -421,6 +421,9 @@ pub struct Editor {
     /// `:set smartindent` — add an indent level after a line ending in `{`, and
     /// dedent when `}` is typed as the first non-blank character (default off).
     pub smartindent: bool,
+    /// `:set clipboard=unnamed` — make the unnamed register the system clipboard,
+    /// so plain `y`/`d`/`p` use it without the `"+` prefix (default off).
+    pub clipboard_unnamed: bool,
     /// `:set paste` — suppress auto-indent, smart-indent, abbreviation expansion
     /// and auto-wrap while inserting, so pasted text keeps its own layout instead
     /// of cascading indentation (default off).
@@ -741,6 +744,7 @@ impl Editor {
             saved_hlsearch: true,
             autoindent: true,
             smartindent: false,
+            clipboard_unnamed: false,
             paste: false,
             readonly: false,
             autowrite: false,
@@ -1663,6 +1667,9 @@ impl Editor {
             "incsearch" | "is" => flag(self.incsearch, "incsearch"),
             "autoindent" | "ai" => flag(self.autoindent, "autoindent"),
             "smartindent" | "si" => flag(self.smartindent, "smartindent"),
+            "clipboard" | "cb" => {
+                format!("clipboard={}", if self.clipboard_unnamed { "unnamed" } else { "" })
+            }
             "paste" => flag(self.paste, "paste"),
             "readonly" | "ro" => flag(self.readonly, "readonly"),
             "autowrite" | "aw" => flag(self.autowrite, "autowrite"),
@@ -1887,7 +1894,7 @@ impl Editor {
     /// Canonical option names shown by `:set` / `:set all`, in display order.
     const OPTION_NAMES: &'static [&'static str] = &[
         "number", "relativenumber", "hlsearch", "ignorecase", "smartcase",
-        "incsearch", "autoindent", "smartindent", "paste", "readonly", "autowrite", "autoread", "title", "backup", "showmode",
+        "incsearch", "autoindent", "smartindent", "clipboard", "paste", "readonly", "autowrite", "autoread", "title", "backup", "showmode",
         "showcmd", "ruler", "errorbells", "visualbell", "expandtab", "list", "wrapscan", "cursorline",
         "cursorcolumn", "shiftwidth", "shiftround", "joinspaces", "tabstop",
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
@@ -4270,7 +4277,21 @@ impl Editor {
     /// The contents of a register by name (`"` = unnamed).
     fn register_text(&self, name: char) -> Register {
         match name {
-            '"' => self.register.clone(),
+            '"' => {
+                // With `clipboard=unnamed`, read the unnamed register from the
+                // system clipboard so an external copy is picked up.
+                if self.clipboard_unnamed {
+                    if let Some(mut text) = crate::clipboard::read(crate::clipboard::Sel::Clipboard)
+                    {
+                        let linewise = text.ends_with('\n');
+                        if linewise {
+                            text.pop();
+                        }
+                        return Register { text, linewise, block: false };
+                    }
+                }
+                self.register.clone()
+            }
             // `%` is the read-only current file-name register.
             '%' => Register {
                 text: self
@@ -7709,6 +7730,14 @@ impl Editor {
             default(self, &reg);
         }
         self.register = reg;
+        // `:set clipboard=unnamed` makes the unnamed register the system clipboard.
+        if self.clipboard_unnamed {
+            let mut payload = self.register.text.clone();
+            if self.register.linewise {
+                payload.push('\n');
+            }
+            crate::clipboard::write(crate::clipboard::Sel::Clipboard, &payload);
+        }
     }
 
     /// Store yanked text: unnamed register + the yank register `"0` (or the
