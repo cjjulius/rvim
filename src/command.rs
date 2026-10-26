@@ -159,6 +159,9 @@ pub enum ExCommand {
     SetEqualprg(String),
     /// `:set keywordprg=<cmd>` — program `K` runs on the word under the cursor.
     SetKeywordprg(String),
+    /// `:set clipboard=unnamed` / `:set clipboard=` — use the system clipboard as
+    /// the unnamed register (on), or stop (off).
+    SetClipboardUnnamed(bool),
     /// `:set nrformats=<list>` — number formats for `Ctrl-a`/`Ctrl-x` (only the
     /// `alpha` token changes behavior; bin/hex are always recognized).
     SetNrformats(String),
@@ -1203,6 +1206,13 @@ fn parse_set(rest: &str) -> ExCommand {
                 .or_else(|| opt.strip_prefix("kp="))
             {
                 ExCommand::SetKeywordprg(v.trim().to_string())
+            } else if let Some(v) = opt
+                .strip_prefix("clipboard=")
+                .or_else(|| opt.strip_prefix("cb="))
+            {
+                // `unnamed`/`unnamedplus` enable it; anything else (incl. empty) off.
+                let on = matches!(v.trim(), "unnamed" | "unnamedplus" | "unnamed,unnamedplus");
+                ExCommand::SetClipboardUnnamed(on)
             } else if let Some(v) = opt
                 .strip_prefix("nrformats=")
                 .or_else(|| opt.strip_prefix("nf="))

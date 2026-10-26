@@ -815,6 +815,13 @@
     }
 
     #[test]
+    fn set_clipboard_unnamed() {
+        assert_eq!(parse("set clipboard=unnamed"), ExCommand::SetClipboardUnnamed(true));
+        assert_eq!(parse("set cb=unnamedplus"), ExCommand::SetClipboardUnnamed(true));
+        assert_eq!(parse("set clipboard="), ExCommand::SetClipboardUnnamed(false));
+    }
+
+    #[test]
     fn set_keywordprg() {
         assert_eq!(parse("set keywordprg=man"), ExCommand::SetKeywordprg("man".into()));
         assert_eq!(parse("set kp=pydoc"), ExCommand::SetKeywordprg("pydoc".into()));
