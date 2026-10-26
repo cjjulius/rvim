@@ -114,6 +114,9 @@ pub struct App {
     /// Global (uppercase `A`-`Z`) marks: mark -> (file path, row, col). Unlike the
     /// per-buffer lowercase marks, these persist across buffers and reopen the file.
     global_marks: HashMap<char, (String, usize, usize)>,
+    /// The `:grep` quickfix list and the currently-selected entry.
+    quickfix: Vec<crate::quickfix::QfEntry>,
+    qf_idx: usize,
     /// Recent status-line messages, oldest first, for `:messages`. Captured once
     /// per frame when the message changes, so transient notes can be recalled.
     message_log: Vec<String>,
@@ -151,6 +154,8 @@ impl App {
             tag_match_idx: 0,
             tag_match_name: String::new(),
             global_marks: HashMap::new(),
+            quickfix: Vec::new(),
+            qf_idx: 0,
             message_log: Vec::new(),
             last_logged_msg: String::new(),
         }
@@ -665,6 +670,98 @@ impl App {
             Ok(()) => self.editor.message = format!("HTML written to \"{path}\""),
             Err(e) => self.editor.message = format!("E: can't write {path}: {e}"),
         }
+    }
+
+    /// `:grep <pattern> [paths…]` — search files into the quickfix list and jump to
+    /// the first match. With no paths, searches the working directory.
+    fn do_grep(&mut self, args: &str) {
+        let args = args.trim();
+        let (pattern, rest) = match args.split_once(char::is_whitespace) {
+            Some((p, r)) => (p, r.trim()),
+            None => (args, ""),
+        };
+        if pattern.is_empty() {
+            self.notify("E471: Argument required");
+            return;
+        }
+        let paths: Vec<std::path::PathBuf> = if rest.is_empty() {
+            vec![std::path::PathBuf::from(".")]
+        } else {
+            rest.split_whitespace().map(std::path::PathBuf::from).collect()
+        };
+        match crate::quickfix::grep(pattern, &paths, self.editor.ignorecase) {
+            Ok(list) if list.is_empty() => {
+                self.quickfix.clear();
+                self.editor.message = format!("E480: No match: {pattern}");
+            }
+            Ok(list) => {
+                let n = list.len();
+                self.quickfix = list;
+                self.qf_idx = 0;
+                self.qf_jump(0);
+                self.editor.message = format!("{n} match(es) — :copen to list, :cn/:cp to step");
+            }
+            Err(e) => self.editor.message = e,
+        }
+    }
+
+    /// Jump to quickfix entry `idx` (0-based), opening its file.
+    fn qf_jump(&mut self, idx: usize) {
+        if self.quickfix.is_empty() {
+            self.notify("E42: No errors");
+            return;
+        }
+        let idx = idx.min(self.quickfix.len() - 1);
+        self.qf_idx = idx;
+        let entry = self.quickfix[idx].clone();
+        let file = entry.file.display().to_string();
+        self.edit_file(&file, Some(entry.line));
+        self.editor.message = format!(
+            "({} of {}) {}:{}",
+            idx + 1,
+            self.quickfix.len(),
+            file,
+            entry.line
+        );
+    }
+
+    /// `:cnext` / `:cprev` — step through the quickfix list by `delta`.
+    fn qf_step(&mut self, delta: isize) {
+        if self.quickfix.is_empty() {
+            self.notify("E42: No errors");
+            return;
+        }
+        let next = self.qf_idx as isize + delta;
+        if next < 0 {
+            self.notify("E553: No more items");
+            return;
+        }
+        if next as usize >= self.quickfix.len() {
+            self.notify("E553: No more items");
+            return;
+        }
+        self.qf_jump(next as usize);
+    }
+
+    /// `:copen` — list the quickfix matches in a scratch buffer.
+    fn qf_open(&mut self) {
+        if self.quickfix.is_empty() {
+            self.notify("E42: No errors");
+            return;
+        }
+        let mut body = format!("quickfix ({} matches) — :bd to close\n\n", self.quickfix.len());
+        for (i, e) in self.quickfix.iter().enumerate() {
+            let cur = if i == self.qf_idx { '>' } else { ' ' };
+            body.push_str(&format!(
+                "{} {}  {}:{}  {}\n",
+                cur,
+                i + 1,
+                e.file.display(),
+                e.line,
+                e.text.trim()
+            ));
+        }
+        self.open_scratch(&body, "quickfix", "quickfix — :bd to close");
     }
 
     fn buffer_next(&mut self) {
@@ -2092,6 +2189,15 @@ impl App {
             ExCommand::RepeatSubstitute { range, keep_flags } => {
                 self.editor.repeat_substitute_range(range, keep_flags)
             }
+            ExCommand::Grep(args) => self.do_grep(&args),
+            ExCommand::QfOpen => self.qf_open(),
+            ExCommand::QfNext => self.qf_step(1),
+            ExCommand::QfPrev => self.qf_step(-1),
+            ExCommand::QfJump(n) => {
+                // `:cc` with no count re-shows the current entry; `:cc N` is 1-based.
+                let idx = n.map(|n| n.saturating_sub(1)).unwrap_or(self.qf_idx);
+                self.qf_jump(idx);
+            }
             ExCommand::Source(path) => match std::fs::read_to_string(&path) {
                 Ok(text) => {
                     let cmds = crate::config::parse_config(&text);
@@ -2623,6 +2729,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:s/pat/rep/[ginc]  substitute (g all, i ignore-case, n count, c confirm)\n\
          \t  rep: \\1-\\9 & groups; \\U \\L \\u \\l \\E case; pat: \\< \\> word bounds\n\
          \t:[range]& / :&&     repeat the last :s on a range (&& keeps its flags)\n\
+         \t:grep <pat> [paths]  search files; :copen lists, :cn/:cp step, :cc N jumps\n\
          \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///, >, <, j, p, normal)\n\
          \t:[range]norm {{keys}}  run Normal-mode keys (per line over a range)\n\
          \t:theme <name>      themes: {themes}\n\

@@ -15,6 +15,7 @@
 //! - [`syntax`]   — language autodetection + pluggable highlighters.
 //! - [`theme`]    — color themes (matrix, retrowave, cobalt, …).
 //! - [`plugin`]   — the plugin trait + manager for extensibility.
+//! - [`quickfix`] — `:grep` file search + the quickfix match list.
 //! - [`terminal`] — raw-mode / alternate-screen RAII guard (cross-platform).
 //! - [`ui`]       — rendering of the text area, gutter and status line.
 //! - [`window`]   — the split-window layout manager (geometry + focus moves).
@@ -33,6 +34,7 @@ pub mod menu;
 pub mod mode;
 pub mod pattern;
 pub mod plugin;
+pub mod quickfix;
 pub mod syntax;
 pub mod tags;
 pub mod terminal;

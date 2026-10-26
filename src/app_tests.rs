@@ -165,6 +165,46 @@
     }
 
     #[test]
+    fn grep_populates_quickfix_and_navigates() {
+        let dir = std::env::temp_dir().join(format!("rvim_qfapp_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let fa = dir.join("one.txt");
+        let fb = dir.join("two.txt");
+        std::fs::write(&fa, "need\nskip\n").unwrap();
+        std::fs::write(&fb, "skip\nneed\n").unwrap();
+
+        let mut app = App::new();
+        app.run_ex(&format!("grep need {} {}", fa.display(), fb.display()));
+        assert_eq!(app.quickfix.len(), 2);
+        // Jumped to the first match.
+        assert_eq!(app.qf_idx, 0);
+        assert!(app.editor.buffer.path().unwrap().ends_with("one.txt"));
+        // `:cnext` moves to the second.
+        app.run_ex("cnext");
+        assert_eq!(app.qf_idx, 1);
+        assert!(app.editor.buffer.path().unwrap().ends_with("two.txt"));
+        assert_eq!(app.editor.cursor.row, 1); // "need" is line 2 of two.txt
+        // Past the end reports and does not move.
+        app.run_ex("cnext");
+        assert_eq!(app.qf_idx, 1);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn grep_no_match_reports() {
+        let dir = std::env::temp_dir().join(format!("rvim_qfnm_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("x.txt");
+        std::fs::write(&f, "alpha\n").unwrap();
+        let mut app = App::new();
+        app.run_ex(&format!("grep zzz {}", f.display()));
+        assert!(app.quickfix.is_empty());
+        assert!(app.editor.message.contains("No match"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn repeat_substitute_ex_keeps_or_drops_flags() {
         let mut app = App::new();
         app.editor.buffer = crate::buffer::Buffer::from_text("foo foo\nfoo foo\nfoo foo");
