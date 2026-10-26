@@ -216,7 +216,7 @@ pub fn render(
         draw_menu(out, theme, &layout, menu)?;
         queue!(out, Hide)?;
     } else if editor.mode == Mode::Command {
-        let x = 1 + editor.cmdline.chars().count() as u16; // after ':' or '/'
+        let x = 1 + editor.cmdline_cursor() as u16; // after ':' or '/', at the edit cursor
         queue!(
             out,
             mode_cursor_style(editor.mode),
@@ -441,7 +441,7 @@ pub fn render_split(
         draw_wildmenu(out, editor, theme, &bar_layout)?;
         draw_command_line(out, editor, theme, &bar_layout)?;
         if editor.mode == Mode::Command {
-            let x = 1 + editor.cmdline.chars().count() as u16;
+            let x = 1 + editor.cmdline_cursor() as u16;
             queue!(
                 out,
                 mode_cursor_style(editor.mode),

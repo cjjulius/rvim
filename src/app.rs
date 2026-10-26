@@ -2583,8 +2583,9 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \n\
          COMMANDS\n\
          \t(command line) Up/Down  recall previous commands / searches\n\
+         \t(command line) Left/Right Home/End  move the edit cursor (also C-b/C-e)\n\
          \t(command line) Tab      complete command / :set option (wildmenu, cycles)\n\
-         \t(command line) C-w/C-u  delete previous word / whole line\n\
+         \t(command line) C-w/C-u  delete previous word / to line start\n\
          \t(command line) C-r<r>   insert register (C-r C-w = word under cursor)\n\
          \t:w [file]  :q  :q!  :wq  :x   write / quit variants\n\
          \t:qa  :wa  :wqa     quit / write / write-quit all buffers (! to force)\n\
