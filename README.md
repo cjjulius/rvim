@@ -434,7 +434,8 @@ backreferences** — `\1`–`\9` for groups and `&` for the whole match — e.g.
 next character and `\U`/`\L` run until `\E` (so `:%s/\w+/\U&/g` shouts every word).
 An invalid regex falls back to a literal match.
 `&` (normal mode) repeats the last substitution on the current line, and `g&`
-repeats it across the whole file. The `i`
+repeats it across the whole file; the ex forms `:[range]&` and `:[range]&&` do the
+same over a range, with `&&` keeping the previous flags. The `i`
 flag makes matching case-insensitive (`:%s/foo/bar/gi`), and `\c`/`\C` in a
 pattern force case-insensitive/sensitive matching for both `:s` and search. A
 single undo (`u`) reverts an entire substitution.
@@ -768,7 +769,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **978 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **980 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

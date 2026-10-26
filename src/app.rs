@@ -2089,6 +2089,9 @@ impl App {
             }
             ExCommand::MkSession { file, force } => self.make_session(file.as_deref(), force),
             ExCommand::ToHtml(file) => self.export_html(file.as_deref()),
+            ExCommand::RepeatSubstitute { range, keep_flags } => {
+                self.editor.repeat_substitute_range(range, keep_flags)
+            }
             ExCommand::Source(path) => match std::fs::read_to_string(&path) {
                 Ok(text) => {
                     let cmds = crate::config::parse_config(&text);
@@ -2619,6 +2622,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:history [:|/|all] list command-line / search history\n\
          \t:s/pat/rep/[ginc]  substitute (g all, i ignore-case, n count, c confirm)\n\
          \t  rep: \\1-\\9 & groups; \\U \\L \\u \\l \\E case; pat: \\< \\> word bounds\n\
+         \t:[range]& / :&&     repeat the last :s on a range (&& keeps its flags)\n\
          \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///, >, <, j, p, normal)\n\
          \t:[range]norm {{keys}}  run Normal-mode keys (per line over a range)\n\
          \t:theme <name>      themes: {themes}\n\

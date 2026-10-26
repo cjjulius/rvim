@@ -815,6 +815,23 @@
     }
 
     #[test]
+    fn repeat_substitute_parses() {
+        use crate::command::SubRange;
+        assert_eq!(
+            parse("&"),
+            ExCommand::RepeatSubstitute { range: SubRange::CurrentLine, keep_flags: false }
+        );
+        assert_eq!(
+            parse("&&"),
+            ExCommand::RepeatSubstitute { range: SubRange::CurrentLine, keep_flags: true }
+        );
+        assert_eq!(
+            parse("%&&"),
+            ExCommand::RepeatSubstitute { range: SubRange::WholeFile, keep_flags: true }
+        );
+    }
+
+    #[test]
     fn set_clipboard_unnamed() {
         assert_eq!(parse("set clipboard=unnamed"), ExCommand::SetClipboardUnnamed(true));
         assert_eq!(parse("set cb=unnamedplus"), ExCommand::SetClipboardUnnamed(true));

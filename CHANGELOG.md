@@ -99,6 +99,8 @@ All notable changes to rvim are recorded here. Versions follow
   take precedence; default off.
 
 ### Search
+- `:[range]&` / `:[range]&&` repeat the last `:s` over a range — the ex companions
+  to `&`/`g&`; `&&` keeps the previous flags (e.g. `g`), `&` drops them.
 - `:sort` gains float (`f`) and hex (`x`) numeric modes alongside decimal (`n`),
   so `:sort f` orders by floating-point value and `:sort x` by hex (optional `0x`).
 - `:g/re/p` (and bare `:g/re/`, or `:g/re/#` for line numbers) lists the matching
