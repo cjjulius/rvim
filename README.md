@@ -337,6 +337,7 @@ Grouped by what they do. Most line commands accept a leading range such as
 - `:<n>` jumps to line `n`.
 - `:command Name expansion` defines a shortcut (the name must start with a capital), e.g. `:command W w` makes `:W` save; `:delcommand Name` removes one and `:command` lists them.
 - `:mksession [file]` saves your open files, theme, changed options and cursor line to a small script (default `Session.vim`, `!` to overwrite); `:source <file>` replays it to pick up where you left off. Window splits are not saved yet.
+- `:TOhtml [file]` exports the current buffer to a standalone, syntax-highlighted HTML page using the active theme, handy for sharing a snippet that looks the same in any browser. The default name is the file's own with `.html` added.
 
 **Search and replace**
 
@@ -757,7 +758,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **963 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **969 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

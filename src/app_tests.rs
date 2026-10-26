@@ -154,6 +154,21 @@
     }
 
     #[test]
+    fn tohtml_writes_highlighted_file() {
+        let dir = std::env::temp_dir();
+        let out = dir.join("rvim_export.html");
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("fn main() {}\n");
+        app.editor.language = Language::Rust;
+        app.run_ex(&format!("TOhtml {}", out.display()));
+        let html = std::fs::read_to_string(&out).unwrap();
+        assert!(html.starts_with("<!DOCTYPE html>"));
+        assert!(html.contains("<pre class=\"rvim\">"));
+        assert!(html.contains("<span style=\"color:#")); // a highlighted token
+        let _ = std::fs::remove_file(&out);
+    }
+
+    #[test]
     fn mksession_refuses_existing_without_force() {
         let dir = std::env::temp_dir();
         let session = dir.join("rvim_Session_exists.vim");

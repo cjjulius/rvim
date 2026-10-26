@@ -8,6 +8,7 @@
 //! - [`config`]   — startup `~/.rvimrc` loading + `:source`.
 //! - [`mode`]     — the modal state machine (Normal / Insert / Visual / Command).
 //! - [`editor`]   — cursor, viewport and high-level editing operations.
+//! - [`export`]   — render the buffer to a syntax-highlighted HTML document.
 //! - [`fold`]     — manual code folding (ranges collapsed to one display row).
 //! - [`menu`]     — the Alt-activated top menu bar (a command-line teaching aid).
 //! - [`command`]  — the `:` ex-command parser/dispatcher.
@@ -25,6 +26,7 @@ pub mod clipboard;
 pub mod command;
 pub mod config;
 pub mod editor;
+pub mod export;
 pub mod fold;
 pub mod i18n;
 pub mod menu;
