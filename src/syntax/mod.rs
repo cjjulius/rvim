@@ -144,6 +144,34 @@ const LANG_TABLE: &[LangInfo] = &[
     LangInfo { lang: Language::GraphQl, name: "graphql", aliases: &["gql"], extensions: &["graphql", "gql"], comment: Some("#") },
 ];
 
+/// Exact file names (no extension) that select a language — common dotfiles and
+/// extensionless config files, matched before the extension table. The chosen
+/// language is always one already in [`LANG_TABLE`], so no new highlighter is
+/// needed; this just gives these files the highlighting they would get by content.
+const FILENAME_LANGS: &[(&str, Language)] = &[
+    // Shell startup / config files and `.env`.
+    (".bashrc", Language::Shell),
+    (".bash_profile", Language::Shell),
+    (".bash_aliases", Language::Shell),
+    (".bash_logout", Language::Shell),
+    (".profile", Language::Shell),
+    (".zshrc", Language::Shell),
+    (".zprofile", Language::Shell),
+    (".zshenv", Language::Shell),
+    (".zlogin", Language::Shell),
+    (".kshrc", Language::Shell),
+    (".cshrc", Language::Shell),
+    (".env", Language::Shell),
+    // Ruby project files (no extension, conventionally these exact names).
+    ("Gemfile", Language::Ruby),
+    ("Rakefile", Language::Ruby),
+    ("Guardfile", Language::Ruby),
+    ("Vagrantfile", Language::Ruby),
+    ("Podfile", Language::Ruby),
+    ("Brewfile", Language::Ruby),
+    ("Capfile", Language::Ruby),
+];
+
 impl Language {
     /// Human-readable name shown in the status line / `:set ft`.
     pub fn name(&self) -> &'static str {
@@ -203,6 +231,13 @@ pub fn line_comment_token(lang: Language) -> Option<&'static str> {
 /// the first line of content.
 pub fn detect_language(path: Option<&Path>, first_line: &str) -> Language {
     if let Some(path) = path {
+        // Exact file names (dotfiles, extensionless config) take precedence over
+        // the extension table (`.bashrc` has extension "bashrc" but is shell).
+        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            if let Some((_, lang)) = FILENAME_LANGS.iter().find(|(n, _)| *n == name) {
+                return *lang;
+            }
+        }
         if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
             let ext = ext.to_ascii_lowercase();
             if ext == "sql" {
@@ -1111,6 +1146,36 @@ mod tests {
         assert_eq!(
             detect_language(Some(&PathBuf::from("app.ts")), ""),
             Language::TypeScript
+        );
+    }
+
+    #[test]
+    fn detect_by_filename() {
+        // Extensionless / dotfile config files map to an existing language.
+        assert_eq!(
+            detect_language(Some(&PathBuf::from("/home/u/.bashrc")), ""),
+            Language::Shell
+        );
+        assert_eq!(
+            detect_language(Some(&PathBuf::from(".zshrc")), ""),
+            Language::Shell
+        );
+        assert_eq!(
+            detect_language(Some(&PathBuf::from("project/.env")), ""),
+            Language::Shell
+        );
+        assert_eq!(
+            detect_language(Some(&PathBuf::from("app/Gemfile")), ""),
+            Language::Ruby
+        );
+        assert_eq!(
+            detect_language(Some(&PathBuf::from("Rakefile")), ""),
+            Language::Ruby
+        );
+        // A real extension still wins / unknown names stay plain text.
+        assert_eq!(
+            detect_language(Some(&PathBuf::from("notes.txt")), ""),
+            Language::PlainText
         );
     }
 

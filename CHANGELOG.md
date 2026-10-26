@@ -197,6 +197,9 @@ All notable changes to rvim are recorded here. Versions follow
   unchanged.
 
 ### Syntax
+- Filename-based detection: common extensionless config files now highlight by
+  name — `.bashrc`, `.zshrc`, `.profile`, `.env` (and similar) as shell, and
+  `Gemfile` / `Rakefile` / `Vagrantfile` (and similar) as Ruby.
 - GraphQL highlighting (`.graphql`, `.gql`): keywords (`type`, `interface`,
   `query`, `mutation`, `fragment`, …), the built-in scalar types, `$variables`,
   `#` comments and triple-quote block strings.
