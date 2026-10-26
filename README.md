@@ -571,6 +571,9 @@ then tokenized and color-coded:
 | GraphQL               | `.graphql`, `.gql`                  |
 | YAML                  | `.yaml`, `.yml`                     |
 
+Common extensionless files are recognized by name too, so `.bashrc`, `.zshrc`,
+`.env` and friends highlight as shell, and `Gemfile` / `Rakefile` as Ruby.
+
 A generic `.sql` file can be pinned to a dialect with a first-line hint such as
 `-- dialect: trino`, or at runtime with `:set ft=snowflake`. Multi-line
 constructs — block comments (`/* … */`), Python triple-quoted strings, and
@@ -762,7 +765,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **975 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **976 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
