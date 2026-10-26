@@ -938,6 +938,51 @@
     }
 
     #[test]
+    fn cmdline_midline_insert_with_arrows() {
+        let mut ed = ed_with("x");
+        ed.handle_key(key(':'));
+        for c in "set numer".chars() {
+            ed.handle_key(key(c));
+        }
+        // Move back two to sit after the 'm', then insert the missing 'b'.
+        ed.handle_key(special(KeyCode::Left));
+        ed.handle_key(special(KeyCode::Left));
+        ed.handle_key(key('b'));
+        assert_eq!(ed.cmdline, "set number");
+        assert_eq!(ed.cmdline_cursor(), 8);
+    }
+
+    #[test]
+    fn cmdline_home_end_delete_backspace() {
+        let mut ed = ed_with("x");
+        ed.handle_key(key(':'));
+        for c in "abcd".chars() {
+            ed.handle_key(key(c));
+        }
+        ed.handle_key(special(KeyCode::Home));
+        assert_eq!(ed.cmdline_cursor(), 0);
+        ed.handle_key(special(KeyCode::Delete)); // removes 'a'
+        assert_eq!(ed.cmdline, "bcd");
+        ed.handle_key(special(KeyCode::End));
+        assert_eq!(ed.cmdline_cursor(), 3);
+        ed.handle_key(special(KeyCode::Backspace)); // removes 'd'
+        assert_eq!(ed.cmdline, "bc");
+    }
+
+    #[test]
+    fn cmdline_ctrl_w_deletes_word_before_cursor() {
+        use crossterm::event::{KeyEvent, KeyModifiers};
+        let mut ed = ed_with("x");
+        ed.handle_key(key(':'));
+        for c in "e foo bar".chars() {
+            ed.handle_key(key(c));
+        }
+        // Cursor at end; Ctrl-w removes "bar".
+        ed.handle_key(KeyEvent::new(KeyCode::Char('w'), KeyModifiers::CONTROL));
+        assert_eq!(ed.cmdline, "e foo ");
+    }
+
+    #[test]
     fn uppercase_marks_return_global_actions() {
         let mut ed = ed_with("l0\nl1\nl2");
         ed.cursor = Position::new(1, 0);

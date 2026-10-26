@@ -384,6 +384,9 @@ pub struct Editor {
     pub language: Language,
     pub message: String,
     pub cmdline: String,
+    /// Cursor position within [`cmdline`](Editor::cmdline), as a char index, for
+    /// mid-line editing of a `:`/`/`/`?` line.
+    cmdline_cursor: usize,
     pub show_line_numbers: bool,
     /// When true, non-current lines show their distance from the cursor
     /// (hybrid: the current line still shows its absolute number).
@@ -719,6 +722,7 @@ impl Editor {
             language: Language::PlainText,
             message: String::new(),
             cmdline: String::new(),
+            cmdline_cursor: 0,
             show_line_numbers: true,
             relative_numbers: false,
             hlsearch: true,
@@ -1443,6 +1447,7 @@ impl Editor {
             LineKind::SearchBack
         };
         self.cmdline.clear();
+        self.cmdline_cursor = 0;
         self.hist_idx = None;
         self.search_origin = self.cursor;
         self.saved_search_re = self.search_re.clone();
@@ -1456,6 +1461,7 @@ impl Editor {
         self.mode = Mode::Command;
         self.line_kind = LineKind::Ex;
         self.cmdline = prefill;
+        self.cmdline_cursor = self.cmdline.chars().count();
         self.hist_idx = None;
         self.saved_search_re = self.search_re.clone();
         self.saved_last_search = self.last_search.clone();
@@ -1936,6 +1942,61 @@ impl Editor {
             LineKind::SearchFwd => '/',
             LineKind::SearchBack => '?',
         }
+    }
+
+    /// The cursor's char position within the command line, for rendering.
+    pub fn cmdline_cursor(&self) -> usize {
+        self.cmdline_cursor
+    }
+
+    /// Byte offset of char index `i` within the command line (end if past it).
+    fn cmdline_byte(&self, i: usize) -> usize {
+        self.cmdline
+            .char_indices()
+            .nth(i)
+            .map(|(b, _)| b)
+            .unwrap_or(self.cmdline.len())
+    }
+
+    /// Char length of the command line.
+    fn cmdline_len(&self) -> usize {
+        self.cmdline.chars().count()
+    }
+
+    /// Insert `s` at the command-line cursor, advancing it.
+    fn cmdline_insert(&mut self, s: &str) {
+        let b = self.cmdline_byte(self.cmdline_cursor);
+        self.cmdline.insert_str(b, s);
+        self.cmdline_cursor += s.chars().count();
+    }
+
+    /// Delete the char before the cursor; returns whether anything was removed.
+    fn cmdline_backspace(&mut self) -> bool {
+        if self.cmdline_cursor == 0 {
+            return false;
+        }
+        let mut chars: Vec<char> = self.cmdline.chars().collect();
+        chars.remove(self.cmdline_cursor - 1);
+        self.cmdline_cursor -= 1;
+        self.cmdline = chars.into_iter().collect();
+        true
+    }
+
+    /// Delete the char under the cursor (`Delete` key); no-op at end of line.
+    fn cmdline_delete_at(&mut self) {
+        if self.cmdline_cursor < self.cmdline_len() {
+            let mut chars: Vec<char> = self.cmdline.chars().collect();
+            chars.remove(self.cmdline_cursor);
+            self.cmdline = chars.into_iter().collect();
+        }
+    }
+
+    /// `Ctrl-u` on the command line: delete everything before the cursor.
+    fn cmdline_clear_to_start(&mut self) {
+        let chars: Vec<char> = self.cmdline.chars().collect();
+        let keep = self.cmdline_cursor.min(chars.len());
+        self.cmdline = chars[keep..].iter().collect();
+        self.cmdline_cursor = 0;
     }
 
     /// Scan the first and last [`modelines`](Editor::modelines) lines for a
@@ -3193,13 +3254,14 @@ impl Editor {
                 String::new()
             };
             // Keep the command line single-line: flatten any newlines.
-            self.cmdline.push_str(&text.replace('\n', " "));
+            self.cmdline_insert(&text.replace('\n', " "));
             self.update_incsearch();
             return Action::None;
         }
         // Tab / Shift-Tab cycle through command-line completions.
         if matches!(key.code, KeyCode::Tab | KeyCode::BackTab) {
             self.cmdline_complete(key.code == KeyCode::BackTab);
+            self.cmdline_cursor = self.cmdline_len();
             return Action::None;
         }
         // Any other key ends an in-progress completion cycle.
@@ -3213,11 +3275,19 @@ impl Editor {
                     self.update_incsearch();
                 }
                 KeyCode::Char('u') => {
-                    self.cmdline.clear();
+                    self.cmdline_clear_to_start();
                     self.hist_idx = None;
                     self.update_incsearch();
                 }
                 KeyCode::Char('r') => self.cmdline_pending_reg = true,
+                // Emacs-style line motions vim also accepts on the command line.
+                KeyCode::Char('b') => self.cmdline_cursor = 0,
+                KeyCode::Char('e') => self.cmdline_cursor = self.cmdline_len(),
+                KeyCode::Char('h') => {
+                    self.hist_idx = None;
+                    self.cmdline_backspace();
+                    self.update_incsearch();
+                }
                 _ => {}
             }
             return Action::None;
@@ -3261,27 +3331,53 @@ impl Editor {
             }
             KeyCode::Up => {
                 self.history_recall(true);
+                self.cmdline_cursor = self.cmdline_len();
                 self.update_incsearch();
                 Action::None
             }
             KeyCode::Down => {
                 self.history_recall(false);
+                self.cmdline_cursor = self.cmdline_len();
+                self.update_incsearch();
+                Action::None
+            }
+            KeyCode::Left => {
+                self.cmdline_cursor = self.cmdline_cursor.saturating_sub(1);
+                Action::None
+            }
+            KeyCode::Right => {
+                self.cmdline_cursor = (self.cmdline_cursor + 1).min(self.cmdline_len());
+                Action::None
+            }
+            KeyCode::Home => {
+                self.cmdline_cursor = 0;
+                Action::None
+            }
+            KeyCode::End => {
+                self.cmdline_cursor = self.cmdline_len();
+                Action::None
+            }
+            KeyCode::Delete => {
+                self.hist_idx = None;
+                self.cmdline_delete_at();
                 self.update_incsearch();
                 Action::None
             }
             KeyCode::Backspace => {
                 self.hist_idx = None;
-                if self.cmdline.pop().is_none() {
+                if self.cmdline.is_empty() {
+                    // Backspacing an empty line leaves command mode (as in vim).
                     self.cancel_search_preview();
                     self.mode = Mode::Normal;
-                } else {
+                } else if self.cmdline_backspace() {
                     self.update_incsearch();
                 }
                 Action::None
             }
             KeyCode::Char(c) => {
                 self.hist_idx = None;
-                self.cmdline.push(c);
+                let mut buf = [0u8; 4];
+                self.cmdline_insert(c.encode_utf8(&mut buf));
                 self.update_incsearch();
                 Action::None
             }
@@ -3432,12 +3528,20 @@ impl Editor {
 
     /// `Ctrl-w` on the command line: delete the trailing whitespace and word.
     fn cmdline_delete_word(&mut self) {
-        while self.cmdline.chars().next_back().is_some_and(char::is_whitespace) {
-            self.cmdline.pop();
+        // Delete the word immediately before the cursor (whitespace, then the run
+        // of non-whitespace), keeping any text after the cursor.
+        let mut chars: Vec<char> = self.cmdline.chars().collect();
+        let end = self.cmdline_cursor.min(chars.len());
+        let mut i = end;
+        while i > 0 && chars[i - 1].is_whitespace() {
+            i -= 1;
         }
-        while self.cmdline.chars().next_back().is_some_and(|c| !c.is_whitespace()) {
-            self.cmdline.pop();
+        while i > 0 && !chars[i - 1].is_whitespace() {
+            i -= 1;
         }
+        chars.drain(i..end);
+        self.cmdline = chars.into_iter().collect();
+        self.cmdline_cursor = i;
     }
 
     fn push_history(&mut self, text: &str) {

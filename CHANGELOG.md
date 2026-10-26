@@ -149,6 +149,10 @@ All notable changes to rvim are recorded here. Versions follow
   ordinary space — making invisible characters visible.
 
 ### Command line
+- Mid-line editing: `Left`/`Right`, `Home`/`End` (and `Ctrl-b`/`Ctrl-e`) move the
+  cursor within a `:`/`/`/`?` line, `Delete` removes the character under it, and
+  typing/`Backspace` act at the cursor — so a typo earlier in a long line can be
+  fixed in place. `Ctrl-u` now deletes to the line start (from the cursor).
 - `-c <command>` runs an ex command on startup (repeatable), after the file and
   config load — e.g. `rvim -c "set number" file`.
 - `-R` / `--readonly` opens every loaded buffer read-only (`:w` refused unless

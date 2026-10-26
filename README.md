@@ -393,9 +393,12 @@ current line), or select lines and press `!`; rvim prefills the range and waits
 for the command. `:%!sort` sorts the file, `!}sort` sorts to the next blank line.
 A bare `:!cmd` just runs the command.
 
-On the command line, `Up`/`Down` recall previous commands (`:` history) or
-searches (`/`/`?` history), and `Ctrl-w`/`Ctrl-u` delete the previous word / the
-whole line. `Ctrl-r` then a register name inserts that register (for example
+On the command line, `Left`/`Right` (or `Ctrl-b`/`Ctrl-e`) and `Home`/`End` move
+the edit cursor, so you can fix a typo anywhere in a long line instead of deleting
+back to it, and `Delete` removes the character under it. `Up`/`Down` recall
+previous commands (`:` history) or searches (`/`/`?` history), and
+`Ctrl-w`/`Ctrl-u` delete the previous word / everything before the cursor.
+`Ctrl-r` then a register name inserts that register (for example
 `Ctrl-r "` pastes the last yank), and `Ctrl-r Ctrl-w` inserts the word under the
 cursor. `Tab` completes the command name (`:sor`→`:sort`), the option name after
 `:set ` (`:set nu`→`:set number`), or a filename for commands that take one
@@ -758,7 +761,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **969 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **972 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
