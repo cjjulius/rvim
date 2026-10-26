@@ -271,6 +271,7 @@ insert/append on every row, `c` changes it, `$` extends to each line's own end
 | `gd` `gD` | jump to the identifier's definition (nearest earlier use / first in file) |
 | `gf` `gF` | open the file named under the cursor (`gF` at a trailing `:line`) |
 | `gx` | open the URL under the cursor in your browser |
+| `K` | look up the word under the cursor via `:set keywordprg` (e.g. `man`, `pydoc`) |
 | `Ctrl-]` `Ctrl-t` | jump to the tag under the cursor / back (`:tag`, `:pop`, `:tags`; needs a `ctags` file) |
 | `:tnext` `:tprev` `:tselect` | step through same-named tag definitions, or list them to pick one |
 | `gn` `gN` | select the next / previous match — an operator target, so `cgn` then `.` |
@@ -761,7 +762,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **972 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **975 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 

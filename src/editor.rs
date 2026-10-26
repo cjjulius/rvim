@@ -466,6 +466,9 @@ pub struct Editor {
     /// `:set formatprg` — external program `gq`/`gw` filters lines through; empty
     /// means use the built-in reflow.
     pub formatprg: String,
+    /// `:set keywordprg` — program `K` runs on the word under the cursor (e.g.
+    /// `man`, `pydoc`); its output is shown in a scratch buffer. Empty disables `K`.
+    pub keywordprg: String,
     /// `:set shiftround` — round `>`/`<` indent to a multiple of `shiftwidth`.
     pub shiftround: bool,
     /// `:set joinspaces` — `J` inserts two spaces after sentence punctuation.
@@ -755,6 +758,7 @@ impl Editor {
             shiftwidth: 4,
             equalprg: String::new(),
             formatprg: String::new(),
+            keywordprg: String::new(),
             shiftround: false,
             joinspaces: false,
             nrformats_alpha: false,
@@ -1681,6 +1685,7 @@ impl Editor {
             "shiftwidth" | "sw" => format!("shiftwidth={}", self.shiftwidth),
             "equalprg" | "ep" => format!("equalprg={}", self.equalprg),
             "formatprg" | "fp" => format!("formatprg={}", self.formatprg),
+            "keywordprg" | "kp" => format!("keywordprg={}", self.keywordprg),
             "shiftround" | "sr" => flag(self.shiftround, "shiftround"),
             "joinspaces" | "js" => flag(self.joinspaces, "joinspaces"),
             "nrformats" | "nf" => format!(
@@ -1888,7 +1893,7 @@ impl Editor {
         "scrolloff", "sidescrolloff", "textwidth", "colorcolumn", "listchars",
         "matchpairs", "filetype", "fileformat", "foldmethod", "foldcolumn", "foldlevel", "language",
         "splitbelow", "splitright", "modeline", "modelines", "equalprg", "gdefault",
-        "nrformats", "formatprg", "virtualedit",
+        "nrformats", "formatprg", "keywordprg", "virtualedit",
     ];
 
     /// A `:set` / `:set all` listing: one option per line with its current value.
@@ -1919,7 +1924,7 @@ impl Editor {
     pub fn session_options(&self) -> Vec<String> {
         const SKIP: &[&str] = &[
             "filetype", "fileformat", "foldmethod", "foldlevel", "foldcolumn",
-            "readonly", "paste", "backup", "equalprg", "formatprg",
+            "readonly", "paste", "backup", "equalprg", "formatprg", "keywordprg",
         ];
         let default = Editor::new();
         let mut out = Vec::new();
@@ -2651,6 +2656,34 @@ impl Editor {
     /// Resolve a single ex address to a 0-based insert index (for `:[addr]r`).
     pub fn insert_index_for(&self, addr: LineAddr) -> usize {
         self.resolve_dest(addr)
+    }
+
+    /// `K` — look up the word under the cursor by running `:set keywordprg` on it
+    /// (e.g. `man`, `pydoc`), showing the output in a scratch buffer. With no
+    /// `keywordprg` set, report that and do nothing.
+    fn keyword_lookup(&mut self) -> Action {
+        if self.keywordprg.trim().is_empty() {
+            self.message = "no keywordprg set (try :set keywordprg=...)".into();
+            return Action::None;
+        }
+        let Some(word) = self.word_under_cursor() else {
+            return Action::None;
+        };
+        let cmd = format!("{} {}", self.keywordprg.trim(), word);
+        match Self::run_shell_filter(&cmd, "") {
+            Some(out) if !out.trim().is_empty() => Action::OpenScratch {
+                title: format!("K: {word}"),
+                body: out.replace("\r\n", "\n"),
+            },
+            Some(_) => {
+                self.message = format!("no output from: {cmd}");
+                Action::None
+            }
+            None => {
+                self.message = format!("E485: Can't run: {cmd}");
+                Action::None
+            }
+        }
     }
 
     /// `:[range]d[elete]` — delete the range's lines into the unnamed register.
@@ -5240,6 +5273,7 @@ impl Editor {
                     }
                 }
             }
+            KeyCode::Char('K') => return self.keyword_lookup(),
             KeyCode::Char('v') => self.toggle_visual(Mode::Visual),
             KeyCode::Char('V') => self.toggle_visual(Mode::VisualLine),
             // `n` repeats in the last search's direction; `N` reverses it. A
