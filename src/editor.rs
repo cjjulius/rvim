@@ -1588,6 +1588,28 @@ impl Editor {
         self.substitute(&spec);
     }
 
+    /// `:[range]&` / `:[range]&&` — repeat the last substitute over `range`. With
+    /// `keep_flags` (`:&&`) the previous `g`/`i`/`n` flags are kept; otherwise
+    /// (`:&`) they are dropped, matching vim.
+    pub fn repeat_substitute_range(&mut self, range: SubRange, keep_flags: bool) {
+        let Some(mut spec) = self.last_subst.clone() else {
+            self.message = "No previous substitute".into();
+            return;
+        };
+        spec.range = range;
+        if !keep_flags {
+            spec.global = false;
+            spec.ignorecase = false;
+            spec.count_only = false;
+        }
+        let (subs, lines) = self.substitute(&spec);
+        self.message = if subs == 0 {
+            format!("E486: Pattern not found: {}", spec.pattern)
+        } else {
+            format!("{subs} substitution(s) on {lines} line(s)")
+        };
+    }
+
     /// `g&` — repeat the last substitute across the whole file (vim's
     /// `:%s//~/&`), reporting the number of changes.
     fn repeat_substitute_all(&mut self) {

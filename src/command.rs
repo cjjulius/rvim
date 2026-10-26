@@ -208,6 +208,9 @@ pub enum ExCommand {
     MkSession { file: Option<String>, force: bool },
     /// `:TOhtml [file]` — export the buffer to a syntax-highlighted HTML file.
     ToHtml(Option<String>),
+    /// `:[range]&` / `:[range]&&` — repeat the last `:s` over the range. `&&` keeps
+    /// the previous flags; `&` drops them.
+    RepeatSubstitute { range: SubRange, keep_flags: bool },
     /// `:set {option}?` — show the option's current value.
     SetQuery(String),
     /// `:set` (no args, `all` = false) or `:set all` (`all` = true) — list options.
@@ -402,6 +405,11 @@ pub fn parse(input: &str) -> ExCommand {
     // Substitution, possibly with a leading range (`s/`, `%s/`, `1,5s/`).
     if let Some(sub) = parse_substitute(trimmed) {
         return sub;
+    }
+
+    // Repeat last substitute (`&`, `&&`, `%&&`, `'<,'>&`).
+    if let Some(rs) = parse_substitute_repeat(trimmed) {
+        return rs;
     }
 
     // Line move/copy, possibly with a leading range (`m0`, `1,5t$`, `.co.`).
@@ -833,6 +841,20 @@ fn parse_substitute(trimmed: &str) -> Option<ExCommand> {
     } else {
         Some(ExCommand::Substitute(spec))
     }
+}
+
+/// Parse `:[range]&` / `:[range]&&` — repeat the last substitute. Returns `None`
+/// unless the text after any range prefix is exactly `&` or `&&`.
+fn parse_substitute_repeat(trimmed: &str) -> Option<ExCommand> {
+    let i = range_prefix_len(trimmed);
+    let after = trimmed[i..].trim();
+    let keep_flags = match after {
+        "&" => false,
+        "&&" => true,
+        _ => return None,
+    };
+    let range = parse_range(&trimmed[..i])?;
+    Some(ExCommand::RepeatSubstitute { range, keep_flags })
 }
 
 fn parse_range(s: &str) -> Option<SubRange> {

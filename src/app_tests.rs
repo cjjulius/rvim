@@ -165,6 +165,20 @@
     }
 
     #[test]
+    fn repeat_substitute_ex_keeps_or_drops_flags() {
+        let mut app = App::new();
+        app.editor.buffer = crate::buffer::Buffer::from_text("foo foo\nfoo foo\nfoo foo");
+        app.run_ex("s/foo/bar/g"); // line 1, global
+        assert_eq!(app.editor.buffer.line(0), Some("bar bar"));
+        // `:2&&` repeats on line 2 keeping the `g` flag — both replaced.
+        app.run_ex("2&&");
+        assert_eq!(app.editor.buffer.line(1), Some("bar bar"));
+        // `:3&` repeats on line 3 dropping flags — only the first replaced.
+        app.run_ex("3&");
+        assert_eq!(app.editor.buffer.line(2), Some("bar foo"));
+    }
+
+    #[test]
     fn tohtml_writes_highlighted_file() {
         let dir = std::env::temp_dir();
         let out = dir.join("rvim_export.html");
