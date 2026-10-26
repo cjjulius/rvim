@@ -636,6 +636,36 @@ impl App {
         }
     }
 
+    /// `:TOhtml [file]` — export the current buffer to a syntax-highlighted HTML
+    /// file using the active theme. The default name is the file's own name with
+    /// `.html` appended (or `export.html` for an unnamed buffer).
+    fn export_html(&mut self, file: Option<&str>) {
+        let title = self
+            .editor
+            .buffer
+            .path()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "rvim".to_string());
+        let path = match file {
+            Some(f) => f.to_string(),
+            None => match self.editor.buffer.path() {
+                Some(p) => format!("{}.html", p.display()),
+                None => "export.html".to_string(),
+            },
+        };
+        let html = crate::export::to_html(
+            &title,
+            self.editor.buffer.lines(),
+            self.editor.language,
+            self.themes.current(),
+            &self.syntax,
+        );
+        match std::fs::write(&path, html) {
+            Ok(()) => self.editor.message = format!("HTML written to \"{path}\""),
+            Err(e) => self.editor.message = format!("E: can't write {path}: {e}"),
+        }
+    }
+
     fn buffer_next(&mut self) {
         if self.others.is_empty() {
             self.notify("only one buffer");
@@ -2049,6 +2079,7 @@ impl App {
                 }
             }
             ExCommand::MkSession { file, force } => self.make_session(file.as_deref(), force),
+            ExCommand::ToHtml(file) => self.export_html(file.as_deref()),
             ExCommand::Source(path) => match std::fs::read_to_string(&path) {
                 Ok(text) => {
                     let cmds = crate::config::parse_config(&text);
@@ -2563,6 +2594,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:e / :e!            reload current file (! discards changes)\n\
          \t:mksession[!] [file]  save a session; restore it with :source <file>\n\
          \t:source <file>      run ex-commands from a file (config or session)\n\
+         \t:TOhtml [file]      export the buffer to a highlighted HTML file\n\
          \t:ls :bn :bp :b<n>  list / next / prev / goto buffer   :bd close\n\
          \t  (:n / :N are aliases for :bn / :bp)\n\
          \tCtrl-^ / :b#       switch to the alternate (last) buffer\n\

@@ -201,6 +201,8 @@ pub enum ExCommand {
     /// `:mksession[!] [file]` — write a session file (ex-commands that reopen the
     /// current buffers, theme and cursor line). `force` overwrites an existing file.
     MkSession { file: Option<String>, force: bool },
+    /// `:TOhtml [file]` — export the buffer to a syntax-highlighted HTML file.
+    ToHtml(Option<String>),
     /// `:set {option}?` — show the option's current value.
     SetQuery(String),
     /// `:set` (no args, `all` = false) or `:set all` (`all` = true) — list options.
@@ -550,6 +552,7 @@ pub fn parse(input: &str) -> ExCommand {
         },
         "mksession" | "mks" => ExCommand::MkSession { file: arg, force: false },
         "mksession!" | "mks!" => ExCommand::MkSession { file: arg, force: true },
+        "TOhtml" | "tohtml" => ExCommand::ToHtml(arg),
         "noh" | "nohl" | "nohlsearch" => ExCommand::ToggleHlSearch(false),
         "enew" | "ene" => ExCommand::Enew,
         "sp" | "split" | "new" => ExCommand::SplitWindow { vertical: false, file: arg },

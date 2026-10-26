@@ -164,6 +164,9 @@ All notable changes to rvim are recorded here. Versions follow
   their modeline applied the first time they are viewed, once per buffer.
 
 ### Files
+- `:TOhtml [file]` exports the current buffer to a standalone, syntax-highlighted
+  HTML page that uses the active theme's colors, so a shared snippet looks the same
+  in any browser. Defaults to the file's name with `.html` appended.
 - `:mksession[!] [file]` writes a session file (default `Session.vim`) of
   ex-commands that reopen the current buffers, restore the theme, re-apply changed
   options and land on the cursor line; replay it with `:source <file>`. Window

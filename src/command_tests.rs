@@ -815,6 +815,12 @@
     }
 
     #[test]
+    fn tohtml_command() {
+        assert_eq!(parse("TOhtml"), ExCommand::ToHtml(None));
+        assert_eq!(parse("tohtml out.html"), ExCommand::ToHtml(Some("out.html".into())));
+    }
+
+    #[test]
     fn substitute_current_line() {
         assert_eq!(
             parse("s/foo/bar/"),
