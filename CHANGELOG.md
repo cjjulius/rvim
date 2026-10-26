@@ -20,6 +20,9 @@ All notable changes to rvim are recorded here. Versions follow
   kept with a `W12` warning rather than clobbered. Default off.
 
 ### Navigation
+- `K` looks up the word under the cursor by running `:set keywordprg` on it (for
+  example `man`, `pydoc`, or `rustup doc`) and shows the output in a scratch buffer.
+  With no `keywordprg` set it says so and does nothing.
 - Global marks: `m<A-Z>` records a mark tied to the current file, and `` `<A-Z> `` /
   `'<A-Z>` jumps to it from any buffer, reopening the file if needed — lowercase
   marks stay per-buffer as before.

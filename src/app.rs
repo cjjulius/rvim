@@ -1897,6 +1897,10 @@ impl App {
                 self.editor.equalprg = cmd;
                 self.editor.message = self.editor.option_value("equalprg");
             }
+            ExCommand::SetKeywordprg(cmd) => {
+                self.editor.keywordprg = cmd;
+                self.editor.message = self.editor.option_value("keywordprg");
+            }
             ExCommand::SetNrformats(list) => {
                 self.editor.nrformats_alpha =
                     list.split(',').any(|t| t.trim() == "alpha");
@@ -2566,6 +2570,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \tgd / gD            go to definition (nearest above / first in file)\n\
          \tgf / gF            open the file name under the cursor (gF: at :line)\n\
          \tgx                 open the web URL under the cursor in your browser\n\
+         \tK                  look up the word via :set keywordprg (man, pydoc, …)\n\
          \tCtrl-] / Ctrl-t    jump to the tag under cursor / back (needs a tags file)\n\
          \tgn / gN            select next / prev match (cgn + . to repeat)\n\
          \t&  / g&            repeat last :s on current line / whole file\n\
@@ -2617,6 +2622,7 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:set shiftround|nosr   :set joinspaces|nojs   :set matchpairs=(:),<:>\n\
          \t:set equalprg=<cmd>    filter `=` lines through an external formatter\n\
          \t:set formatprg=<cmd>   filter `gq` lines through an external formatter\n\
+         \t:set keywordprg=<cmd>  program `K` runs on the word under the cursor\n\
          \t:set paste|nopaste     :set readonly|noro (:w! overrides)\n\
          \t:set virtualedit=onemore  let the cursor sit one past end of line\n\
          \t:set autowrite|noaw    save a named buffer when switching away\n\

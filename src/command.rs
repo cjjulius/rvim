@@ -157,6 +157,8 @@ pub enum ExCommand {
     /// `:set equalprg=<cmd>` — external program the `=` operator filters through
     /// (empty uses the built-in indenter).
     SetEqualprg(String),
+    /// `:set keywordprg=<cmd>` — program `K` runs on the word under the cursor.
+    SetKeywordprg(String),
     /// `:set nrformats=<list>` — number formats for `Ctrl-a`/`Ctrl-x` (only the
     /// `alpha` token changes behavior; bin/hex are always recognized).
     SetNrformats(String),
@@ -1196,6 +1198,11 @@ fn parse_set(rest: &str) -> ExCommand {
                 .or_else(|| opt.strip_prefix("ep="))
             {
                 ExCommand::SetEqualprg(v.trim().to_string())
+            } else if let Some(v) = opt
+                .strip_prefix("keywordprg=")
+                .or_else(|| opt.strip_prefix("kp="))
+            {
+                ExCommand::SetKeywordprg(v.trim().to_string())
             } else if let Some(v) = opt
                 .strip_prefix("nrformats=")
                 .or_else(|| opt.strip_prefix("nf="))

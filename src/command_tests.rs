@@ -815,6 +815,12 @@
     }
 
     #[test]
+    fn set_keywordprg() {
+        assert_eq!(parse("set keywordprg=man"), ExCommand::SetKeywordprg("man".into()));
+        assert_eq!(parse("set kp=pydoc"), ExCommand::SetKeywordprg("pydoc".into()));
+    }
+
+    #[test]
     fn tohtml_command() {
         assert_eq!(parse("TOhtml"), ExCommand::ToHtml(None));
         assert_eq!(parse("tohtml out.html"), ExCommand::ToHtml(Some("out.html".into())));

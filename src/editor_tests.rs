@@ -938,6 +938,31 @@
     }
 
     #[test]
+    fn k_without_keywordprg_reports() {
+        let mut ed = ed_with("hello world");
+        ed.cursor = Position::new(0, 0);
+        let action = ed.handle_key(key('K'));
+        assert_eq!(action, Action::None);
+        assert!(ed.message.contains("keywordprg"));
+    }
+
+    #[test]
+    fn k_with_keywordprg_opens_scratch_with_output() {
+        // `cmd /c echo` on Windows and `echo` on Unix both print their argument,
+        // so `K` on the word yields a scratch buffer containing it.
+        let mut ed = ed_with("alpha beta");
+        ed.cursor = Position::new(0, 0); // on "alpha"
+        ed.keywordprg = if cfg!(windows) { "cmd /c echo".into() } else { "echo".into() };
+        match ed.handle_key(key('K')) {
+            Action::OpenScratch { title, body } => {
+                assert!(title.contains("alpha"));
+                assert!(body.contains("alpha"));
+            }
+            other => panic!("expected OpenScratch, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn cmdline_midline_insert_with_arrows() {
         let mut ed = ed_with("x");
         ed.handle_key(key(':'));
