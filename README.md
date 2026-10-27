@@ -576,16 +576,17 @@ then tokenized and color-coded:
 | Protobuf              | `.proto`                            |
 | GraphQL               | `.graphql`, `.gql`                  |
 | YAML                  | `.yaml`, `.yml`                     |
+| Markdown              | `.md`, `.markdown`, `.mkd`          |
 
 Common extensionless files are recognized by name too, so `.bashrc`, `.zshrc`,
 `.env` and friends highlight as shell, and `Gemfile` / `Rakefile` as Ruby.
 
 A generic `.sql` file can be pinned to a dialect with a first-line hint such as
 `-- dialect: trino`, or at runtime with `:set ft=snowflake`. Multi-line
-constructs — block comments (`/* … */`), Python triple-quoted strings, and
-JavaScript template literals / Go raw strings — are tracked across line
-boundaries (and independently of each other), so they stay correctly colored
-even when scrolled.
+constructs — block comments (`/* … */`), Python triple-quoted strings,
+JavaScript template literals / Go raw strings, and Markdown fenced code blocks
+— are tracked across line boundaries (and independently of each other), so they
+stay correctly colored even when scrolled.
 
 ### Accessibility & navigation
 - **High-contrast theme** (`:theme high-contrast`) — pure black/white chrome with
@@ -771,7 +772,7 @@ rvim aims for **keystroke compatibility with vim** so your muscle memory
 transfers; see the keybinding sections above. (Some advanced vim features differ
 or are absent — those are noted in the roadmap.)
 
-Current suite: **988 tests** across buffer, editor, clipboard, menu, syntax,
+Current suite: **995 tests** across buffer, editor, clipboard, menu, syntax,
 themes, commands, config, pattern, plugins, folds, windows, modes, and UI
 layout.
 
