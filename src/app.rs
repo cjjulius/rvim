@@ -684,12 +684,12 @@ impl App {
             self.notify("E471: Argument required");
             return;
         }
-        let paths: Vec<std::path::PathBuf> = if rest.is_empty() {
-            vec![std::path::PathBuf::from(".")]
+        let paths: Vec<String> = if rest.is_empty() {
+            vec![".".to_string()]
         } else {
-            rest.split_whitespace().map(std::path::PathBuf::from).collect()
+            rest.split_whitespace().map(|s| s.to_string()).collect()
         };
-        match crate::quickfix::grep(pattern, &paths, self.editor.ignorecase) {
+        match crate::quickfix::grep_args(pattern, &paths, self.editor.ignorecase) {
             Ok(list) if list.is_empty() => {
                 self.quickfix.clear();
                 self.editor.message = format!("E480: No match: {pattern}");
@@ -2729,7 +2729,8 @@ fn help_text(themes: &[&str], langs: &[&str], plugin_cmds: &[&str]) -> String {
          \t:s/pat/rep/[ginc]  substitute (g all, i ignore-case, n count, c confirm)\n\
          \t  rep: \\1-\\9 & groups; \\U \\L \\u \\l \\E case; pat: \\< \\> word bounds\n\
          \t:[range]& / :&&     repeat the last :s on a range (&& keeps its flags)\n\
-         \t:grep <pat> [paths]  search files; :copen lists, :cn/:cp step, :cc N jumps\n\
+         \t:grep <pat> [paths]  search files (paths may be globs like **/*.rs);\n\
+         \t                     :copen lists, :cn/:cp step, :cc N jumps\n\
          \t:g/re/d  :v/re/d   run cmd on (non-)matching lines (d, s///, >, <, j, p, normal)\n\
          \t:[range]norm {{keys}}  run Normal-mode keys (per line over a range)\n\
          \t:theme <name>      themes: {themes}\n\

@@ -24,6 +24,7 @@ All notable changes to rvim are recorded here. Versions follow
   `.git`/`target`/`node_modules`, binary and oversized files) into a quickfix list:
   it jumps to the first match, `:copen` lists them, `:cnext`/`:cprev` step through,
   and `:cc [n]` jumps to one. Honors `:set ignorecase`; no paths searches the cwd.
+  A path may be a glob: `*.rs` (one directory), `**/*.rs` (recurse), `src/*.py`.
 - `K` looks up the word under the cursor by running `:set keywordprg` on it (for
   example `man`, `pydoc`, or `rustup doc`) and shows the output in a scratch buffer.
   With no `keywordprg` set it says so and does nothing.
