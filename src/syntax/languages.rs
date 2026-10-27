@@ -67,6 +67,7 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(hcl_spec())),
         Box::new(SpecHighlighter::new(protobuf_spec())),
         Box::new(SpecHighlighter::new(graphql_spec())),
+        Box::new(MarkdownHighlighter::new()),
     ]
 }
 
@@ -1411,6 +1412,347 @@ const GRAPHQL_KEYWORDS: &[&str] = &[
 ];
 const GRAPHQL_TYPES: &[&str] = &["Int", "Float", "String", "Boolean", "ID"];
 
+// ---- Markdown (custom) ---------------------------------------------------
+
+/// A hand-written highlighter for Markdown. Markdown's surface is structural
+/// (headings, emphasis, code, links) rather than keyword-based, so it does not
+/// fit the [`LangSpec`] model and gets its own [`Highlighter`], like Z80.
+///
+/// Fenced code blocks span lines, so [`LineState::Block`] marks "inside a
+/// fence". A fence is closed by a line that is only fence punctuation (three or
+/// more `` ` `` or `~` and trailing spaces) — an approximation of CommonMark
+/// that matches ordinary documents.
+pub struct MarkdownHighlighter;
+
+impl MarkdownHighlighter {
+    pub fn new() -> Self {
+        MarkdownHighlighter
+    }
+}
+
+impl Default for MarkdownHighlighter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Byte offset of char `k`, or the line's end for one-past-the-last.
+fn md_bat(chars: &[(usize, char)], end_byte: usize, k: usize) -> usize {
+    chars.get(k).map(|&(b, _)| b).unwrap_or(end_byte)
+}
+
+/// Index of the first non-whitespace char, if any.
+fn md_first_nonblank(chars: &[(usize, char)]) -> Option<usize> {
+    chars.iter().position(|&(_, c)| !c.is_whitespace())
+}
+
+/// True when the line opens a fenced code block: its first non-blank run is
+/// three or more `` ` `` or `~`. An info string (language) may follow.
+fn md_fence_open(chars: &[(usize, char)]) -> bool {
+    let Some(first) = md_first_nonblank(chars) else {
+        return false;
+    };
+    let fc = chars[first].1;
+    if fc != '`' && fc != '~' {
+        return false;
+    }
+    let run = chars[first..].iter().take_while(|&&(_, c)| c == fc).count();
+    run >= 3
+}
+
+/// True when the line closes a fence: only three or more `` ` `` or `~` and
+/// trailing whitespace, nothing else.
+fn md_fence_close(chars: &[(usize, char)]) -> bool {
+    let Some(first) = md_first_nonblank(chars) else {
+        return false;
+    };
+    let fc = chars[first].1;
+    if fc != '`' && fc != '~' {
+        return false;
+    }
+    let run = chars[first..].iter().take_while(|&&(_, c)| c == fc).count();
+    run >= 3 && chars[first + run..].iter().all(|&(_, c)| c.is_whitespace())
+}
+
+/// Classify a line made only of repeated punctuation: `===` (setext H1/H2
+/// underline) highlights as a heading; `---`, `***`, `___` (three or more) is a
+/// thematic break. Returns the token kind, or `None` if it is not such a line.
+fn md_rule_or_setext(chars: &[(usize, char)], first: usize) -> Option<TokenKind> {
+    let m = chars[first].1;
+    if !matches!(m, '=' | '-' | '*' | '_') {
+        return None;
+    }
+    let mut count = 0usize;
+    for &(_, c) in &chars[first..] {
+        if c == m {
+            count += 1;
+        } else if !c.is_whitespace() {
+            return None; // mixed content: not a rule
+        }
+    }
+    match m {
+        '=' if count >= 2 => Some(TokenKind::Keyword),
+        '-' | '*' | '_' if count >= 3 => Some(TokenKind::Punctuation),
+        _ => None,
+    }
+}
+
+/// If the text at `first` is a list marker (`-`/`*`/`+` + space, or digits +
+/// `.`/`)` + space), return the index just past the marker and its space.
+fn md_list_marker_end(chars: &[(usize, char)], first: usize) -> Option<usize> {
+    let c = chars[first].1;
+    if matches!(c, '-' | '*' | '+') {
+        if chars.get(first + 1).map(|&(_, c)| c) == Some(' ') {
+            return Some(first + 2);
+        }
+        return None;
+    }
+    if c.is_ascii_digit() {
+        let mut j = first;
+        while j < chars.len() && chars[j].1.is_ascii_digit() {
+            j += 1;
+        }
+        if matches!(chars.get(j).map(|&(_, c)| c), Some('.') | Some(')'))
+            && chars.get(j + 1).map(|&(_, c)| c) == Some(' ')
+        {
+            return Some(j + 2);
+        }
+    }
+    None
+}
+
+/// Scan inline spans over `chars[start..end]`, appending code spans, links,
+/// autolinks, and emphasis. Plain runs produce no token (default text color).
+fn md_inline(chars: &[(usize, char)], end_byte: usize, start: usize, end: usize, out: &mut Vec<Token>) {
+    let bat = |k: usize| md_bat(chars, end_byte, k);
+    let mut i = start;
+    while i < end {
+        let c = chars[i].1;
+        // Backslash escape: the next char is literal, never a marker.
+        if c == '\\' && i + 1 < end {
+            i += 2;
+            continue;
+        }
+        // Inline code span: a run of N backticks closed by a run of N backticks.
+        if c == '`' {
+            let run = chars[i..end].iter().take_while(|&&(_, c)| c == '`').count();
+            if let Some(close) = md_find_code_close(chars, i + run, end, run) {
+                out.push(Token::new(bat(i), bat(close + run), TokenKind::String));
+                i = close + run;
+                continue;
+            }
+            i += 1;
+            continue;
+        }
+        // Image `![alt](url)` or link `[text](url)`.
+        let is_image = c == '!' && chars.get(i + 1).map(|&(_, c)| c) == Some('[');
+        if c == '[' || is_image {
+            let bracket = if is_image { i + 1 } else { i };
+            if let Some((rb, close)) = md_link(chars, bracket, end) {
+                out.push(Token::new(bat(i), bat(rb + 1), TokenKind::Function)); // [text]
+                out.push(Token::new(bat(rb + 1), bat(close + 1), TokenKind::Variable)); // (url)
+                i = close + 1;
+                continue;
+            }
+            i += 1;
+            continue;
+        }
+        // Autolink `<https://…>` or `<name@host>`.
+        if c == '<' {
+            if let Some(gt) = chars[i + 1..end].iter().position(|&(_, c)| c == '>') {
+                let gt = i + 1 + gt;
+                let inner: String = chars[i + 1..gt].iter().map(|&(_, c)| c).collect();
+                if (inner.contains("://") || inner.contains('@'))
+                    && !inner.chars().any(|c| c.is_whitespace())
+                {
+                    out.push(Token::new(bat(i), bat(gt + 1), TokenKind::Variable));
+                    i = gt + 1;
+                    continue;
+                }
+            }
+            i += 1;
+            continue;
+        }
+        // Emphasis: `*italic*`, `**bold**`, `_italic_`, `__bold__`.
+        if c == '*' || c == '_' {
+            if let Some((tok_end, bold)) = md_emphasis(chars, start, end, i) {
+                let kind = if bold { TokenKind::Type } else { TokenKind::Builtin };
+                out.push(Token::new(bat(i), bat(tok_end), kind));
+                i = tok_end;
+                continue;
+            }
+            i += 1;
+            continue;
+        }
+        i += 1;
+    }
+}
+
+/// Find the start index of the closing backtick run of length `run` at or after
+/// `from`, skipping runs of a different length.
+fn md_find_code_close(chars: &[(usize, char)], from: usize, end: usize, run: usize) -> Option<usize> {
+    let mut j = from;
+    while j < end {
+        if chars[j].1 == '`' {
+            let len = chars[j..end].iter().take_while(|&&(_, c)| c == '`').count();
+            if len == run {
+                return Some(j);
+            }
+            j += len;
+            continue;
+        }
+        j += 1;
+    }
+    None
+}
+
+/// For a `[` at `lb`, return `(index of ]`, `index of )`)` when it is followed
+/// by a `(url)` destination, i.e. a full `[text](url)` link.
+fn md_link(chars: &[(usize, char)], lb: usize, end: usize) -> Option<(usize, usize)> {
+    let mut rb = lb + 1;
+    while rb < end && chars[rb].1 != ']' {
+        if chars[rb].1 == '\\' {
+            rb += 1;
+        }
+        rb += 1;
+    }
+    if rb >= end || chars.get(rb + 1).map(|&(_, c)| c) != Some('(') {
+        return None;
+    }
+    let mut close = rb + 2;
+    while close < end && chars[close].1 != ')' {
+        close += 1;
+    }
+    if close >= end {
+        return None;
+    }
+    Some((rb, close))
+}
+
+/// Match an emphasis span opening at `i`. Returns `(end index exclusive, bold)`.
+/// `*`/`**` match liberally; `_`/`__` only at a left word boundary so that
+/// `snake_case` identifiers are not italicized.
+fn md_emphasis(chars: &[(usize, char)], start: usize, end: usize, i: usize) -> Option<(usize, bool)> {
+    let m = chars[i].1;
+    let run = chars[i..end].iter().take_while(|&&(_, c)| c == m).count();
+    let bold = run >= 2;
+    let mlen = if bold { 2 } else { 1 };
+    // The char after the opening marker must exist and not be whitespace.
+    let after = i + mlen;
+    if after >= end || chars[after].1.is_whitespace() {
+        return None;
+    }
+    // Underscore emphasis needs a left flank (start, whitespace, or punctuation).
+    if m == '_' {
+        let left_ok = i == start
+            || chars[i - 1].1.is_whitespace()
+            || chars[i - 1].1.is_ascii_punctuation();
+        if !left_ok {
+            return None;
+        }
+    }
+    let mut j = after;
+    while j < end {
+        if chars[j].1 == m && !chars[j - 1].1.is_whitespace() {
+            if bold {
+                if chars.get(j + 1).map(|&(_, c)| c) == Some(m) {
+                    return Some((j + 2, true));
+                }
+            } else if chars.get(j + 1).map(|&(_, c)| c) != Some(m) {
+                return Some((j + 1, false));
+            }
+        }
+        j += 1;
+    }
+    None
+}
+
+impl Highlighter for MarkdownHighlighter {
+    fn language(&self) -> Language {
+        Language::Markdown
+    }
+
+    fn has_multiline(&self) -> bool {
+        true
+    }
+
+    fn highlight_line_stateful(&self, line: &str, state: LineState) -> (Vec<Token>, LineState) {
+        let chars: Vec<(usize, char)> = line.char_indices().collect();
+        let end_byte = line.len();
+        let bat = |k: usize| md_bat(&chars, end_byte, k);
+        let mut tokens = Vec::new();
+
+        // Inside a fenced code block: a closing fence ends it; any other line is
+        // body, shown as a literal.
+        if state == LineState::Block {
+            if md_fence_close(&chars) {
+                tokens.push(Token::new(0, end_byte, TokenKind::Punctuation));
+                return (tokens, LineState::Normal);
+            }
+            if end_byte > 0 {
+                tokens.push(Token::new(0, end_byte, TokenKind::String));
+            }
+            return (tokens, LineState::Block);
+        }
+
+        // Opening fence: the fence punctuation plus an optional language info
+        // string; following lines are the code body.
+        if md_fence_open(&chars) {
+            let first = md_first_nonblank(&chars).unwrap_or(0);
+            let fc = chars[first].1;
+            let run = chars[first..].iter().take_while(|&&(_, c)| c == fc).count();
+            let info = first + run;
+            tokens.push(Token::new(bat(first), bat(info), TokenKind::Punctuation));
+            let mut k = info;
+            while k < chars.len() && chars[k].1.is_whitespace() {
+                k += 1;
+            }
+            if k < chars.len() {
+                tokens.push(Token::new(bat(k), end_byte, TokenKind::Type));
+            }
+            return (tokens, LineState::Block);
+        }
+
+        let Some(first) = md_first_nonblank(&chars) else {
+            return (tokens, LineState::Normal); // blank line
+        };
+
+        // ATX heading: 1-6 '#' then a space or end of line. The whole line is
+        // highlighted as a heading.
+        if chars[first].1 == '#' {
+            let hashes = chars[first..].iter().take_while(|&&(_, c)| c == '#').count();
+            let after = first + hashes;
+            if hashes <= 6 && (after >= chars.len() || chars[after].1 == ' ') {
+                tokens.push(Token::new(bat(first), end_byte, TokenKind::Keyword));
+                return (tokens, LineState::Normal);
+            }
+        }
+
+        // A line of only punctuation: thematic break or setext underline.
+        if let Some(kind) = md_rule_or_setext(&chars, first) {
+            tokens.push(Token::new(bat(first), end_byte, kind));
+            return (tokens, LineState::Normal);
+        }
+
+        // Blockquote markers, then list markers, then inline content.
+        let mut body = first;
+        if chars[first].1 == '>' {
+            let mut q = first;
+            while q < chars.len() && (chars[q].1 == '>' || chars[q].1 == ' ') {
+                q += 1;
+            }
+            tokens.push(Token::new(bat(first), bat(q), TokenKind::Comment));
+            body = q;
+        } else if let Some(after) = md_list_marker_end(&chars, first) {
+            tokens.push(Token::new(bat(first), bat(after), TokenKind::Operator));
+            body = after;
+        }
+
+        md_inline(&chars, end_byte, body, chars.len(), &mut tokens);
+        (tokens, LineState::Normal)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1921,5 +2263,103 @@ mod tests {
         let toks = h.highlight_line("        org %10000000");
         assert!(toks.iter().any(|t| t.kind == TokenKind::Preprocessor));
         assert!(toks.iter().any(|t| t.kind == TokenKind::Number));
+    }
+
+    #[test]
+    fn md_heading_is_one_keyword_span() {
+        let h = MarkdownHighlighter::new();
+        let line = "## A heading";
+        let toks = h.highlight_line(line);
+        assert_eq!(toks.len(), 1);
+        assert_eq!(toks[0].kind, TokenKind::Keyword);
+        assert_eq!(&line[toks[0].start..toks[0].end], "## A heading");
+        // Six hashes is still a heading; seven is not.
+        assert!(h.highlight_line("###### h6").iter().any(|t| t.kind == TokenKind::Keyword));
+        assert!(h.highlight_line("####### not").iter().all(|t| t.kind != TokenKind::Keyword));
+        // A '#' without a following space is not a heading (e.g. a C-ish fragment).
+        assert!(h.highlight_line("#nospace").iter().all(|t| t.kind != TokenKind::Keyword));
+    }
+
+    #[test]
+    fn md_emphasis_bold_italic_and_code() {
+        let h = MarkdownHighlighter::new();
+        let line = "plain **bold** and *italic* and `code` here";
+        let toks = h.highlight_line(line);
+        let span = |k: TokenKind| {
+            toks.iter().find(|t| t.kind == k).map(|t| &line[t.start..t.end])
+        };
+        assert_eq!(span(TokenKind::Type), Some("**bold**"));
+        assert_eq!(span(TokenKind::Builtin), Some("*italic*"));
+        assert_eq!(span(TokenKind::String), Some("`code`"));
+    }
+
+    #[test]
+    fn md_underscore_only_emphasizes_at_word_boundary() {
+        let h = MarkdownHighlighter::new();
+        // snake_case in prose must not be italicized.
+        assert!(h
+            .highlight_line("call some_function here")
+            .iter()
+            .all(|t| t.kind != TokenKind::Builtin));
+        // but a real _emphasis_ is.
+        assert!(h
+            .highlight_line("an _emphasis_ word")
+            .iter()
+            .any(|t| t.kind == TokenKind::Builtin));
+    }
+
+    #[test]
+    fn md_link_text_and_url() {
+        let h = MarkdownHighlighter::new();
+        let line = "see [the docs](https://example.com) now";
+        let toks = h.highlight_line(line);
+        assert!(toks
+            .iter()
+            .any(|t| t.kind == TokenKind::Function && &line[t.start..t.end] == "[the docs]"));
+        assert!(toks
+            .iter()
+            .any(|t| t.kind == TokenKind::Variable
+                && &line[t.start..t.end] == "(https://example.com)"));
+    }
+
+    #[test]
+    fn md_list_and_blockquote_markers() {
+        let h = MarkdownHighlighter::new();
+        // Unordered list marker is an operator; the item text parses inline.
+        let toks = h.highlight_line("- an *item*");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Operator));
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Builtin));
+        // Ordered list marker.
+        assert!(h.highlight_line("1. first").iter().any(|t| t.kind == TokenKind::Operator));
+        // Blockquote.
+        assert!(h.highlight_line("> quoted").iter().any(|t| t.kind == TokenKind::Comment));
+    }
+
+    #[test]
+    fn md_thematic_break_and_fenced_code_block() {
+        let h = MarkdownHighlighter::new();
+        // Thematic break.
+        assert!(h.highlight_line("---").iter().any(|t| t.kind == TokenKind::Punctuation));
+
+        // A fenced block: open carries the language, body is literal, close ends it.
+        let (open, s1) = h.highlight_line_stateful("```rust", LineState::Normal);
+        assert_eq!(s1, LineState::Block);
+        assert!(open.iter().any(|t| t.kind == TokenKind::Punctuation));
+        assert!(open.iter().any(|t| t.kind == TokenKind::Type)); // "rust" info string
+
+        // Inside the fence, markdown markers are inert (shown as literal text).
+        let (body, s2) = h.highlight_line_stateful("# not a heading", s1);
+        assert_eq!(s2, LineState::Block);
+        assert_eq!(body.len(), 1);
+        assert_eq!(body[0].kind, TokenKind::String);
+
+        let (close, s3) = h.highlight_line_stateful("```", s2);
+        assert_eq!(s3, LineState::Normal);
+        assert!(close.iter().any(|t| t.kind == TokenKind::Punctuation));
+    }
+
+    #[test]
+    fn md_declares_multiline() {
+        assert!(MarkdownHighlighter::new().has_multiline());
     }
 }

@@ -86,6 +86,7 @@ pub enum Language {
     Hcl,
     Protobuf,
     GraphQl,
+    Markdown,
 }
 
 /// One language's metadata, driving `name`, `from_name`, `line_comment_token`,
@@ -105,7 +106,7 @@ struct LangInfo {
 
 /// `.sql` is intentionally absent from `extensions` (it is dialect-sniffed).
 const LANG_TABLE: &[LangInfo] = &[
-    LangInfo { lang: Language::PlainText, name: "text", aliases: &["txt", "plain"], extensions: &["txt", "text", "md"], comment: None },
+    LangInfo { lang: Language::PlainText, name: "text", aliases: &["txt", "plain"], extensions: &["txt", "text"], comment: None },
     LangInfo { lang: Language::Rust, name: "rust", aliases: &["rs"], extensions: &["rs"], comment: Some("//") },
     LangInfo { lang: Language::SqlAnsi, name: "sql", aliases: &["ansi"], extensions: &[], comment: Some("--") },
     LangInfo { lang: Language::TSql, name: "tsql", aliases: &["mssql", "sqlserver"], extensions: &["tsql"], comment: Some("--") },
@@ -142,6 +143,7 @@ const LANG_TABLE: &[LangInfo] = &[
     LangInfo { lang: Language::Hcl, name: "hcl", aliases: &["terraform", "tf"], extensions: &["tf", "tfvars", "hcl"], comment: Some("#") },
     LangInfo { lang: Language::Protobuf, name: "protobuf", aliases: &["proto", "proto3"], extensions: &["proto"], comment: Some("//") },
     LangInfo { lang: Language::GraphQl, name: "graphql", aliases: &["gql"], extensions: &["graphql", "gql"], comment: Some("#") },
+    LangInfo { lang: Language::Markdown, name: "markdown", aliases: &["md"], extensions: &["md", "markdown", "mdown", "mkd", "mkdn", "mdwn"], comment: None },
 ];
 
 /// Exact file names (no extension) that select a language — common dotfiles and
@@ -1040,6 +1042,7 @@ mod tests {
             Language::Dart, Language::R, Language::Haskell, Language::Zig,
             Language::Elixir, Language::Perl, Language::OCaml, Language::Julia,
             Language::PowerShell, Language::Hcl, Language::Protobuf, Language::GraphQl,
+            Language::Markdown,
         ];
         for lang in all {
             match lang {
@@ -1052,7 +1055,7 @@ mod tests {
                 | Language::Scala | Language::Dart | Language::R | Language::Haskell
                 | Language::Zig | Language::Elixir | Language::Perl | Language::OCaml
                 | Language::Julia | Language::PowerShell | Language::Hcl
-                | Language::Protobuf | Language::GraphQl => {}
+                | Language::Protobuf | Language::GraphQl | Language::Markdown => {}
             }
             assert!(
                 LANG_TABLE.iter().any(|e| e.lang == lang),
@@ -1106,6 +1109,15 @@ mod tests {
         assert_eq!(
             detect_language(Some(&PathBuf::from("pkg.json")), ""),
             Language::Json
+        );
+        assert_eq!(
+            detect_language(Some(&PathBuf::from("README.md")), ""),
+            Language::Markdown
+        );
+        // `.md` must no longer fall back to plain text.
+        assert_ne!(
+            detect_language(Some(&PathBuf::from("notes.md")), ""),
+            Language::PlainText
         );
         assert_eq!(
             detect_language(Some(&PathBuf::from("app.py")), ""),

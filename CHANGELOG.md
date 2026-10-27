@@ -5,6 +5,12 @@ All notable changes to rvim are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Syntax highlighting
+- Markdown (`.md`, `.markdown`, `.mkd`, …) is now highlighted: headings,
+  bold/italic emphasis, inline code, links, blockquotes, list markers, thematic
+  breaks, and fenced code blocks (tracked across lines, so markup inside a block
+  stays inert). `.md` files previously opened as plain text.
+
 ### Internal
 - The three register-store paths (yank, block yank, delete) now share one helper
   for the black-hole guard, pending named-register write, and unnamed-register
