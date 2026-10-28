@@ -87,6 +87,8 @@ pub enum Language {
     Protobuf,
     GraphQl,
     Markdown,
+    Xml,
+    Html,
 }
 
 /// One language's metadata, driving `name`, `from_name`, `line_comment_token`,
@@ -144,6 +146,8 @@ const LANG_TABLE: &[LangInfo] = &[
     LangInfo { lang: Language::Protobuf, name: "protobuf", aliases: &["proto", "proto3"], extensions: &["proto"], comment: Some("//") },
     LangInfo { lang: Language::GraphQl, name: "graphql", aliases: &["gql"], extensions: &["graphql", "gql"], comment: Some("#") },
     LangInfo { lang: Language::Markdown, name: "markdown", aliases: &["md"], extensions: &["md", "markdown", "mdown", "mkd", "mkdn", "mdwn"], comment: None },
+    LangInfo { lang: Language::Xml, name: "xml", aliases: &["svg", "xsd", "xsl", "xslt", "rss", "plist"], extensions: &["xml", "svg", "xsd", "xsl", "xslt", "rss", "plist", "xaml"], comment: None },
+    LangInfo { lang: Language::Html, name: "html", aliases: &["htm", "xhtml"], extensions: &["html", "htm", "xhtml"], comment: None },
 ];
 
 /// Exact file names (no extension) that select a language — common dotfiles and
@@ -1042,7 +1046,7 @@ mod tests {
             Language::Dart, Language::R, Language::Haskell, Language::Zig,
             Language::Elixir, Language::Perl, Language::OCaml, Language::Julia,
             Language::PowerShell, Language::Hcl, Language::Protobuf, Language::GraphQl,
-            Language::Markdown,
+            Language::Markdown, Language::Xml, Language::Html,
         ];
         for lang in all {
             match lang {
@@ -1055,7 +1059,8 @@ mod tests {
                 | Language::Scala | Language::Dart | Language::R | Language::Haskell
                 | Language::Zig | Language::Elixir | Language::Perl | Language::OCaml
                 | Language::Julia | Language::PowerShell | Language::Hcl
-                | Language::Protobuf | Language::GraphQl | Language::Markdown => {}
+                | Language::Protobuf | Language::GraphQl | Language::Markdown
+                | Language::Xml | Language::Html => {}
             }
             assert!(
                 LANG_TABLE.iter().any(|e| e.lang == lang),
@@ -1118,6 +1123,14 @@ mod tests {
         assert_ne!(
             detect_language(Some(&PathBuf::from("notes.md")), ""),
             Language::PlainText
+        );
+        assert_eq!(
+            detect_language(Some(&PathBuf::from("page.html")), ""),
+            Language::Html
+        );
+        assert_eq!(
+            detect_language(Some(&PathBuf::from("icon.svg")), ""),
+            Language::Xml
         );
         assert_eq!(
             detect_language(Some(&PathBuf::from("app.py")), ""),

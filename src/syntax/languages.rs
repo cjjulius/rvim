@@ -68,6 +68,8 @@ pub fn builtin_highlighters() -> Vec<Box<dyn Highlighter>> {
         Box::new(SpecHighlighter::new(protobuf_spec())),
         Box::new(SpecHighlighter::new(graphql_spec())),
         Box::new(MarkdownHighlighter::new()),
+        Box::new(MarkupHighlighter::new(Language::Xml)),
+        Box::new(MarkupHighlighter::new(Language::Html)),
     ]
 }
 
@@ -1753,6 +1755,210 @@ impl Highlighter for MarkdownHighlighter {
     }
 }
 
+// ---- XML / HTML (custom) -------------------------------------------------
+
+/// A hand-written highlighter for XML and HTML. Both share the same tag-based
+/// surface (elements, attributes, entities, comments), so one struct serves
+/// both, distinguished only by the [`Language`] it reports.
+///
+/// Comments `<!-- … -->` span lines, tracked with [`LineState::Block`]. Tags are
+/// highlighted within a line; embedded CSS/JavaScript (HTML `<style>` /
+/// `<script>` bodies) is not switched into its own language, and CDATA /
+/// processing instructions are highlighted on the line they appear.
+pub struct MarkupHighlighter {
+    lang: Language,
+}
+
+impl MarkupHighlighter {
+    pub fn new(lang: Language) -> Self {
+        MarkupHighlighter { lang }
+    }
+}
+
+/// A char is part of an element or attribute name (XML allows `:` and `.`).
+fn mk_name_char(c: char) -> bool {
+    c.is_alphanumeric() || matches!(c, '-' | '_' | ':' | '.')
+}
+
+/// Whether `s` occurs in `chars` starting exactly at index `i`.
+fn mk_seq_at(chars: &[(usize, char)], i: usize, s: &str) -> bool {
+    s.chars()
+        .enumerate()
+        .all(|(k, ch)| chars.get(i + k).map(|&(_, c)| c) == Some(ch))
+}
+
+/// The index where `s` next begins in `chars`, searching from `from`.
+fn mk_find_seq(chars: &[(usize, char)], from: usize, s: &str) -> Option<usize> {
+    let n = s.chars().count();
+    if n == 0 || from + n > chars.len() {
+        return None;
+    }
+    (from..=chars.len() - n).find(|&i| mk_seq_at(chars, i, s))
+}
+
+/// For an `&` at `i`, the index of the closing `;` of a valid entity
+/// (`&name;` or `&#123;`), if any.
+fn mk_entity_end(chars: &[(usize, char)], i: usize) -> Option<usize> {
+    let mut j = i + 1;
+    if chars.get(j).map(|&(_, c)| c) == Some('#') {
+        j += 1;
+    }
+    let start = j;
+    while j < chars.len() && chars[j].1.is_ascii_alphanumeric() {
+        j += 1;
+    }
+    if j > start && chars.get(j).map(|&(_, c)| c) == Some(';') {
+        Some(j)
+    } else {
+        None
+    }
+}
+
+/// Highlight one tag beginning at the `<` at `i`; returns the index just past it
+/// (or past where scanning should resume). Attribute names, `=`, and quoted
+/// values are coloured; a tag without a closing `>` on the line stops at EOL.
+fn mk_tag(chars: &[(usize, char)], end_byte: usize, i: usize) -> (Vec<Token>, usize) {
+    let bat = |k: usize| md_bat(chars, end_byte, k);
+    let mut out = Vec::new();
+    let closing = chars.get(i + 1).map(|&(_, c)| c) == Some('/');
+    let name_start = if closing { i + 2 } else { i + 1 };
+    let mut k = name_start;
+    while k < chars.len() && mk_name_char(chars[k].1) {
+        k += 1;
+    }
+    if k == name_start {
+        // Not a real tag (`<` followed by non-name): treat `<` as punctuation.
+        out.push(Token::new(bat(i), bat(i + 1), TokenKind::Punctuation));
+        return (out, i + 1);
+    }
+    out.push(Token::new(bat(i), bat(name_start), TokenKind::Punctuation)); // `<` / `</`
+    out.push(Token::new(bat(name_start), bat(k), TokenKind::Keyword)); // element name
+
+    let mut p = k;
+    while p < chars.len() {
+        let c = chars[p].1;
+        if c == '>' {
+            out.push(Token::new(bat(p), bat(p + 1), TokenKind::Punctuation));
+            return (out, p + 1);
+        }
+        if c == '/' {
+            out.push(Token::new(bat(p), bat(p + 1), TokenKind::Punctuation)); // self-close
+            p += 1;
+            continue;
+        }
+        if c == '=' {
+            out.push(Token::new(bat(p), bat(p + 1), TokenKind::Operator));
+            p += 1;
+            continue;
+        }
+        if c == '"' || c == '\'' {
+            let q = c;
+            let mut e = p + 1;
+            while e < chars.len() && chars[e].1 != q {
+                e += 1;
+            }
+            let endp = if e < chars.len() { e + 1 } else { chars.len() };
+            out.push(Token::new(bat(p), bat(endp), TokenKind::String));
+            p = endp;
+            continue;
+        }
+        if mk_name_char(c) {
+            let mut e = p;
+            while e < chars.len() && mk_name_char(chars[e].1) {
+                e += 1;
+            }
+            out.push(Token::new(bat(p), bat(e), TokenKind::Variable)); // attribute name
+            p = e;
+            continue;
+        }
+        p += 1; // whitespace or stray punctuation
+    }
+    (out, p) // ran off the end without `>` — no multiline tag state
+}
+
+/// Scan `chars[start..]`, appending tokens. Returns the state the next line
+/// begins in (`Block` when a comment was left open).
+fn mk_scan(chars: &[(usize, char)], end_byte: usize, start: usize, out: &mut Vec<Token>) -> LineState {
+    let bat = |k: usize| md_bat(chars, end_byte, k);
+    let mut i = start;
+    while i < chars.len() {
+        let c = chars[i].1;
+        if c == '<' {
+            if mk_seq_at(chars, i, "<!--") {
+                match mk_find_seq(chars, i + 4, "-->") {
+                    Some(close) => {
+                        out.push(Token::new(bat(i), bat(close + 3), TokenKind::Comment));
+                        i = close + 3;
+                        continue;
+                    }
+                    None => {
+                        out.push(Token::new(bat(i), end_byte, TokenKind::Comment));
+                        return LineState::Block;
+                    }
+                }
+            }
+            // Doctype / CDATA (`<!…>`) or processing instruction (`<?…>`).
+            if mk_seq_at(chars, i, "<!") || mk_seq_at(chars, i, "<?") {
+                let close = mk_find_seq(chars, i + 2, ">");
+                let endp = close.map(|p| p + 1).unwrap_or(chars.len());
+                out.push(Token::new(bat(i), bat(endp), TokenKind::Preprocessor));
+                i = endp;
+                continue;
+            }
+            let (toks, next) = mk_tag(chars, end_byte, i);
+            out.extend(toks);
+            i = next;
+            continue;
+        }
+        if c == '&' {
+            if let Some(semi) = mk_entity_end(chars, i) {
+                out.push(Token::new(bat(i), bat(semi + 1), TokenKind::Char));
+                i = semi + 1;
+                continue;
+            }
+        }
+        i += 1;
+    }
+    LineState::Normal
+}
+
+impl Highlighter for MarkupHighlighter {
+    fn language(&self) -> Language {
+        self.lang
+    }
+
+    fn has_multiline(&self) -> bool {
+        true
+    }
+
+    fn highlight_line_stateful(&self, line: &str, state: LineState) -> (Vec<Token>, LineState) {
+        let chars: Vec<(usize, char)> = line.char_indices().collect();
+        let end_byte = line.len();
+        let mut tokens = Vec::new();
+        let mut start = 0;
+
+        // Continuing a multi-line comment: consume through `-->`, if present.
+        if state == LineState::Block {
+            match mk_find_seq(&chars, 0, "-->") {
+                Some(close) => {
+                    let after = close + 3;
+                    tokens.push(Token::new(0, md_bat(&chars, end_byte, after), TokenKind::Comment));
+                    start = after;
+                }
+                None => {
+                    if end_byte > 0 {
+                        tokens.push(Token::new(0, end_byte, TokenKind::Comment));
+                    }
+                    return (tokens, LineState::Block);
+                }
+            }
+        }
+
+        let next = mk_scan(&chars, end_byte, start, &mut tokens);
+        (tokens, next)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2361,5 +2567,75 @@ mod tests {
     #[test]
     fn md_declares_multiline() {
         assert!(MarkdownHighlighter::new().has_multiline());
+    }
+
+    #[test]
+    fn markup_tag_name_attr_and_value() {
+        let h = MarkupHighlighter::new(Language::Html);
+        let line = r#"<a href="x" id='y'>text</a>"#;
+        let toks = h.highlight_line(line);
+        let spans = |k: TokenKind| -> Vec<&str> {
+            toks.iter().filter(|t| t.kind == k).map(|t| &line[t.start..t.end]).collect()
+        };
+        assert!(spans(TokenKind::Keyword).contains(&"a")); // element name
+        assert!(spans(TokenKind::Variable).contains(&"href")); // attribute name
+        assert!(spans(TokenKind::String).contains(&"\"x\"")); // double-quoted value
+        assert!(spans(TokenKind::String).contains(&"'y'")); // single-quoted value
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Operator)); // the '='
+        // The closing tag's name is highlighted too.
+        assert_eq!(spans(TokenKind::Keyword).iter().filter(|&&s| s == "a").count(), 2);
+    }
+
+    #[test]
+    fn markup_entity_and_selfclose() {
+        let h = MarkupHighlighter::new(Language::Xml);
+        let toks = h.highlight_line("<br/> &amp; &#169;");
+        assert!(toks.iter().any(|t| t.kind == TokenKind::Keyword)); // br
+        let line = "<br/> &amp; &#169;";
+        let ents: Vec<&str> =
+            toks.iter().filter(|t| t.kind == TokenKind::Char).map(|t| &line[t.start..t.end]).collect();
+        assert!(ents.contains(&"&amp;"));
+        assert!(ents.contains(&"&#169;"));
+    }
+
+    #[test]
+    fn markup_multiline_comment_spans_lines() {
+        let h = MarkupHighlighter::new(Language::Xml);
+        let (t1, s1) = h.highlight_line_stateful("<a/> <!-- open", LineState::Normal);
+        assert_eq!(s1, LineState::Block);
+        assert!(t1.iter().any(|t| t.kind == TokenKind::Keyword)); // <a/> before the comment
+        assert!(t1.iter().any(|t| t.kind == TokenKind::Comment));
+
+        // A fully-interior comment line stays in Block.
+        let (t2, s2) = h.highlight_line_stateful("still <b> commented", s1);
+        assert_eq!(s2, LineState::Block);
+        assert_eq!(t2.len(), 1);
+        assert_eq!(t2[0].kind, TokenKind::Comment);
+
+        // The close returns to Normal and tags after it highlight again.
+        let (t3, s3) = h.highlight_line_stateful("--> <c>", s2);
+        assert_eq!(s3, LineState::Normal);
+        assert!(t3.iter().any(|t| t.kind == TokenKind::Comment));
+        assert!(t3.iter().any(|t| t.kind == TokenKind::Keyword)); // <c>
+    }
+
+    #[test]
+    fn markup_doctype_and_pi_are_preprocessor() {
+        let h = MarkupHighlighter::new(Language::Html);
+        assert!(h
+            .highlight_line("<!DOCTYPE html>")
+            .iter()
+            .any(|t| t.kind == TokenKind::Preprocessor));
+        assert!(MarkupHighlighter::new(Language::Xml)
+            .highlight_line(r#"<?xml version="1.0"?>"#)
+            .iter()
+            .any(|t| t.kind == TokenKind::Preprocessor));
+    }
+
+    #[test]
+    fn markup_reports_its_language_and_multiline() {
+        assert_eq!(MarkupHighlighter::new(Language::Html).language(), Language::Html);
+        assert_eq!(MarkupHighlighter::new(Language::Xml).language(), Language::Xml);
+        assert!(MarkupHighlighter::new(Language::Xml).has_multiline());
     }
 }

@@ -10,6 +10,9 @@ All notable changes to rvim are recorded here. Versions follow
   bold/italic emphasis, inline code, links, blockquotes, list markers, thematic
   breaks, and fenced code blocks (tracked across lines, so markup inside a block
   stays inert). `.md` files previously opened as plain text.
+- HTML (`.html`, `.htm`, `.xhtml`) and XML (`.xml`, `.svg`, `.xsd`, `.rss`, …)
+  are now highlighted: element and attribute names, quoted values, entities,
+  doctype / processing instructions, and comments (tracked across lines).
 
 ### Internal
 - The three register-store paths (yank, block yank, delete) now share one helper
